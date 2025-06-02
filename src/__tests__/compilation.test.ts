@@ -1,4 +1,4 @@
-import { compileSurvey, decompileSurvey } from '../survey-compilation';
+import { compileSurvey, decompileSurvey, isSurveyCompiled } from '../survey-compilation';
 import { Survey, DynamicValue, SurveySingleItem, SurveyGroupItem, ItemGroupComponent, LocalizedContent } from '../data_types';
 
 describe('Survey Compilation Tests', () => {
@@ -28,6 +28,9 @@ describe('Survey Compilation Tests', () => {
     };
 
     const compiled = compileSurvey(mockSurvey);
+
+    expect(isSurveyCompiled(mockSurvey)).toBe(false);
+    expect(isSurveyCompiled(compiled)).toBe(true);
 
     // Check that global translations were created with locale-first structure and nested keys
     expect(compiled.translations).toBeDefined();
@@ -267,5 +270,292 @@ describe('Survey Compilation Tests', () => {
     // Global data should be cleared
     expect(decompiled.translations).toEqual({});
     expect(decompiled.dynamicValues).toEqual([]);
+  });
+
+  describe('isSurveyCompiled function', () => {
+    test('should return false for survey with no global data', () => {
+      const survey: Survey = {
+        versionId: '1.0.0',
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              translations: {
+                'en': { 'root': 'Hello' },
+                'de': { 'root': 'Hallo' }
+              }
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(survey)).toBe(false);
+    });
+
+    test('should return false for survey with global data but components still have local data', () => {
+      const survey: Survey = {
+        versionId: '1.0.0',
+        translations: {
+          'en': { 'survey1.item1': { 'root': 'Hello' } }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              translations: {
+                'en': { 'root': 'Hello' }
+              }
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(survey)).toBe(false);
+    });
+
+    test('should return true for properly compiled survey', () => {
+      const survey: Survey = {
+        versionId: '1.0.0',
+        translations: {
+          'en': { 'survey1.item1': { 'root': 'Hello' } },
+          'de': { 'survey1.item1': { 'root': 'Hallo' } }
+        },
+        dynamicValues: [{
+          key: 'survey1.item1-testValue',
+          type: 'expression',
+          expression: { name: 'getAttribute', data: [{ str: 'test' }] }
+        }],
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(survey)).toBe(true);
+    });
+
+    test('should return true for survey with only global translations', () => {
+      const survey: Survey = {
+        versionId: '1.0.0',
+        translations: {
+          'en': { 'survey1.item1': { 'root': 'Hello' } }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(survey)).toBe(true);
+    });
+
+    test('should return true for survey with only global dynamic values', () => {
+      const survey: Survey = {
+        versionId: '1.0.0',
+        dynamicValues: [{
+          key: 'survey1.item1-testValue',
+          type: 'expression',
+          expression: { name: 'getAttribute', data: [{ str: 'test' }] }
+        }],
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(survey)).toBe(true);
+    });
+
+    test('should handle nested components correctly', () => {
+      const uncompiledSurvey: Survey = {
+        versionId: '1.0.0',
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [{
+                role: 'responseGroup',
+                key: 'rg',
+                items: [{
+                  role: 'input',
+                  key: 'input',
+                  translations: {
+                    'en': { 'label': 'Enter text' }
+                  }
+                }]
+              } as ItemGroupComponent]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      const compiledSurvey: Survey = {
+        versionId: '1.0.0',
+        translations: {
+          'en': { 'survey1.item1': { 'rg.input.label': 'Enter text' } }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [{
+                role: 'responseGroup',
+                key: 'rg',
+                items: [{
+                  role: 'input',
+                  key: 'input'
+                }]
+              } as ItemGroupComponent]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(uncompiledSurvey)).toBe(false);
+      expect(isSurveyCompiled(compiledSurvey)).toBe(true);
+    });
+
+    test('should handle survey groups correctly in compilation check', () => {
+      const surveyGroupWithComponentData: Survey = {
+        versionId: '1.0.0',
+        translations: {
+          'en': { 'survey1.group1.item1': { 'root': 'Hello' } }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.group1',
+            items: [{
+              key: 'survey1.group1.item1',
+              components: {
+                role: 'root',
+                items: [],
+                translations: {
+                  'en': { 'root': 'Hello' }
+                }
+              }
+            } as SurveySingleItem, {
+              key: 'survey1.group1.item2',
+              components: {
+                role: 'root',
+                items: []
+              }
+            } as SurveySingleItem]
+          } as SurveyGroupItem]
+        }
+      };
+
+      // Should be false because one component still has local translations
+      expect(isSurveyCompiled(surveyGroupWithComponentData)).toBe(false);
+    });
+  });
+
+  describe('avoiding redundant operations', () => {
+    test('compileSurvey should return the same survey if already compiled', () => {
+      const alreadyCompiledSurvey: Survey = {
+        versionId: '1.0.0',
+        translations: {
+          'en': { 'survey1.item1': { 'root': 'Hello' } }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      const result = compileSurvey(alreadyCompiledSurvey);
+
+      // Should return the exact same object reference (no cloning performed)
+      expect(result).toBe(alreadyCompiledSurvey);
+    });
+
+    test('decompileSurvey should return the same survey if already decompiled', () => {
+      const alreadyDecompiledSurvey: Survey = {
+        versionId: '1.0.0',
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              translations: {
+                'en': { 'root': 'Hello' }
+              }
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      const result = decompileSurvey(alreadyDecompiledSurvey);
+
+      // Should return the exact same object reference (no cloning performed)
+      expect(result).toBe(alreadyDecompiledSurvey);
+    });
+
+    test('compilation check should work with empty global arrays/objects', () => {
+      const surveyWithEmptyGlobals: Survey = {
+        versionId: '1.0.0',
+        translations: {},
+        dynamicValues: [],
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              translations: {
+                'en': { 'root': 'Hello' }
+              }
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      expect(isSurveyCompiled(surveyWithEmptyGlobals)).toBe(false);
+    });
   });
 });

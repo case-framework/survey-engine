@@ -1,10 +1,32 @@
 import { Survey, SurveyItem, isSurveyGroupItem, ItemGroupComponent, DynamicValue } from './data_types';
 
 /**
+ * Checks if a survey is already compiled
+ * A compiled survey has global translations/dynamic values and components without local translations/dynamic values
+ */
+export function isSurveyCompiled(survey: Survey): boolean {
+  // Check if survey has global translations or dynamic values
+  const hasGlobalData = (survey.translations && Object.keys(survey.translations).length > 0) ||
+    (survey.dynamicValues && survey.dynamicValues.length > 0);
+
+  if (!hasGlobalData) {
+    return false;
+  }
+
+  // Check if components have been stripped of their translations/dynamic values
+  return !hasComponentLevelData(survey.surveyDefinition);
+}
+
+/**
  * Compiles a survey by moving translations and dynamic values from components to global level
  * Uses locale-first structure with nested keys for translations
  */
 export function compileSurvey(survey: Survey): Survey {
+  // Check if survey is already compiled
+  if (isSurveyCompiled(survey)) {
+    return survey; // Return as-is if already compiled
+  }
+
   const compiledSurvey = JSON.parse(JSON.stringify(survey)) as Survey; // Deep clone
 
   // Initialize global translations and dynamic values if not present
@@ -25,6 +47,11 @@ export function compileSurvey(survey: Survey): Survey {
  * Decompiles a survey by moving translations and dynamic values from global level back to components
  */
 export function decompileSurvey(survey: Survey): Survey {
+  // Check if survey is already decompiled
+  if (!isSurveyCompiled(survey)) {
+    return survey; // Return as-is if already decompiled
+  }
+
   const decompiledSurvey = JSON.parse(JSON.stringify(survey)) as Survey; // Deep clone
 
   // Process the survey definition tree to restore component-level translations and dynamic values
@@ -38,6 +65,47 @@ export function decompileSurvey(survey: Survey): Survey {
 }
 
 // Internal helper functions
+
+/**
+ * Recursively checks if any component in the survey has local translations or dynamic values
+ */
+function hasComponentLevelData(item: SurveyItem): boolean {
+  // Handle single survey items with components
+  if (!isSurveyGroupItem(item) && item.components) {
+    if (hasComponentLevelDataRecursive(item.components)) {
+      return true;
+    }
+  }
+
+  // Recursively check group items
+  if (isSurveyGroupItem(item)) {
+    return item.items.some(childItem => hasComponentLevelData(childItem));
+  }
+
+  return false;
+}
+
+/**
+ * Recursively checks if a component or its children have local translations or dynamic values
+ */
+function hasComponentLevelDataRecursive(component: ItemGroupComponent): boolean {
+  // Check if this component has local data
+  const hasLocalTranslations = component.translations && Object.keys(component.translations).length > 0;
+  const hasLocalDynamicValues = component.dynamicValues && component.dynamicValues.length > 0;
+
+  if (hasLocalTranslations || hasLocalDynamicValues) {
+    return true;
+  }
+
+  // Check child components
+  if (component.items) {
+    return component.items.some(childComponent =>
+      hasComponentLevelDataRecursive(childComponent as ItemGroupComponent)
+    );
+  }
+
+  return false;
+}
 
 function compileItem(
   item: SurveyItem,
