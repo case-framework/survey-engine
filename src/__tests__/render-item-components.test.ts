@@ -1,4 +1,4 @@
-import { SurveySingleItem, SurveyGroupItem, SurveyContext, ItemComponent, LocalizedString, Survey, ItemGroupComponent } from '../data_types';
+import { SurveySingleItem, SurveyContext, Survey, ItemGroupComponent } from '../data_types';
 import { SurveyEngineCore } from '../engine';
 
 // ---------- Create a test survey definition ----------------
