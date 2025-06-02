@@ -20,12 +20,11 @@ describe('Legacy Conversion Tests', () => {
   test('convertLegacyToNewSurvey should convert basic legacy survey structure', () => {
     const legacySurvey: LegacySurvey = {
       versionId: '1.0.0',
-      id: 'test-survey',
+      id: 'survey1',
       surveyDefinition: {
-        key: 'root',
+        key: 'survey1',
         items: [{
-          key: 'question1',
-          type: 'test',
+          key: 'survey1.question1',
           components: {
             role: 'root',
             items: [],
@@ -49,13 +48,12 @@ describe('Legacy Conversion Tests', () => {
     const newSurvey = convertLegacyToNewSurvey(legacySurvey);
 
     expect(newSurvey.versionId).toBe('1.0.0');
-    expect(newSurvey.id).toBe('test-survey');
-    expect(newSurvey.surveyDefinition.key).toBe('root');
+    expect(newSurvey.id).toBe('survey1');
+    expect(newSurvey.surveyDefinition.key).toBe('survey1');
     expect(newSurvey.surveyDefinition.items).toHaveLength(1);
 
     const singleItem = newSurvey.surveyDefinition.items[0] as SurveySingleItem;
-    expect(singleItem.key).toBe('question1');
-    expect(singleItem.type).toBe('test');
+    expect(singleItem.key).toBe('survey1.question1');
     expect(singleItem.validations).toHaveLength(1);
     expect(singleItem.validations![0].key).toBe('required');
 
@@ -109,15 +107,19 @@ describe('Legacy Conversion Tests', () => {
     // Check that content was converted correctly
     expect(singleItem.components?.content).toBeDefined();
     expect(singleItem.components?.content).toHaveLength(1);
+    expect(singleItem.components?.content![0].code).toBe('en');
+    expect(singleItem.components?.content![0].parts).toHaveLength(1);
+    expect(singleItem.components?.content![0].parts![0].str).toBe('What is your name?');
+    expect(singleItem.components?.content![0].parts![0].dtype).toBe('str');
   });
 
   test('should handle nested component structures during conversion', () => {
     const legacySurvey: LegacySurvey = {
       versionId: '2.0.0',
       surveyDefinition: {
-        key: 'root',
+        key: 'survey1',
         items: [{
-          key: 'question1',
+          key: 'survey1.question1',
           components: {
             role: 'root',
             items: [{
@@ -170,12 +172,10 @@ describe('Legacy Conversion Tests', () => {
         name: [{
           code: 'en',
           parts: [{ str: 'Test Survey', dtype: 'str' }],
-          resolvedText: 'Test Survey'
         }],
         description: [{
           code: 'en',
           parts: [{ str: 'A test survey description', dtype: 'str' }],
-          resolvedText: 'A test survey description'
         }]
       },
       surveyDefinition: {
@@ -187,10 +187,10 @@ describe('Legacy Conversion Tests', () => {
     const newSurvey = convertLegacyToNewSurvey(legacySurvey);
 
     expect(newSurvey.props).toBeDefined();
-    expect(newSurvey.props!.name).toHaveLength(1);
-    expect(newSurvey.props!.description).toHaveLength(1);
-    expect(newSurvey.props!.name![0].key).toBe('Test Survey');
-    expect(newSurvey.props!.description![0].key).toBe('A test survey description');
+    expect(newSurvey.props!.name).toBeDefined();
+    expect(newSurvey.props!.description).toBeDefined();
+    expect(newSurvey.props!.name!.key).toBe('Test Survey');
+    expect(newSurvey.props!.description!.key).toBe('A test survey description');
   });
 
   test('should handle survey groups correctly', () => {
@@ -268,5 +268,63 @@ describe('Legacy Conversion Tests', () => {
     const newSurvey = convertLegacyToNewSurvey(minimalLegacySurvey);
 
     expect(newSurvey.schemaVersion).toBe(1);
+  });
+
+  test('should handle survey props with multiple language translations', () => {
+    const legacySurvey: LegacySurvey = {
+      versionId: '1.0.0',
+      props: {
+        name: [{
+          code: 'en',
+          parts: [{ str: 'English Survey Name', dtype: 'str' }],
+          resolvedText: 'English Survey Name'
+        }, {
+          code: 'es',
+          parts: [{ str: 'Nombre de Encuesta en Español', dtype: 'str' }],
+          resolvedText: 'Nombre de Encuesta en Español'
+        }],
+        description: [{
+          code: 'en',
+          parts: [{ str: 'English Description', dtype: 'str' }],
+          resolvedText: 'English Description'
+        }, {
+          code: 'es',
+          parts: [{ str: 'Descripción en Español', dtype: 'str' }],
+          resolvedText: 'Descripción en Español'
+        }]
+      },
+      surveyDefinition: {
+        key: 'root',
+        items: []
+      } as LegacySurveyGroupItem
+    };
+
+    const newSurvey = convertLegacyToNewSurvey(legacySurvey);
+
+    // Check that props translations were extracted correctly
+    expect(newSurvey.props?.translations).toBeDefined();
+    expect(newSurvey.props?.translations!['en']).toEqual({
+      name: 'English Survey Name',
+      description: 'English Description'
+    });
+    expect(newSurvey.props?.translations!['es']).toEqual({
+      name: 'Nombre de Encuesta en Español',
+      description: 'Descripción en Español'
+    });
+
+    // Check that content keys were set correctly
+    expect(newSurvey.props?.name?.key).toBe('English Survey Name');
+    expect(newSurvey.props?.description?.key).toBe('English Description');
+
+    // Test conversion back to legacy
+    const backToLegacy = convertNewToLegacySurvey(newSurvey);
+    expect(backToLegacy.props?.name).toHaveLength(2);
+    expect(backToLegacy.props?.description).toHaveLength(2);
+
+    // Verify both languages are preserved
+    const nameEn = backToLegacy.props?.name?.find(n => n.code === 'en');
+    const nameEs = backToLegacy.props?.name?.find(n => n.code === 'es');
+    expect(nameEn?.resolvedText).toBe('English Survey Name');
+    expect(nameEs?.resolvedText).toBe('Nombre de Encuesta en Español');
   });
 });

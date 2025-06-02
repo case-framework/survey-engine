@@ -335,7 +335,14 @@ function convertLegacyLocalizedObjectToContent(legacyObj: LegacyLocalizedObject)
   if (legacyObj.resolvedText) {
     key = legacyObj.resolvedText;
   } else if (legacyObj.parts && legacyObj.parts.length > 0) {
-    key = String(legacyObj.parts[0]);
+    const firstPart = legacyObj.parts[0];
+    if (typeof firstPart === 'string') {
+      key = firstPart;
+    } else if (typeof firstPart === 'object' && firstPart.str) {
+      key = firstPart.str;
+    } else {
+      key = String(firstPart);
+    }
   } else {
     key = legacyObj.code;
   }
@@ -404,15 +411,55 @@ function convertLegacySurveyProps(legacyProps: LegacySurveyProps): SurveyProps {
   const newProps: SurveyProps = {};
 
   if (legacyProps.name) {
-    newProps.name = legacyProps.name.map(convertLegacyLocalizedObjectToContent);
+    newProps.name = convertLegacyLocalizedObjectToContent(legacyProps.name[0]);
   }
 
   if (legacyProps.description) {
-    newProps.description = legacyProps.description.map(convertLegacyLocalizedObjectToContent);
+    newProps.description = convertLegacyLocalizedObjectToContent(legacyProps.description[0]);
   }
 
   if (legacyProps.typicalDuration) {
-    newProps.typicalDuration = legacyProps.typicalDuration.map(convertLegacyLocalizedObjectToContent);
+    newProps.typicalDuration = convertLegacyLocalizedObjectToContent(legacyProps.typicalDuration[0]);
+  }
+
+  // Extract translations from legacy props
+  const translations: { [key: string]: { name?: string; description?: string; typicalDuration?: string; } } = {};
+
+  if (legacyProps.name) {
+    legacyProps.name.forEach(obj => {
+      if (!translations[obj.code]) {
+        translations[obj.code] = {};
+      }
+      translations[obj.code].name = obj.resolvedText || (obj.parts ? obj.parts.map(part =>
+        typeof part === 'string' ? part : part.str || ''
+      ).join('') : '');
+    });
+  }
+
+  if (legacyProps.description) {
+    legacyProps.description.forEach(obj => {
+      if (!translations[obj.code]) {
+        translations[obj.code] = {};
+      }
+      translations[obj.code].description = obj.resolvedText || (obj.parts ? obj.parts.map(part =>
+        typeof part === 'string' ? part : part.str || ''
+      ).join('') : '');
+    });
+  }
+
+  if (legacyProps.typicalDuration) {
+    legacyProps.typicalDuration.forEach(obj => {
+      if (!translations[obj.code]) {
+        translations[obj.code] = {};
+      }
+      translations[obj.code].typicalDuration = obj.resolvedText || (obj.parts ? obj.parts.map(part =>
+        typeof part === 'string' ? part : part.str || ''
+      ).join('') : '');
+    });
+  }
+
+  if (Object.keys(translations).length > 0) {
+    newProps.translations = translations;
   }
 
   return newProps;
@@ -421,28 +468,59 @@ function convertLegacySurveyProps(legacyProps: LegacySurveyProps): SurveyProps {
 function convertSurveyPropsToLegacy(props: SurveyProps): LegacySurveyProps {
   const legacyProps: LegacySurveyProps = {};
 
+  // Convert props with translations if available
   if (props.name) {
-    legacyProps.name = props.name.map(content => ({
-      code: 'en', // Default language
-      parts: [{ str: content.key, dtype: 'str' as ExpressionArgDType }],
-      resolvedText: content.key
-    }));
+    if (props.translations) {
+      // Use translations if available
+      legacyProps.name = Object.keys(props.translations).map(locale => ({
+        code: locale,
+        parts: [{ str: props.translations![locale].name || props.name!.key, dtype: 'str' as ExpressionArgDType }],
+        resolvedText: props.translations![locale].name || props.name!.key
+      }));
+    } else {
+      // Fallback to content key
+      legacyProps.name = [{
+        code: 'en', // Default language
+        parts: [{ str: props.name.key, dtype: 'str' as ExpressionArgDType }],
+        resolvedText: props.name.key
+      }];
+    }
   }
 
   if (props.description) {
-    legacyProps.description = props.description.map(content => ({
-      code: 'en', // Default language
-      parts: [{ str: content.key, dtype: 'str' as ExpressionArgDType }],
-      resolvedText: content.key
-    }));
+    if (props.translations) {
+      // Use translations if available
+      legacyProps.description = Object.keys(props.translations).map(locale => ({
+        code: locale,
+        parts: [{ str: props.translations![locale].description || props.description!.key, dtype: 'str' as ExpressionArgDType }],
+        resolvedText: props.translations![locale].description || props.description!.key
+      }));
+    } else {
+      // Fallback to content key
+      legacyProps.description = [{
+        code: 'en', // Default language
+        parts: [{ str: props.description.key, dtype: 'str' as ExpressionArgDType }],
+        resolvedText: props.description.key
+      }];
+    }
   }
 
   if (props.typicalDuration) {
-    legacyProps.typicalDuration = props.typicalDuration.map(content => ({
-      code: 'en', // Default language
-      parts: [{ str: content.key, dtype: 'str' as ExpressionArgDType }],
-      resolvedText: content.key
-    }));
+    if (props.translations) {
+      // Use translations if available
+      legacyProps.typicalDuration = Object.keys(props.translations).map(locale => ({
+        code: locale,
+        parts: [{ str: props.translations![locale].typicalDuration || props.typicalDuration!.key, dtype: 'str' as ExpressionArgDType }],
+        resolvedText: props.translations![locale].typicalDuration || props.typicalDuration!.key
+      }));
+    } else {
+      // Fallback to content key
+      legacyProps.typicalDuration = [{
+        code: 'en', // Default language
+        parts: [{ str: props.typicalDuration.key, dtype: 'str' as ExpressionArgDType }],
+        resolvedText: props.typicalDuration.key
+      }];
+    }
   }
 
   return legacyProps;

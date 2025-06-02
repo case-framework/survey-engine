@@ -14,7 +14,12 @@ export function isSurveyCompiled(survey: Survey): boolean {
   }
 
   // Check if components have been stripped of their translations/dynamic values
-  return !hasComponentLevelData(survey.surveyDefinition);
+  const hasComponentLevelData = hasComponentLevelDataInSurvey(survey.surveyDefinition);
+
+  // Check if survey props still have local translations
+  const hasPropsLevelData = survey.props?.translations && Object.keys(survey.props.translations).length > 0;
+
+  return !hasComponentLevelData && !hasPropsLevelData;
 }
 
 /**
@@ -37,6 +42,20 @@ export function compileSurvey(survey: Survey): Survey {
     compiledSurvey.dynamicValues = [];
   }
 
+  // Handle survey props translations
+  if (compiledSurvey.props?.translations) {
+    // Move survey props translations to global level under "surveyCardProps"
+    Object.keys(compiledSurvey.props.translations).forEach(locale => {
+      if (!compiledSurvey.translations![locale]) {
+        compiledSurvey.translations![locale] = {};
+      }
+      compiledSurvey.translations![locale]['surveyCardProps'] = compiledSurvey.props!.translations![locale];
+    });
+
+    // Remove the props translations after moving to global
+    delete compiledSurvey.props.translations;
+  }
+
   // Process the survey definition tree
   compileItem(compiledSurvey.surveyDefinition, compiledSurvey.translations, compiledSurvey.dynamicValues);
 
@@ -54,8 +73,29 @@ export function decompileSurvey(survey: Survey): Survey {
 
   const decompiledSurvey = JSON.parse(JSON.stringify(survey)) as Survey; // Deep clone
 
+  // Handle survey props translations - restore from global "surveyCardProps"
+  if (decompiledSurvey.translations) {
+    const propsTranslations: { [key: string]: { name?: string; description?: string; typicalDuration?: string; } } = {};
+
+    Object.keys(decompiledSurvey.translations).forEach(locale => {
+      if (decompiledSurvey.translations![locale]['surveyCardProps']) {
+        propsTranslations[locale] = decompiledSurvey.translations![locale]['surveyCardProps'];
+        // Remove from global translations
+        delete decompiledSurvey.translations![locale]['surveyCardProps'];
+      }
+    });
+
+    // Set props translations if we found any
+    if (Object.keys(propsTranslations).length > 0) {
+      if (!decompiledSurvey.props) {
+        decompiledSurvey.props = {};
+      }
+      decompiledSurvey.props.translations = propsTranslations;
+    }
+  }
+
   // Process the survey definition tree to restore component-level translations and dynamic values
-  decompileItem(decompiledSurvey.surveyDefinition, survey.translations || {}, survey.dynamicValues || []);
+  decompileItem(decompiledSurvey.surveyDefinition, decompiledSurvey.translations || {}, decompiledSurvey.dynamicValues || []);
 
   // Clear global translations and dynamic values after moving them to components
   decompiledSurvey.translations = {};
@@ -69,17 +109,17 @@ export function decompileSurvey(survey: Survey): Survey {
 /**
  * Recursively checks if any component in the survey has local translations or dynamic values
  */
-function hasComponentLevelData(item: SurveyItem): boolean {
+function hasComponentLevelDataInSurvey(item: SurveyItem): boolean {
   // Handle single survey items with components
   if (!isSurveyGroupItem(item) && item.components) {
-    if (hasComponentLevelDataRecursive(item.components)) {
+    if (hasComponentLevelData(item.components)) {
       return true;
     }
   }
 
   // Recursively check group items
   if (isSurveyGroupItem(item)) {
-    return item.items.some(childItem => hasComponentLevelData(childItem));
+    return item.items.some(childItem => hasComponentLevelDataInSurvey(childItem));
   }
 
   return false;
@@ -88,7 +128,7 @@ function hasComponentLevelData(item: SurveyItem): boolean {
 /**
  * Recursively checks if a component or its children have local translations or dynamic values
  */
-function hasComponentLevelDataRecursive(component: ItemGroupComponent): boolean {
+function hasComponentLevelData(component: ItemGroupComponent): boolean {
   // Check if this component has local data
   const hasLocalTranslations = component.translations && Object.keys(component.translations).length > 0;
   const hasLocalDynamicValues = component.dynamicValues && component.dynamicValues.length > 0;
@@ -100,7 +140,7 @@ function hasComponentLevelDataRecursive(component: ItemGroupComponent): boolean 
   // Check child components
   if (component.items) {
     return component.items.some(childComponent =>
-      hasComponentLevelDataRecursive(childComponent as ItemGroupComponent)
+      hasComponentLevelData(childComponent as ItemGroupComponent)
     );
   }
 

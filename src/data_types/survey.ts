@@ -28,7 +28,14 @@ export interface Survey {
 }
 
 export interface SurveyProps {
-  name?: LocalizedContent[];
-  description?: LocalizedContent[];
-  typicalDuration?: LocalizedContent[];
+  name?: LocalizedContent;
+  description?: LocalizedContent;
+  typicalDuration?: LocalizedContent;
+  translations?: {
+    [key: string]: {
+      name?: string;
+      description?: string;
+      typicalDuration?: string;
+    };
+  }
 }

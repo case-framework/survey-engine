@@ -575,4 +575,153 @@ describe('Survey Compilation Tests', () => {
       expect(isSurveyCompiled(surveyWithEmptyGlobals)).toBe(false);
     });
   });
+
+  describe('survey props translations handling', () => {
+    test('should move survey props translations to global during compilation', () => {
+      const surveyWithPropsTranslations: Survey = {
+        schemaVersion,
+        versionId: '1.0.0',
+        props: {
+          name: { type: 'simple', key: 'surveyName' },
+          description: { type: 'simple', key: 'surveyDescription' },
+          translations: {
+            'en': {
+              name: 'My Survey',
+              description: 'A comprehensive survey'
+            },
+            'es': {
+              name: 'Mi Encuesta',
+              description: 'Una encuesta integral'
+            }
+          }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              translations: {
+                'en': { 'root': 'Hello' }
+              }
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      const compiled = compileSurvey(surveyWithPropsTranslations);
+
+      // Check that survey props translations moved to global
+      expect(compiled.translations!['en']['surveyCardProps']).toEqual({
+        name: 'My Survey',
+        description: 'A comprehensive survey'
+      });
+      expect(compiled.translations!['es']['surveyCardProps']).toEqual({
+        name: 'Mi Encuesta',
+        description: 'Una encuesta integral'
+      });
+
+      // Check that props translations were removed
+      expect(compiled.props?.translations).toBeUndefined();
+
+      // Component translations should also be moved
+      expect(compiled.translations!['en']['survey1.item1']['root']).toBe('Hello');
+    });
+
+    test('should restore survey props translations from global during decompilation', () => {
+      const compiledSurveyWithProps: Survey = {
+        schemaVersion,
+        versionId: '1.0.0',
+        props: {
+          name: { type: 'simple', key: 'surveyName' },
+          description: { type: 'simple', key: 'surveyDescription' }
+        },
+        translations: {
+          'en': {
+            'surveyCardProps': {
+              name: 'My Survey',
+              description: 'A comprehensive survey'
+            },
+            'survey1.item1': { 'root': 'Hello' }
+          },
+          'fr': {
+            'surveyCardProps': {
+              name: 'Mon Sondage',
+              description: 'Un sondage complet'
+            }
+          }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      const decompiled = decompileSurvey(compiledSurveyWithProps);
+
+      // Check that survey props translations were restored
+      expect(decompiled.props?.translations).toEqual({
+        'en': {
+          name: 'My Survey',
+          description: 'A comprehensive survey'
+        },
+        'fr': {
+          name: 'Mon Sondage',
+          description: 'Un sondage complet'
+        }
+      });
+
+      // Check that component translations were restored
+      const singleItem = decompiled.surveyDefinition.items[0] as SurveySingleItem;
+      expect(singleItem.components?.translations).toEqual({
+        'en': { 'root': 'Hello' }
+      });
+
+      // Global translations should be cleared
+      expect(decompiled.translations).toEqual({});
+    });
+
+    test('isSurveyCompiled should consider survey props translations', () => {
+      const surveyWithPropsTranslations: Survey = {
+        schemaVersion,
+        versionId: '1.0.0',
+        props: {
+          name: { type: 'simple', key: 'surveyName' },
+          translations: {
+            'en': { name: 'My Survey' }
+          }
+        },
+        translations: {
+          'en': { 'survey1.item1': { 'root': 'Hello' } }
+        },
+        surveyDefinition: {
+          key: 'survey1',
+          items: [{
+            key: 'survey1.item1',
+            components: {
+              role: 'root',
+              items: [],
+              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            }
+          } as SurveySingleItem]
+        }
+      };
+
+      // Should be false because props still have local translations
+      expect(isSurveyCompiled(surveyWithPropsTranslations)).toBe(false);
+
+      // After compilation, should be true
+      const compiled = compileSurvey(surveyWithPropsTranslations);
+      expect(isSurveyCompiled(compiled)).toBe(true);
+    });
+  });
 });
