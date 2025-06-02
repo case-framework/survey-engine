@@ -13,7 +13,9 @@ interface ItemComponentBase {
   properties?: ComponentProperties;
 
   content?: Array<LocalizedContent>;
-  translations?: LocalizedContentTranslation;
+  translations?: {
+    [key: string]: LocalizedContentTranslation;
+  };
   dynamicValues?: DynamicValue[];
 }
 

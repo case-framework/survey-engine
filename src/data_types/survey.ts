@@ -19,7 +19,9 @@ export interface Survey {
     [key: string]: string
   }
   translations?: {
-    [key: string]: LocalizedContentTranslation;
+    [key: string]: {
+      [key: string]: LocalizedContentTranslation;
+    };
   },
   dynamicValues?: DynamicValue[];
 }

@@ -9,7 +9,7 @@ export type LocalizedContent = {
 }
 
 export type LocalizedContentTranslation = {
-  [key: string]: string | LocalizedContentTranslation;
+  [key: string]: string;
 }
 
 // ----------------------------------------------------------------------

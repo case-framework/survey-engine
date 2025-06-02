@@ -1,7 +1,9 @@
-export const SurveyEngineTest = () => {
-  console.log('test init project');
-};
+export { SurveyEngineCore } from './engine';
+export * from './data_types';
+export * from './utils';
+export * from './expression-eval';
+export * from './selection-method';
+export * from './validation-checkers';
 
-export const OpTest = (a: number, b: number): number => {
-    return a + b;
-}
+// Survey compilation utilities
+export { compileSurvey, decompileSurvey } from './survey-compilation';
