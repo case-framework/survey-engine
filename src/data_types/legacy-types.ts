@@ -47,7 +47,7 @@ export interface LegacyLocalizedObjectBase {
 }
 
 export interface LegacyLocalizedString extends LegacyLocalizedObjectBase {
-  parts: Array<ExpressionArg | string | number>; // string and number in case of resolved expression
+  parts: Array<ExpressionArg>
   resolvedText?: string;
 }
 

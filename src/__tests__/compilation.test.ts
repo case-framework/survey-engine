@@ -1,9 +1,12 @@
 import { compileSurvey, decompileSurvey, isSurveyCompiled } from '../survey-compilation';
 import { Survey, DynamicValue, SurveySingleItem, SurveyGroupItem, ItemGroupComponent, LocalizedContent } from '../data_types';
 
+const schemaVersion = 1;
+
 describe('Survey Compilation Tests', () => {
   test('compileSurvey should move component translations and dynamic values to global level', () => {
     const mockSurvey: Survey = {
+      schemaVersion,
       versionId: '1.0.0',
       surveyDefinition: {
         key: 'survey1',
@@ -54,6 +57,7 @@ describe('Survey Compilation Tests', () => {
 
   test('decompileSurvey should restore component translations and dynamic values from global level', () => {
     const compiledSurvey: Survey = {
+      schemaVersion,
       versionId: '1.0.0',
       translations: {
         'en': {
@@ -102,6 +106,7 @@ describe('Survey Compilation Tests', () => {
 
   test('compilation and decompilation should be reversible', () => {
     const originalSurvey: Survey = {
+      schemaVersion,
       versionId: '1.0.0',
       surveyDefinition: {
         key: 'survey1',
@@ -143,6 +148,7 @@ describe('Survey Compilation Tests', () => {
 
   test('should handle nested survey groups and nested component structures', () => {
     const nestedSurvey: Survey = {
+      schemaVersion,
       versionId: '1.0.0',
       surveyDefinition: {
         key: 'survey1',
@@ -275,6 +281,7 @@ describe('Survey Compilation Tests', () => {
   describe('isSurveyCompiled function', () => {
     test('should return false for survey with no global data', () => {
       const survey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         surveyDefinition: {
           key: 'survey1',
@@ -298,6 +305,7 @@ describe('Survey Compilation Tests', () => {
 
     test('should return false for survey with global data but components still have local data', () => {
       const survey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {
           'en': { 'survey1.item1': { 'root': 'Hello' } }
@@ -323,6 +331,7 @@ describe('Survey Compilation Tests', () => {
 
     test('should return true for properly compiled survey', () => {
       const survey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {
           'en': { 'survey1.item1': { 'root': 'Hello' } },
@@ -351,6 +360,7 @@ describe('Survey Compilation Tests', () => {
 
     test('should return true for survey with only global translations', () => {
       const survey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {
           'en': { 'survey1.item1': { 'root': 'Hello' } }
@@ -373,6 +383,7 @@ describe('Survey Compilation Tests', () => {
 
     test('should return true for survey with only global dynamic values', () => {
       const survey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         dynamicValues: [{
           key: 'survey1.item1-testValue',
@@ -397,6 +408,7 @@ describe('Survey Compilation Tests', () => {
 
     test('should handle nested components correctly', () => {
       const uncompiledSurvey: Survey = {
+        schemaVersion: 1,
         versionId: '1.0.0',
         surveyDefinition: {
           key: 'survey1',
@@ -421,6 +433,7 @@ describe('Survey Compilation Tests', () => {
       };
 
       const compiledSurvey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {
           'en': { 'survey1.item1': { 'rg.input.label': 'Enter text' } }
@@ -450,6 +463,7 @@ describe('Survey Compilation Tests', () => {
 
     test('should handle survey groups correctly in compilation check', () => {
       const surveyGroupWithComponentData: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {
           'en': { 'survey1.group1.item1': { 'root': 'Hello' } }
@@ -486,6 +500,7 @@ describe('Survey Compilation Tests', () => {
   describe('avoiding redundant operations', () => {
     test('compileSurvey should return the same survey if already compiled', () => {
       const alreadyCompiledSurvey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {
           'en': { 'survey1.item1': { 'root': 'Hello' } }
@@ -511,6 +526,7 @@ describe('Survey Compilation Tests', () => {
 
     test('decompileSurvey should return the same survey if already decompiled', () => {
       const alreadyDecompiledSurvey: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         surveyDefinition: {
           key: 'survey1',
@@ -536,6 +552,7 @@ describe('Survey Compilation Tests', () => {
 
     test('compilation check should work with empty global arrays/objects', () => {
       const surveyWithEmptyGlobals: Survey = {
+        schemaVersion,
         versionId: '1.0.0',
         translations: {},
         dynamicValues: [],
