@@ -5,3 +5,5 @@ export * from './survey-item-component';
 export * from './context';
 export * from './response';
 export * from './engine';
+export * from './utils';
+export * from './legacy-types';

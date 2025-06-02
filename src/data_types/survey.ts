@@ -1,4 +1,4 @@
-import { LocalizedObject, SurveyGroupItem } from ".";
+import { DynamicValue, LocalizedContent, LocalizedContentTranslation, SurveyGroupItem } from ".";
 import { Expression } from "./expression";
 import { SurveyContextDef } from "./context";
 
@@ -18,11 +18,14 @@ export interface Survey {
   metadata?: {
     [key: string]: string
   }
+  translations?: {
+    [key: string]: LocalizedContentTranslation;
+  },
+  dynamicValues?: DynamicValue[];
 }
 
-
 export interface SurveyProps {
-  name?: LocalizedObject[];
-  description?: LocalizedObject[];
-  typicalDuration?: LocalizedObject[];
+  name?: LocalizedContent[];
+  description?: LocalizedContent[];
+  typicalDuration?: LocalizedContent[];
 }

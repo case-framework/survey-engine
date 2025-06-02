@@ -1,4 +1,5 @@
 import { Expression, ExpressionArg } from "./expression";
+import { DynamicValue, LocalizedContent, LocalizedContentTranslation } from "./utils";
 
 // ----------------------------------------------------------------------
 export type ItemComponent = ItemComponentBase | ItemGroupComponent | ResponseComponent;
@@ -6,12 +7,14 @@ export type ItemComponent = ItemComponentBase | ItemGroupComponent | ResponseCom
 interface ItemComponentBase {
   role: string; // purpose of the component
   key?: string; // unique identifier
-  content?: Array<LocalizedObject>; // array with item that are a sub-type of LocalizedObject
   displayCondition?: Expression | boolean;
   disabled?: Expression | boolean;
   style?: Array<{ key: string, value: string }>;
-  description?: Array<LocalizedObject>; // optional explanation to the content
   properties?: ComponentProperties;
+
+  content?: Array<LocalizedContent>;
+  translations?: LocalizedContentTranslation;
+  dynamicValues?: DynamicValue[];
 }
 
 export interface ResponseComponent extends ItemComponentBase {
@@ -37,21 +40,3 @@ export interface ComponentProperties {
   pattern?: string;
 }
 
-// ----------------------------------------------------------------------
-export type LocalizedObject = LocalizedString | LocalizedMedia;
-
-export interface LocalizedObjectBase {
-  code: string;
-}
-
-export interface LocalizedString extends LocalizedObjectBase {
-  parts: Array<ExpressionArg | string | number>; // string and number in case of resolved expression
-  resolvedText?: string;
-}
-
-export interface LocalizedMedia extends LocalizedObjectBase {
-  // TODO: define common properties
-  // TODO: define image object
-  // TODO: define video object
-  // TODO: define audio object
-}
