@@ -30,7 +30,7 @@ import {
   isItemGroupComponent
 } from './data_types';
 
-import { ExpressionArg, ExpressionArgDType } from './data_types/expression';
+import { ExpressionArgDType } from './data_types/expression';
 
 /**
  * Converts a legacy survey to the new survey format (decompiled version)

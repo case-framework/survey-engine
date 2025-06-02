@@ -1,9 +1,12 @@
 import { Survey, SurveyGroupItem } from "../data_types";
 import { SurveyEngineCore } from "../engine";
 
+const schemaVersion = 1;
+
 
 describe('testing max item per page', () => {
   const testSurvey: Survey = {
+    schemaVersion,
     versionId: 'wfdojsdfpo',
     surveyDefinition: {
       key: "root",
@@ -73,6 +76,7 @@ describe('testing max item per page', () => {
 describe('testing pageBreak items', () => {
   test('test page break item after each other (empty page)', () => {
     const testSurvey: Survey = {
+      schemaVersion,
       versionId: 'wfdojsdfpo',
       surveyDefinition: {
         key: "root",
@@ -102,6 +106,7 @@ describe('testing pageBreak items', () => {
 
   test('test page break item typical usecase', () => {
     const testSurvey: Survey = {
+      schemaVersion,
       versionId: 'wfdojsdfpo',
       surveyDefinition: {
         key: "root",
@@ -148,6 +153,7 @@ describe('testing max item per page together with page break', () => {
 
   test('max one item per page together with pagebreaks', () => {
     const testSurvey: Survey = {
+      schemaVersion: 1,
       versionId: 'wfdojsdfpo',
       surveyDefinition: surveyDef,
       maxItemsPerPage: { large: 1, small: 1 },
@@ -163,6 +169,7 @@ describe('testing max item per page together with page break', () => {
 
   test('max four items per page together with pagebreak', () => {
     const testSurvey: Survey = {
+      schemaVersion,
       versionId: 'wfdojsdfpo',
       surveyDefinition: surveyDef,
       maxItemsPerPage: { large: 4, small: 4 },

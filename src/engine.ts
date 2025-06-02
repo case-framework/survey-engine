@@ -14,8 +14,6 @@ import {
   SurveySingleItem,
   ItemGroupComponent,
   isItemGroupComponent,
-  LocalizedString,
-  LocalizedObject,
   ComponentProperties,
   ExpressionArg,
   isExpression,
@@ -23,12 +21,18 @@ import {
   Survey,
   ScreenSize,
   ResponseMeta,
+  DynamicValue,
+  LocalizedContent,
+  LocalizedContentTranslation,
 } from "./data_types";
 import {
   removeItemByKey, flattenSurveyItemTree
 } from './utils';
 import { ExpressionEval } from "./expression-eval";
 import { SelectionMethod } from "./selection-method";
+import { compileSurvey, isSurveyCompiled } from "./survey-compilation";
+import { format, Locale } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 
 const initMeta: ResponseMeta = {
   rendered: [],
@@ -45,6 +49,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
   private context: SurveyContext;
   private prefills: SurveySingleItemResponse[];
   private openedAt: number;
+  private selectedLocale: string;
+  private availableLocales: string[];
+  private dateLocales: Array<{ code: string, locale: Locale }>;
 
   private evalEngine: ExpressionEval;
   private showDebugMsg: boolean;
@@ -54,14 +61,29 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     context?: SurveyContext,
     prefills?: SurveySingleItemResponse[],
     showDebugMsg?: boolean,
+    selectedLocale?: string,
+    dateLocales?: Array<{ code: string, locale: Locale }>,
   ) {
     // console.log('core engine')
     this.evalEngine = new ExpressionEval();
 
-    this.surveyDef = survey;
+    if (!survey.schemaVersion || survey.schemaVersion !== 1) {
+      throw new Error('Unsupported survey schema version: ' + survey.schemaVersion);
+    }
+
+    if (isSurveyCompiled(survey)) {
+      this.surveyDef = survey;
+    } else {
+      this.surveyDef = compileSurvey(survey);
+    }
+
+    this.availableLocales = this.surveyDef.translations ? Object.keys(this.surveyDef.translations) : [];
+
     this.context = context ? context : {};
     this.prefills = prefills ? prefills : [];
     this.showDebugMsg = showDebugMsg !== undefined ? showDebugMsg : false;
+    this.selectedLocale = selectedLocale || 'en';
+    this.dateLocales = dateLocales || [{ code: 'en', locale: enUS }];
     this.responses = this.initResponseObject(this.surveyDef.surveyDefinition);
     this.renderedSurvey = {
       key: survey.surveyDefinition.key,
@@ -75,6 +97,29 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
   // PUBLIC METHODS
   setContext(context: SurveyContext) {
     this.context = context;
+  }
+
+  getSelectedLocale(): string {
+    return this.selectedLocale;
+  }
+
+  getDateLocales(): Array<{ code: string, locale: Locale }> {
+    return this.dateLocales.slice();
+  }
+
+  getCurrentDateLocale(): Locale | undefined {
+    const found = this.dateLocales.find(dl => dl.code === this.selectedLocale);
+    return found?.locale;
+  }
+
+  setSelectedLocale(locale: string) {
+    if (this.dateLocales.some(dl => dl.code === locale)) {
+      this.selectedLocale = locale;
+      // Re-render to update any locale-dependent expressions
+      this.reRenderGroup(this.renderedSurvey.key);
+    } else {
+      console.warn(`Locale '${locale}' is not available. Available locales: ${this.dateLocales.map(dl => dl.code).join(', ')}`);
+    }
   }
 
   setResponse(targetKey: string, response?: ResponseItem) {
@@ -258,6 +303,10 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
   }
 
   private initRenderedGroup(groupDef: SurveyGroupItem, parentKey: string) {
+    if (parentKey.split('.').length < 2) {
+      this.reEvaluateDynamicValues();
+    }
+
     const parent = this.findRenderedItem(parentKey) as SurveyGroupItem;
     if (!parent) {
       console.warn('initRenderedGroup: parent not found: ' + parentKey);
@@ -284,6 +333,10 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
   }
 
   private reRenderGroup(groupKey: string) {
+    if (groupKey.split('.').length < 2) {
+      this.reEvaluateDynamicValues();
+    }
+
     const renderedGroup = this.findRenderedItem(groupKey);
     if (!renderedGroup || !isSurveyGroupItem(renderedGroup)) {
       console.warn('reRenderGroup: renderedGroup not found or not a group: ' + groupKey);
@@ -439,44 +492,44 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       });
     }
 
-    renderedItem.components = this.resolveComponentGroup(renderedItem, item.components, rerender);
+    renderedItem.components = this.resolveComponentGroup(renderedItem, '', item.components, rerender);
 
     return renderedItem;
   }
 
-  private resolveComponentGroup(parentItem: SurveySingleItem, group?: ItemGroupComponent, rerender?: boolean): ItemGroupComponent {
+  private resolveComponentGroup(parentItem: SurveySingleItem, parentComponentKey: string, group?: ItemGroupComponent, rerender?: boolean): ItemGroupComponent {
     if (!group) {
       return { role: '', items: [] }
     }
+
+    const currentFullComponentKey = parentComponentKey ? parentComponentKey + '.' + group.key : group.key || group.role;
 
     if (!group.order || group.order.name === 'sequential') {
       if (!group.items) {
         console.warn(`this should not be a component group, items is missing or empty: ${parentItem.key} -> ${group.key}/${group.role} `);
         return {
           ...group,
-          content: this.resolveContent(group.content),
-          description: this.resolveContent(group.description),
+          content: this.resolveContent(group.content, parentItem.key, currentFullComponentKey),
           disabled: isExpression(group.disabled) ? this.evalConditions(group.disabled as Expression, parentItem) : undefined,
           displayCondition: group.displayCondition ? this.evalConditions(group.displayCondition as Expression, parentItem) : undefined,
         }
       }
       return {
         ...group,
-        content: this.resolveContent(group.content),
-        description: this.resolveContent(group.description),
+        content: this.resolveContent(group.content, parentItem.key, currentFullComponentKey),
         disabled: isExpression(group.disabled) ? this.evalConditions(group.disabled as Expression, parentItem) : undefined,
         displayCondition: group.displayCondition ? this.evalConditions(group.displayCondition as Expression, parentItem) : undefined,
         items: group.items.map(comp => {
+          const localCompKey = currentFullComponentKey + '.' + comp.key;
           if (isItemGroupComponent(comp)) {
-            return this.resolveComponentGroup(parentItem, comp);
+            return this.resolveComponentGroup(parentItem, currentFullComponentKey, comp);
           }
 
           return {
             ...comp,
             disabled: isExpression(comp.disabled) ? this.evalConditions(comp.disabled as Expression, parentItem) : undefined,
             displayCondition: comp.displayCondition ? this.evalConditions(comp.displayCondition as Expression, parentItem) : undefined,
-            content: this.resolveContent(comp.content),
-            description: this.resolveContent(comp.description),
+            content: this.resolveContent(comp.content, parentItem.key, localCompKey),
             properties: this.resolveComponentProperties(comp.properties),
           }
         }),
@@ -491,28 +544,46 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     }
   }
 
-  private resolveContent(contents: LocalizedObject[] | undefined): LocalizedObject[] | undefined {
-    if (!contents) { return; }
-
-    return contents.map(cont => {
-      if ((cont as LocalizedString).parts && (cont as LocalizedString).parts.length > 0) {
-        const resolvedContents = (cont as LocalizedString).parts.map(
-          p => {
-            if (typeof (p) === 'string' || typeof (p) === "number") {
-              // should not happen - only after resolved content is generated
-              return p
-            }
-            return p.dtype === 'exp' ? this.resolveExpression(p.exp) : p.str
-          }
-        );
-        return {
-          code: cont.code,
-          parts: resolvedContents,
-          resolvedText: resolvedContents.join(''),
+  private findItemTranslation(itemKey: string): LocalizedContentTranslation | undefined {
+    let translation: LocalizedContentTranslation | undefined;
+    // find for selected locale
+    if (this.surveyDef.translations && this.surveyDef.translations[this.selectedLocale] && this.surveyDef.translations[this.selectedLocale][itemKey]) {
+      translation = this.surveyDef.translations[this.selectedLocale][itemKey];
+    }
+    // find for first available locale
+    if (!translation && this.surveyDef.translations && this.availableLocales.length > 0) {
+      for (const locale of this.availableLocales) {
+        if (this.surveyDef.translations && this.surveyDef.translations[locale] && this.surveyDef.translations[locale][itemKey]) {
+          translation = this.surveyDef.translations[locale][itemKey];
+          break;
         }
       }
+    }
+    return translation;
+  }
+
+  private resolveContent(contents: LocalizedContent[] | undefined, itemKey: string, componentKey: string): LocalizedContent[] | undefined {
+    if (!contents) { return; }
+
+    const compKeyWithoutRoot = componentKey.startsWith('root.') ? componentKey.substring(5) : componentKey;
+
+    // find translations
+    const itemsTranslations = this.findItemTranslation(itemKey);
+
+    // find dynamic values
+    const itemsDynamicValues = this.surveyDef.dynamicValues ? this.surveyDef.dynamicValues.filter(dv => dv.key.startsWith(itemKey + '-' + compKeyWithoutRoot + '-')) : [];
+
+    return contents.map(cont => {
+      let text: string = itemsTranslations?.[compKeyWithoutRoot + '.' + cont.key] || '';
+
+      // Resolve CQM template if needed
+      if (cont.type === 'CQM') {
+        text = resolveCQMTemplate(text, itemsDynamicValues);
+      }
+
       return {
-        ...cont
+        ...cont,
+        resolvedText: text,
       }
     })
   }
@@ -719,4 +790,42 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     );
   }
 
+  private reEvaluateDynamicValues() {
+    const resolvedDynamicValues = this.surveyDef.dynamicValues?.map(dv => {
+      const resolvedVal = this.evalEngine.eval(dv.expression, this.renderedSurvey, this.context, this.responses, undefined, this.showDebugMsg);
+      let currentValue = ''
+      if (dv.type === 'date') {
+        const dateValue = new Date(resolvedVal * 1000);
+        currentValue = format(dateValue, dv.dateFormat, { locale: this.getCurrentDateLocale() });
+      } else {
+        currentValue = resolvedVal;
+      }
+
+      return {
+        ...dv,
+        resolvedValue: currentValue,
+      };
+    });
+    if (resolvedDynamicValues) {
+      this.surveyDef.dynamicValues = resolvedDynamicValues;
+    }
+  }
+}
+
+
+const resolveCQMTemplate = (text: string, dynamicValues: DynamicValue[]): string => {
+  if (!text || !dynamicValues) {
+    return text;
+  }
+
+  let resolvedText = text;
+
+  // find {{ }}
+  const regex = /\{\{(.*?)\}\}/g;
+  resolvedText = resolvedText.replace(regex, (match, p1) => {
+    const dynamicValue = dynamicValues.find(dv => dv.key.split('-').pop() === p1.trim());
+    return dynamicValue?.resolvedValue || match;
+  });
+
+  return resolvedText;
 }

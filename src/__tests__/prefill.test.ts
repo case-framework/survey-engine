@@ -3,7 +3,7 @@ import { SurveyEngineCore } from "../engine";
 
 test('testing survey initialized with prefills', () => {
   const testSurvey: Survey = {
-
+    schemaVersion: 1,
     versionId: 'wfdojsdfpo',
     surveyDefinition: {
       key: "root",

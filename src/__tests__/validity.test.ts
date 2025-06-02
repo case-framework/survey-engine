@@ -3,10 +3,12 @@ import { Survey } from "../data_types";
 import { flattenSurveyItemTree } from "../utils";
 import { checkSurveyItemValidity, checkSurveyItemsValidity } from "../validation-checkers";
 
+const schemaVersion = 1;
+
 
 test('testing validations', () => {
   const testSurvey: Survey = {
-
+    schemaVersion,
     versionId: 'wfdojsdfpo',
     surveyDefinition: {
       key: "root",
@@ -116,7 +118,7 @@ test('testing validations', () => {
 
 test('testing multiple survey items validation', () => {
   const testSurvey: Survey = {
-
+    schemaVersion,
     versionId: 'wfdojsdfpo',
     surveyDefinition: {
       key: "root",

@@ -6,6 +6,7 @@ export type LocalizedContentType = 'simple' | 'CQM' | 'md';
 export type LocalizedContent = {
   type: LocalizedContentType;
   key: string;
+  resolvedText?: string;
 }
 
 export type LocalizedContentTranslation = {
