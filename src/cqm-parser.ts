@@ -7,7 +7,9 @@ interface CQMPart {
 }
 
 
-export const parseCQM = (text: string): CQMPart[] => {
+export const parseCQM = (text?: string): CQMPart[] => {
+  if (!text) { return [] }
+
   const parts: CQMPart[] = []
   const currentPart: CQMPart = {
     bold: false,
