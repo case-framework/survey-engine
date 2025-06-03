@@ -122,7 +122,6 @@ const testItem2: SurveySingleItem = {
     role: 'root',
     items: [
       {
-        key: 'group',
         role: 'group',
         items: [
           {
@@ -316,7 +315,7 @@ describe('Item Component Rendering with Translations and Dynamic Values', () => 
     );
 
     const renderedSurvey = surveyE.getRenderedSurvey();
-    const groupComponent = (renderedSurvey.items.find(item => item.key === '0.2') as SurveySingleItem).components?.items.find(comp => comp.key === 'group');
+    const groupComponent = (renderedSurvey.items.find(item => item.key === '0.2') as SurveySingleItem).components?.items.find(comp => comp.role === 'group');
 
     if (!groupComponent) {
       throw Error('group component is undefined')

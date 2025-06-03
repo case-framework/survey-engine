@@ -71,12 +71,11 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       throw new Error('Unsupported survey schema version: ' + survey.schemaVersion);
     }
 
-    if (isSurveyCompiled(survey)) {
-      this.surveyDef = survey;
-    } else {
-      this.surveyDef = compileSurvey(survey);
-    }
+    if (!isSurveyCompiled(survey)) {
+      survey = compileSurvey(survey)
 
+    }
+    this.surveyDef = survey;
     this.availableLocales = this.surveyDef.translations ? Object.keys(this.surveyDef.translations) : [];
 
     this.context = context ? context : {};
@@ -109,17 +108,21 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
 
   getCurrentDateLocale(): Locale | undefined {
     const found = this.dateLocales.find(dl => dl.code === this.selectedLocale);
+    if (!found) {
+      console.warn(`Locale '${this.selectedLocale}' is not available. Using default locale.`);
+      if (this.dateLocales.length > 0) {
+        return this.dateLocales[0].locale;
+      }
+      return enUS;
+    }
     return found?.locale;
   }
 
   setSelectedLocale(locale: string) {
-    if (this.dateLocales.some(dl => dl.code === locale)) {
-      this.selectedLocale = locale;
-      // Re-render to update any locale-dependent expressions
-      this.reRenderGroup(this.renderedSurvey.key);
-    } else {
-      console.warn(`Locale '${locale}' is not available. Available locales: ${this.dateLocales.map(dl => dl.code).join(', ')}`);
-    }
+    this.selectedLocale = locale;
+
+    // Re-render to update any locale-dependent expressions
+    this.reRenderGroup(this.renderedSurvey.key);
   }
 
   setResponse(targetKey: string, response?: ResponseItem) {
@@ -502,7 +505,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       return { role: '', items: [] }
     }
 
-    const currentFullComponentKey = parentComponentKey ? parentComponentKey + '.' + group.key : group.key || group.role;
+    const referenceKey = group.key || group.role;
+
+    const currentFullComponentKey = (parentComponentKey ? parentComponentKey + '.' : '') + referenceKey;
 
     if (!group.order || group.order.name === 'sequential') {
       if (!group.items) {
@@ -520,7 +525,8 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
         disabled: isExpression(group.disabled) ? this.evalConditions(group.disabled as Expression, parentItem) : undefined,
         displayCondition: group.displayCondition ? this.evalConditions(group.displayCondition as Expression, parentItem) : undefined,
         items: group.items.map(comp => {
-          const localCompKey = currentFullComponentKey + '.' + comp.key;
+          const localRefKey = comp.key || comp.role;
+          const localCompKey = currentFullComponentKey + '.' + localRefKey;
           if (isItemGroupComponent(comp)) {
             return this.resolveComponentGroup(parentItem, currentFullComponentKey, comp);
           }
@@ -563,7 +569,7 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
   }
 
   private resolveContent(contents: LocalizedContent[] | undefined, itemKey: string, componentKey: string): LocalizedContent[] | undefined {
-    if (!contents) { return; }
+    if (!contents) { return contents }
 
     const compKeyWithoutRoot = componentKey.startsWith('root.') ? componentKey.substring(5) : componentKey;
 
@@ -814,7 +820,7 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
 
 
 const resolveCQMTemplate = (text: string, dynamicValues: DynamicValue[]): string => {
-  if (!text || !dynamicValues) {
+  if (!text || !dynamicValues || dynamicValues.length < 1) {
     return text;
   }
 
