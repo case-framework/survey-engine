@@ -15,7 +15,7 @@ describe('Survey Compilation Tests', () => {
           components: {
             role: 'root',
             items: [],
-            content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+            content: [{ type: 'plain', key: 'root' }] as LocalizedContent[],
             translations: {
               'en': { 'root': 'Hello' },
               'de': { 'root': 'Hallo' }
@@ -79,7 +79,7 @@ describe('Survey Compilation Tests', () => {
           components: {
             role: 'root',
             items: [],
-            content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+            content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
           }
         } as SurveySingleItem]
       }
@@ -115,7 +115,7 @@ describe('Survey Compilation Tests', () => {
           components: {
             role: 'root',
             items: [],
-            content: [{ type: 'simple', key: 'greeting' }] as LocalizedContent[],
+            content: [{ type: 'plain', key: 'greeting' }] as LocalizedContent[],
             translations: {
               'en': { 'greeting': 'Original Text' },
               'fr': { 'greeting': 'Texte Original' }
@@ -165,7 +165,7 @@ describe('Survey Compilation Tests', () => {
                 items: [{
                   role: 'input',
                   key: 'input',
-                  content: [{ type: 'simple', key: 'inputLabel' }] as LocalizedContent[],
+                  content: [{ type: 'plain', key: 'inputLabel' }] as LocalizedContent[],
                   translations: {
                     'en': { 'inputLabel': 'Enter your response' },
                     'es': { 'inputLabel': 'Ingresa tu respuesta' },
@@ -182,7 +182,7 @@ describe('Survey Compilation Tests', () => {
                   }] as DynamicValue[]
                 }],
               } as ItemGroupComponent],
-              content: [{ type: 'simple', key: 'rootText' }] as LocalizedContent[],
+              content: [{ type: 'plain', key: 'rootText' }] as LocalizedContent[],
               translations: {
                 'en': { 'rootText': 'Question Root' },
                 'de': { 'rootText': 'Frage Wurzel' }
@@ -290,7 +290,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[],
               translations: {
                 'en': { 'root': 'Hello' },
                 'de': { 'root': 'Hallo' }
@@ -317,7 +317,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[],
               translations: {
                 'en': { 'root': 'Hello' }
               }
@@ -349,7 +349,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
             }
           } as SurveySingleItem]
         }
@@ -372,7 +372,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
             }
           } as SurveySingleItem]
         }
@@ -397,7 +397,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
             }
           } as SurveySingleItem]
         }
@@ -512,7 +512,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
             }
           } as SurveySingleItem]
         }
@@ -535,7 +535,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[],
               translations: {
                 'en': { 'root': 'Hello' }
               }
@@ -563,7 +563,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[],
               translations: {
                 'en': { 'root': 'Hello' }
               }
@@ -582,8 +582,8 @@ describe('Survey Compilation Tests', () => {
         schemaVersion,
         versionId: '1.0.0',
         props: {
-          name: { type: 'simple', key: 'surveyName' },
-          description: { type: 'simple', key: 'surveyDescription' },
+          name: { type: 'plain', key: 'surveyName' },
+          description: { type: 'plain', key: 'surveyDescription' },
           translations: {
             'en': {
               name: 'My Survey',
@@ -602,7 +602,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[],
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[],
               translations: {
                 'en': { 'root': 'Hello' }
               }
@@ -635,8 +635,8 @@ describe('Survey Compilation Tests', () => {
         schemaVersion,
         versionId: '1.0.0',
         props: {
-          name: { type: 'simple', key: 'surveyName' },
-          description: { type: 'simple', key: 'surveyDescription' }
+          name: { type: 'plain', key: 'surveyName' },
+          description: { type: 'plain', key: 'surveyDescription' }
         },
         translations: {
           'en': {
@@ -660,7 +660,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
             }
           } as SurveySingleItem]
         }
@@ -695,7 +695,7 @@ describe('Survey Compilation Tests', () => {
         schemaVersion,
         versionId: '1.0.0',
         props: {
-          name: { type: 'simple', key: 'surveyName' },
+          name: { type: 'plain', key: 'surveyName' },
           translations: {
             'en': { name: 'My Survey' }
           }
@@ -710,7 +710,7 @@ describe('Survey Compilation Tests', () => {
             components: {
               role: 'root',
               items: [],
-              content: [{ type: 'simple', key: 'root' }] as LocalizedContent[]
+              content: [{ type: 'plain', key: 'root' }] as LocalizedContent[]
             }
           } as SurveySingleItem]
         }

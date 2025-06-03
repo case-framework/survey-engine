@@ -1,7 +1,7 @@
 interface CQMPart {
   bold: boolean
   underline: boolean
-  primary: boolean
+  textColor?: 'primary' | 'accent'
   italic: boolean
   content: string
 }
@@ -14,7 +14,7 @@ export const parseCQM = (text?: string): CQMPart[] => {
   const currentPart: CQMPart = {
     bold: false,
     underline: false,
-    primary: false,
+    textColor: undefined,
     italic: false,
     content: "",
   }
@@ -38,7 +38,11 @@ export const parseCQM = (text?: string): CQMPart[] => {
       i++
     } else if (text[i] === "!" && text[i + 1] === "!") {
       pushCurrentPart()
-      currentPart.primary = !currentPart.primary
+      currentPart.textColor = currentPart.textColor === 'primary' ? undefined : 'primary'
+      i++
+    } else if (text[i] === "~" && text[i + 1] === "~") {
+      pushCurrentPart()
+      currentPart.textColor = currentPart.textColor === 'accent' ? undefined : 'accent'
       i++
     } else if (text[i] === "/" && text[i + 1] === "/") {
       pushCurrentPart()

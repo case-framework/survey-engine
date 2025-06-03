@@ -348,7 +348,7 @@ function convertLegacyLocalizedObjectToContent(legacyObj: LegacyLocalizedObject)
   }
 
   return {
-    type: 'simple', // Default type
+    type: 'plain', // Default type
     key: key
   };
 }

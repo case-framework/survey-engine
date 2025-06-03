@@ -1,7 +1,7 @@
 import { Expression } from "./expression";
 
 // ----------------------------------------------------------------------
-export type LocalizedContentType = 'simple' | 'CQM' | 'md';
+export type LocalizedContentType = 'plain' | 'CQM' | 'md';
 
 export type LocalizedContent = {
   type: LocalizedContentType;

@@ -76,7 +76,7 @@ describe('Legacy Conversion Tests', () => {
           components: {
             role: 'root',
             items: [],
-            content: [{ type: 'simple', key: 'questionText' }] as LocalizedContent[],
+            content: [{ type: 'plain', key: 'questionText' }] as LocalizedContent[],
             translations: {
               'en': { 'questionText': 'What is your name?' },
               'es': { 'questionText': '¿Cuál es tu nombre?' }

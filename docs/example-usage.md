@@ -25,7 +25,7 @@ const originalSurvey: Survey = {
       components: {
         role: 'root',
         items: [],
-        content: [{ type: 'simple', key: 'questionText' }],
+        content: [{ type: 'plain', key: 'questionText' }],
         translations: {
           'en': { 'questionText': 'What is your name?' },
           'es': { 'questionText': '¿Cuál es tu nombre?' },
@@ -99,7 +99,7 @@ const compiledSurvey: Survey = {
       components: {
         role: 'root',
         items: [],
-        content: [{ type: 'simple', key: 'greeting' }]
+        content: [{ type: 'plain', key: 'greeting' }]
       }
     }]
   }
@@ -143,7 +143,7 @@ const restored = decompileSurvey(compiled);
 ```typescript
 {
   role: 'root',
-  content: [{ type: 'simple', key: 'questionText' }],
+  content: [{ type: 'plain', key: 'questionText' }],
   translations: {
     'en': { 'questionText': 'Hello' },
     'es': { 'questionText': 'Hola' }
@@ -212,17 +212,17 @@ The system handles complex nested structures where components can contain other 
 ```typescript
 {
   role: 'root',
-  content: [{ type: 'simple', key: 'rootText' }],
+  content: [{ type: 'plain', key: 'rootText' }],
   translations: { 'en': { 'rootText': 'Question Root' } },
   items: [{
     role: 'responseGroup',
     key: 'rg',
-    content: [{ type: 'simple', key: 'groupLabel' }],
+    content: [{ type: 'plain', key: 'groupLabel' }],
     translations: { 'en': { 'groupLabel': 'Response Group' } },
     items: [{
       role: 'input',
       key: 'input',
-      content: [{ type: 'simple', key: 'inputLabel' }],
+      content: [{ type: 'plain', key: 'inputLabel' }],
       translations: { 'en': { 'inputLabel': 'Enter response' } }
     }]
   }]

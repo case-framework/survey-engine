@@ -8,7 +8,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'Hello world'
       });
@@ -20,7 +20,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold text'
       });
@@ -32,7 +32,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: true,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'underlined text'
       });
@@ -44,9 +44,21 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: true,
+        textColor: 'primary',
         italic: false,
         content: 'primary text'
+      });
+    });
+
+    test('should parse accent text with ~~', () => {
+      const result = parseCQM('~~accent text~~');
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'accent',
+        italic: false,
+        content: 'accent text'
       });
     });
 
@@ -56,7 +68,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: true,
         content: 'italic text'
       });
@@ -68,7 +80,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'Hello {{name}}, welcome!'
       });
@@ -80,7 +92,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'Hello {{ name }}, welcome!'
       });
@@ -89,13 +101,13 @@ describe('CQM Parser', () => {
 
   describe('Mixed content', () => {
     test('should parse text with multiple formatting types', () => {
-      const result = parseCQM('Normal **bold** __underlined__ !!primary!! //italic//');
-      expect(result).toHaveLength(8);
+      const result = parseCQM('Normal **bold** __underlined__ !!primary!! ~~accent~~ //italic//');
+      expect(result).toHaveLength(10);
 
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'Normal '
       });
@@ -103,7 +115,7 @@ describe('CQM Parser', () => {
       expect(result[1]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold'
       });
@@ -111,7 +123,7 @@ describe('CQM Parser', () => {
       expect(result[2]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' '
       });
@@ -119,7 +131,7 @@ describe('CQM Parser', () => {
       expect(result[3]).toEqual({
         bold: false,
         underline: true,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'underlined'
       });
@@ -127,7 +139,7 @@ describe('CQM Parser', () => {
       expect(result[4]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' '
       });
@@ -135,7 +147,7 @@ describe('CQM Parser', () => {
       expect(result[5]).toEqual({
         bold: false,
         underline: false,
-        primary: true,
+        textColor: 'primary',
         italic: false,
         content: 'primary'
       });
@@ -143,7 +155,7 @@ describe('CQM Parser', () => {
       expect(result[6]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' '
       });
@@ -151,7 +163,23 @@ describe('CQM Parser', () => {
       expect(result[7]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: 'accent',
+        italic: false,
+        content: 'accent'
+      });
+
+      expect(result[8]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' '
+      });
+
+      expect(result[9]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
         italic: true,
         content: 'italic'
       });
@@ -164,7 +192,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'Hello '
       });
@@ -172,7 +200,7 @@ describe('CQM Parser', () => {
       expect(result[1]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'John'
       });
@@ -180,7 +208,7 @@ describe('CQM Parser', () => {
       expect(result[2]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' and '
       });
@@ -188,7 +216,7 @@ describe('CQM Parser', () => {
       expect(result[3]).toEqual({
         bold: false,
         underline: true,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'welcome {{name}}'
       });
@@ -203,7 +231,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold '
       });
@@ -211,7 +239,7 @@ describe('CQM Parser', () => {
       expect(result[1]).toEqual({
         bold: true,
         underline: true,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'and underlined'
       });
@@ -219,7 +247,7 @@ describe('CQM Parser', () => {
       expect(result[2]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' text'
       });
@@ -232,7 +260,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold '
       });
@@ -240,7 +268,7 @@ describe('CQM Parser', () => {
       expect(result[1]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: true,
         content: 'italic '
       });
@@ -248,7 +276,7 @@ describe('CQM Parser', () => {
       expect(result[2]).toEqual({
         bold: true,
         underline: false,
-        primary: true,
+        textColor: 'primary',
         italic: true,
         content: 'primary'
       });
@@ -256,7 +284,7 @@ describe('CQM Parser', () => {
       expect(result[3]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: true,
         content: ' text'
       });
@@ -264,9 +292,38 @@ describe('CQM Parser', () => {
       expect(result[4]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' end'
+      });
+    });
+
+    test('should handle nested primary and accent colors', () => {
+      const result = parseCQM('!!primary ~~accent~~ primary!!');
+      expect(result).toHaveLength(3);
+
+      expect(result[0]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'primary',
+        italic: false,
+        content: 'primary '
+      });
+
+      expect(result[1]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'accent',
+        italic: false,
+        content: 'accent'
+      });
+
+      expect(result[2]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' primary'
       });
     });
   });
@@ -279,7 +336,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'normal '
       });
@@ -287,7 +344,7 @@ describe('CQM Parser', () => {
       expect(result[1]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold'
       });
@@ -295,7 +352,7 @@ describe('CQM Parser', () => {
       expect(result[2]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' normal '
       });
@@ -303,9 +360,83 @@ describe('CQM Parser', () => {
       expect(result[3]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold again'
+      });
+    });
+
+    test('should toggle primary color on and off', () => {
+      const result = parseCQM('normal !!primary!! normal !!primary again!!');
+      expect(result).toHaveLength(4);
+
+      expect(result[0]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: 'normal '
+      });
+
+      expect(result[1]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'primary',
+        italic: false,
+        content: 'primary'
+      });
+
+      expect(result[2]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' normal '
+      });
+
+      expect(result[3]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'primary',
+        italic: false,
+        content: 'primary again'
+      });
+    });
+
+    test('should toggle accent color on and off', () => {
+      const result = parseCQM('normal ~~accent~~ normal ~~accent again~~');
+      expect(result).toHaveLength(4);
+
+      expect(result[0]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: 'normal '
+      });
+
+      expect(result[1]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'accent',
+        italic: false,
+        content: 'accent'
+      });
+
+      expect(result[2]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' normal '
+      });
+
+      expect(result[3]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'accent',
+        italic: false,
+        content: 'accent again'
       });
     });
 
@@ -316,7 +447,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'bold text without closing'
       });
@@ -340,7 +471,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '{{incomplete expression'
       });
@@ -352,7 +483,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '{{}}'
       });
@@ -364,7 +495,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '*'
       });
@@ -376,7 +507,19 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: true,
         underline: true,
-        primary: true,
+        textColor: 'primary',
+        italic: true,
+        content: 'text'
+      });
+    });
+
+    test('should handle consecutive formatting markers with accent', () => {
+      const result = parseCQM('**__~~//text//~~__**');
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        bold: true,
+        underline: true,
+        textColor: 'accent',
         italic: true,
         content: 'text'
       });
@@ -388,14 +531,14 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '*bold* '
       });
       expect(result[1]).toEqual({
         bold: false,
         underline: true,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'underline'
       });
@@ -407,7 +550,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '{{expression_with-special.chars123}}'
       });
@@ -420,7 +563,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '{{first}} and {{second}}'
       });
@@ -435,7 +578,7 @@ describe('CQM Parser', () => {
       expect(result[0]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'Dear '
       });
@@ -443,7 +586,7 @@ describe('CQM Parser', () => {
       expect(result[1]).toEqual({
         bold: true,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'John'
       });
@@ -451,7 +594,7 @@ describe('CQM Parser', () => {
       expect(result[2]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ', please answer the following '
       });
@@ -459,7 +602,7 @@ describe('CQM Parser', () => {
       expect(result[3]).toEqual({
         bold: false,
         underline: true,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: 'important'
       });
@@ -467,7 +610,7 @@ describe('CQM Parser', () => {
       expect(result[4]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: ' question about '
       });
@@ -475,7 +618,7 @@ describe('CQM Parser', () => {
       expect(result[5]).toEqual({
         bold: false,
         underline: false,
-        primary: true,
+        textColor: 'primary',
         italic: false,
         content: '{{topic}}'
       });
@@ -483,7 +626,7 @@ describe('CQM Parser', () => {
       expect(result[6]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: false,
         content: '. '
       });
@@ -491,9 +634,78 @@ describe('CQM Parser', () => {
       expect(result[7]).toEqual({
         bold: false,
         underline: false,
-        primary: false,
+        textColor: undefined,
         italic: true,
         content: 'Note: this is confidential.'
+      });
+    });
+
+    test('should parse complex text with mixed colors and formatting', () => {
+      const result = parseCQM('**Bold text** with !!primary color!! and ~~accent color~~ and //italic text//.');
+      expect(result).toHaveLength(8);
+
+      expect(result[0]).toEqual({
+        bold: true,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: 'Bold text'
+      });
+
+      expect(result[1]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' with '
+      });
+
+      expect(result[2]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'primary',
+        italic: false,
+        content: 'primary color'
+      });
+
+      expect(result[3]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' and '
+      });
+
+      expect(result[4]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: 'accent',
+        italic: false,
+        content: 'accent color'
+      });
+
+      expect(result[5]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: ' and '
+      });
+
+      expect(result[6]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: true,
+        content: 'italic text'
+      });
+
+      expect(result[7]).toEqual({
+        bold: false,
+        underline: false,
+        textColor: undefined,
+        italic: false,
+        content: '.'
       });
     });
   });

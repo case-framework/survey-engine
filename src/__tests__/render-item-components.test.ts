@@ -14,7 +14,7 @@ const testItem: SurveySingleItem = {
         content: [
           {
             key: 'text1',
-            type: 'simple'
+            type: 'plain'
           },
           {
             key: 'text2',
@@ -130,7 +130,7 @@ const testItem2: SurveySingleItem = {
             content: [
               {
                 key: '1',
-                type: 'simple'
+                type: 'plain'
               },
               {
                 key: '2',
