@@ -4,10 +4,11 @@ import { DynamicValue, LocalizedContent, LocalizedContentTranslation } from "./u
 
 // ----------------------------------------------------------------------
 
+
+
 enum ItemComponentType {
-  Title = 'title',
-  ItemGroup = 'itemGroup',
-  Response = 'response'
+  Display = 'display',
+  Group = 'group',
 }
 
 

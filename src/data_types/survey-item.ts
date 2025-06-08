@@ -11,20 +11,18 @@ export enum SurveyItemType {
 }
 
 
-abstract class SurveyItem {
+export abstract class SurveyItem {
   key!: SurveyItemKey;
   itemType!: SurveyItemType;
   metadata?: {
     [key: string]: string;
   }
 
-  condition?: Expression;
-
-  follows?: Array<SurveyItemKey>;
+  follows?: Array<string>;
   priority?: number; // can be used to sort items in the list
 
-  constructor(fullItemKey: string, itemType: SurveyItemType) {
-    this.key = new SurveyItemKey(fullItemKey);
+  constructor(itemKey: string, parentFullKey: string | undefined = undefined, itemType: SurveyItemType) {
+    this.key = new SurveyItemKey(itemKey, parentFullKey);
     this.itemType = itemType;
   }
 
@@ -32,102 +30,76 @@ abstract class SurveyItem {
 
 }
 
-const initItemClassBasedOnType = (json: JsonSurveyItem): SurveyItem => {
+const initItemClassBasedOnType = (json: JsonSurveyItem, parentFullKey: string | undefined = undefined): SurveyItem => {
   switch (json.itemType) {
     case SurveyItemType.Group:
-      return GroupItem.fromJson(json as JsonSurveyItemGroup);
+      return GroupItem.fromJson(json as JsonSurveyItemGroup, parentFullKey);
     default:
       throw new Error(`Unsupported item type for initialization: ${json.itemType}`);
   }
 }
 
 export class GroupItem extends SurveyItem {
+  itemType: SurveyItemType.Group = SurveyItemType.Group;
   items?: Array<SurveyItem>;
   selectionMethod?: Expression; // what method to use to pick next item if ambigous - default uniform random
 
-  constructor(fullItemKey: string) {
+  constructor(itemKey: string, parentFullKey: string | undefined = undefined) {
     super(
-      fullItemKey,
+      itemKey,
+      parentFullKey,
       SurveyItemType.Group
     );
   }
 
 
-  static fromJson(json: JsonSurveyItemGroup): GroupItem {
-    const group = new GroupItem(json.key);
-    Object.assign(group, json);
-    group.key = new SurveyItemKey(json.key);
-    group.items = json.items?.map(item => initItemClassBasedOnType(item));
+  static fromJson(json: JsonSurveyItemGroup, parentFullKey: string | undefined = undefined): GroupItem {
+    const group = new GroupItem(json.key, parentFullKey);
+    group.items = json.items?.map(item => initItemClassBasedOnType(item, group.key.fullKey));
+
+    group.selectionMethod = json.selectionMethod;
+    group.metadata = json.metadata;
+
+    group.follows = json.follows;
+    group.priority = json.priority;
+
     return group;
   }
 
   toJson(): JsonSurveyItemGroup {
     return {
-      key: this.key.fullKey,
+      key: this.key.itemKey,
       itemType: SurveyItemType.Group,
       items: this.items?.map(item => item.toJson()),
     }
   }
 }
 
+/*
+export class DisplayItem extends SurveyItem {
+  itemType: SurveyItemType.Display = SurveyItemType.Display;
+  components?: Array<ItemComponent>;
+
+  constructor(fullItemKey: string) {
+    super(fullItemKey, SurveyItemType.Display);
+  }
+
+  static fromJson(json: JsonSurveyItemDisplay): DisplayItem {
+    const display = new DisplayItem(json.key);
+
+    display.key = new SurveyItemKey(json.key);
+    display.components = json.components?.map(component => ItemComponent.fromJson(component));
+    return display;
+  }
+
+  toJson(): JsonSurveyItemDisplay {
+  }
+}*/
+
 
 /**
  * SurveyItemEditor classes are used to edit survey items.
  */
-abstract class SurveyItemEditor extends SurveyItem {
-  translations?: {
-    [key: string]: {
-      [key: string]: string;
-    }
-  }
-
-  replaceKey(key: string) {
-    this.key = new SurveyItemKey(key);
-  }
-
-  abstract toSurveyItem(): SurveyItem;
-}
-
-
-
-const initItemEditorClassBasedOnType = (item: SurveyItem): SurveyItemEditor => {
-  switch (item.itemType) {
-    case SurveyItemType.Group:
-      return GroupItemEditor.fromSurveyItem(item as GroupItem);
-    default:
-      throw new Error(`Unsupported item type for editor initialization: ${item.itemType}`);
-  }
-}
-
-export class GroupItemEditor extends GroupItem {
-  items?: Array<SurveyItemEditor>;
-
-  static fromSurveyItem(group: GroupItem): GroupItemEditor {
-    // TODO: need translations and dynamic values and validations and display conditions and disabled conditions
-    const newEditor = new GroupItemEditor('');
-    Object.assign(newEditor, group);
-    newEditor.items = group.items?.map(item => initItemEditorClassBasedOnType(item));
-    return newEditor;
-  }
-
-  replaceKey(key: string) {
-    this.key = new SurveyItemKey(key);
-    this.items?.map(item => item.replaceKey(item.key.fullKey));
-  }
-
-  toSurveyItem(): GroupItem {
-    const group = new GroupItem(this.key.fullKey);
-    Object.assign(group, this);
-    group.items = this.items?.map(item => item.toSurveyItem());
-    // TODO: remove translations and dynamic values and validations and display conditions and disabled conditions
-    return group;
-  }
-
-  toJson(): JsonSurveyItemGroup {
-    return this.toSurveyItem().toJson();
-  }
-}
-
 
 /*
 interface SurveyItemBase {

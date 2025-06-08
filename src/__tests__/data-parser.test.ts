@@ -62,6 +62,11 @@ describe('Data Parsing', () => {
       expect(survey.surveyDefinition).toBeDefined();
       expect(survey.surveyDefinition?.key.fullKey).toBe(surveyJson.surveyDefinition?.key);
       expect(survey.surveyDefinition?.itemType).toBe(SurveyItemType.Group);
+      expect(survey.surveyDefinition?.items).toBeDefined();
+      expect(survey.surveyDefinition?.items?.length).toBeGreaterThan(0);
+      expect(survey.surveyDefinition?.items?.[0]?.key.itemKey).toBe('group1');
+      expect(survey.surveyDefinition?.items?.[0]?.key.fullKey).toBe('survey.group1');
+      expect(survey.surveyDefinition?.items?.[0]?.itemType).toBe(SurveyItemType.Group);
     });
   });
 
@@ -75,6 +80,23 @@ describe('Data Parsing', () => {
     });
   });
 
+
+  describe('Export Survey to JSON', () => {
+    const surveyEditor = SurveyEditor.fromSurvey(Survey.fromJson(surveyJson));
+
+    test('should export survey definition', () => {
+      const json = surveyEditor.getSurvey().toJson();
+      expect(json).toBeDefined();
+      expect(json.surveyDefinition).toBeDefined();
+      expect(json.surveyDefinition?.key).toBe(surveyJson.surveyDefinition?.key);
+      expect(json.surveyDefinition?.itemType).toBe(SurveyItemType.Group);
+      expect(json.surveyDefinition?.items).toBeDefined();
+      expect(json.surveyDefinition?.items?.length).toBeGreaterThan(0);
+      expect(json.surveyDefinition?.items?.[0]?.key).toBe('group1');
+      expect(json.surveyDefinition?.items?.[0]?.itemType).toBe(SurveyItemType.Group);
+    });
+
+  });
 
 
 

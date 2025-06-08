@@ -74,7 +74,6 @@ export interface JsonSurveyItemBase {
   metadata?: {
     [key: string]: string;
   }
-  condition?: Expression;
   follows?: Array<string>;
   priority?: number; // can be used to sort items in the list
 }

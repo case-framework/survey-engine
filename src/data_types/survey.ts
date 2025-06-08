@@ -2,7 +2,7 @@ import { SurveyContextDef } from "./context";
 import { Expression } from "./expression";
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey } from "./survey-file-schema";
 import { GroupItem } from "./survey-item";
-import { GroupItemEditor } from "./survey-item";
+import { GroupItemEditor } from "./survey-item-editor";
 
 
 abstract class SurveyBase {
