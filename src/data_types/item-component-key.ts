@@ -44,6 +44,11 @@ abstract class Key {
 }
 
 
+/**
+ * SurveyItemKey stores the key of the item and the full key of the parent item.
+ * The full key can be used to identify the item in the survey.
+ * The item key can be used to identify the item within the parent item.
+ */
 
 export class SurveyItemKey extends Key {
   constructor(itemKey: string, parentFullKey?: string) {
@@ -65,6 +70,13 @@ export class SurveyItemKey extends Key {
   }
 }
 
+
+/**
+ * ItemComponentKey stores the key of the component and the full key of the parent component and key of the survey item this component belongs to.
+ * The full key can be used to identify the component in the survey item.
+ * The component key can be used to identify the component within the parent component.
+ * The parent item key can be used to identify the survey item this component belongs to.
+ */
 export class ItemComponentKey extends Key {
   private _parentItemKey: SurveyItemKey;
 
