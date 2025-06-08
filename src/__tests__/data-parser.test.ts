@@ -1,4 +1,4 @@
-import { CURRENT_SURVEY_SCHEMA, JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyEditor, SurveyItemType } from "../data_types";
+import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyEditor, SurveyItemType } from "../data_types";
 
 const surveyCardProps: JsonSurveyCardProps = {
   name: {
@@ -26,6 +26,19 @@ const surveyJson: JsonSurvey = {
       {
         key: 'group1',
         itemType: SurveyItemType.Group,
+        items: [
+          {
+            key: 'display1',
+            itemType: SurveyItemType.Display,
+            components: [
+              {
+                key: 'comp1',
+                type: ItemComponentType.Display,
+                styles: {}
+              }
+            ]
+          }
+        ]
       }
     ]
   },
@@ -64,9 +77,24 @@ describe('Data Parsing', () => {
       expect(survey.surveyDefinition?.itemType).toBe(SurveyItemType.Group);
       expect(survey.surveyDefinition?.items).toBeDefined();
       expect(survey.surveyDefinition?.items?.length).toBeGreaterThan(0);
-      expect(survey.surveyDefinition?.items?.[0]?.key.itemKey).toBe('group1');
-      expect(survey.surveyDefinition?.items?.[0]?.key.fullKey).toBe('survey.group1');
-      expect(survey.surveyDefinition?.items?.[0]?.itemType).toBe(SurveyItemType.Group);
+
+      // Group item
+      const groupItem = survey.surveyDefinition?.items?.[0] as GroupItem;
+      expect(groupItem).toBeDefined();
+      expect(groupItem.key.itemKey).toBe('group1');
+      expect(groupItem.key.fullKey).toBe('survey.group1');
+      expect(groupItem.itemType).toBe(SurveyItemType.Group);
+
+      // Display item
+      const displayItem = groupItem.items?.[0] as DisplayItem;
+      expect(displayItem).toBeDefined();
+      expect(displayItem.key.fullKey).toBe('survey.group1.display1');
+      expect(displayItem.itemType).toBe(SurveyItemType.Display);
+      expect(displayItem.components).toBeDefined();
+      expect(displayItem.components?.length).toBeGreaterThan(0);
+      expect(displayItem.components?.[0]?.key.fullKey).toBe('comp1');
+      expect(displayItem.components?.[0]?.key.parentItemKey.fullKey).toBe('survey.group1.display1');
+      expect(displayItem.components?.[0]?.componentType).toBe(ItemComponentType.Display);
     });
   });
 

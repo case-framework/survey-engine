@@ -1,16 +1,148 @@
 import { Expression, ExpressionArg } from "./expression";
+import { ItemComponentKey } from "./item-component-key";
 import { JsonItemComponent } from "./survey-file-schema";
+import { SurveyItemType } from "./survey-item";
 import { DynamicValue, LocalizedContent, LocalizedContentTranslation } from "./utils";
 
 // ----------------------------------------------------------------------
 
 
 
-enum ItemComponentType {
+export enum ItemComponentType {
   Display = 'display',
   Group = 'group',
 }
 
+/*
+key: string; // unique identifier
+  type: string; // type of the component
+  styles?: {
+    classNames?: string | {
+      [key: string]: string;
+    }
+  }
+  properties?: {
+    [key: string]: string | number | ExpressionArg;
+  }
+  items?: Array<JsonItemComponent>;*/
+
+
+export abstract class ItemComponent {
+  key!: ItemComponentKey;
+  componentType!: ItemComponentType;
+
+  styles?: {
+    classNames?: string | {
+      [key: string]: string;
+    }
+  }
+
+
+  constructor(
+    compKey: string,
+    parentFullKey: string | undefined = undefined,
+    componentType: ItemComponentType,
+    parentItemKey: string | undefined = undefined,
+  ) {
+    this.key = new ItemComponentKey(
+      compKey,
+      parentFullKey,
+      parentItemKey ?? '',
+    );
+    this.componentType = componentType;
+  }
+
+  abstract toJson(): JsonItemComponent
+
+}
+
+const initComponentClassBasedOnType = (json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ItemComponent => {
+  switch (json.type) {
+    case ItemComponentType.Group:
+      return GroupComponent.fromJson(json as JsonItemComponent, parentFullKey, parentItemKey);
+    default:
+      throw new Error(`Unsupported item type for initialization: ${json.type}`);
+  }
+}
+
+/**
+ * Group component
+ */
+export class GroupComponent extends ItemComponent {
+  componentType: ItemComponentType.Group = ItemComponentType.Group;
+  items?: Array<ItemComponent>;
+  order?: Expression;
+
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(
+      compKey,
+      parentFullKey,
+      ItemComponentType.Group,
+      parentItemKey,
+    );
+  }
+
+
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): GroupComponent {
+    const group = new GroupComponent(json.key, parentFullKey, parentItemKey);
+    group.items = json.items?.map(item => initComponentClassBasedOnType(item, group.key.fullKey, group.key.parentItemKey.fullKey));
+    group.order = json.order;
+    group.styles = json.styles;
+    return group;
+  }
+
+  toJson(): JsonItemComponent {
+    return {
+      key: this.key.fullKey,
+      type: ItemComponentType.Group,
+      items: this.items?.map(item => item.toJson()),
+      order: this.order,
+      styles: this.styles,
+    }
+  }
+}
+
+/**
+ * Display component
+ */
+export class DisplayComponent extends ItemComponent {
+  componentType: ItemComponentType.Display = ItemComponentType.Display;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(
+      compKey,
+      parentFullKey,
+      ItemComponentType.Display,
+      parentItemKey,
+    );
+  }
+
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): DisplayComponent {
+    const display = new DisplayComponent(json.key, parentFullKey, parentItemKey);
+    display.styles = json.styles;
+    return display;
+  }
+
+  toJson(): JsonItemComponent {
+    return {
+      key: this.key.fullKey,
+      type: ItemComponentType.Display,
+      styles: this.styles,
+    }
+  }
+}
+
+
+
+
+
+
+// ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
 
 
 interface ContentStuffWithAttributions {

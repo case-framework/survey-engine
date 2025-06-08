@@ -1,6 +1,7 @@
 import { Expression } from './expression';
-import { JsonSurveyItem, JsonSurveyItemGroup } from './survey-file-schema';
+import { JsonSurveyDisplayItem, JsonSurveyItem, JsonSurveyItemGroup } from './survey-file-schema';
 import { SurveyItemKey } from './item-component-key';
+import { DisplayComponent } from './survey-item-component';
 
 
 export enum SurveyItemType {
@@ -34,6 +35,8 @@ const initItemClassBasedOnType = (json: JsonSurveyItem, parentFullKey: string | 
   switch (json.itemType) {
     case SurveyItemType.Group:
       return GroupItem.fromJson(json as JsonSurveyItemGroup, parentFullKey);
+    case SurveyItemType.Display:
+      return DisplayItem.fromJson(json as JsonSurveyDisplayItem, parentFullKey);
     default:
       throw new Error(`Unsupported item type for initialization: ${json.itemType}`);
   }
@@ -75,31 +78,34 @@ export class GroupItem extends SurveyItem {
   }
 }
 
-/*
 export class DisplayItem extends SurveyItem {
   itemType: SurveyItemType.Display = SurveyItemType.Display;
-  components?: Array<ItemComponent>;
+  components?: Array<DisplayComponent>;
 
-  constructor(fullItemKey: string) {
-    super(fullItemKey, SurveyItemType.Display);
+  constructor(itemKey: string, parentFullKey: string | undefined = undefined) {
+    super(itemKey, parentFullKey, SurveyItemType.Display);
   }
 
-  static fromJson(json: JsonSurveyItemDisplay): DisplayItem {
-    const display = new DisplayItem(json.key);
+  static fromJson(json: JsonSurveyDisplayItem, parentFullKey: string | undefined = undefined): DisplayItem {
+    const item = new DisplayItem(json.key, parentFullKey);
+    item.components = json.components?.map(component => DisplayComponent.fromJson(component, undefined, item.key.fullKey));
+    item.follows = json.follows;
+    item.metadata = json.metadata;
+    item.priority = json.priority;
 
-    display.key = new SurveyItemKey(json.key);
-    display.components = json.components?.map(component => ItemComponent.fromJson(component));
-    return display;
+    return item;
   }
 
-  toJson(): JsonSurveyItemDisplay {
+  toJson(): JsonSurveyDisplayItem {
+    return {
+      key: this.key.itemKey,
+      itemType: SurveyItemType.Display,
+      components: this.components?.map(component => component.toJson()) ?? [],
+    }
   }
-}*/
+}
 
 
-/**
- * SurveyItemEditor classes are used to edit survey items.
- */
 
 /*
 interface SurveyItemBase {

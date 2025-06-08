@@ -128,7 +128,8 @@ export interface JsonItemComponent {
     }
   }
   properties?: {
-    [key: string]: string | number | ExpressionArg;
+    [key: string]: string | number | boolean | ExpressionArg;
   }
   items?: Array<JsonItemComponent>;
+  order?: Expression;
 }
