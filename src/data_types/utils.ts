@@ -1,35 +1,70 @@
 import { Expression } from "./expression";
 
 // ----------------------------------------------------------------------
-export type LocalizedContentType = 'plain' | 'CQM' | 'md';
-
-export type LocalizedContent = {
-  type: LocalizedContentType;
-  key: string;
-  resolvedText?: string;
+export enum LocalizedContentType {
+  CQM = 'CQM',
+  md = 'md'
 }
 
+export enum AttributionType {
+  style = 'style',
+  template = 'template'
+}
+
+export type Attribution = {
+  type: AttributionType;
+  // TODO
+}
+
+export type LocalizedCQMContent = {
+  type: LocalizedContentType.CQM;
+  content: string;
+  attributions: Array<Attribution>;
+}
+
+export type LocalizedMDContent = {
+  type: LocalizedContentType.md;
+  content: string;
+}
+
+export type LocalizedContent = LocalizedCQMContent | LocalizedMDContent;
+
 export type LocalizedContentTranslation = {
-  [key: string]: string;
+  [contentKey: string]: LocalizedContent;
 }
 
 // ----------------------------------------------------------------------
-export type DynamicValueTypes = 'expression' | 'date';
+export enum DynamicValueTypes {
+  Expression = 'expression',
+  Date = 'date'
+}
+
 
 export type DynamicValueBase = {
-  key: string;
   type: DynamicValueTypes;
   expression?: Expression;
-  resolvedValue?: string;
 }
 
 export type DynamicValueExpression = DynamicValueBase & {
-  type: 'expression';
+  type: DynamicValueTypes.Expression;
 }
 
 export type DynamicValueDate = DynamicValueBase & {
-  type: 'date';
+  type: DynamicValueTypes.Date;
   dateFormat: string;
 }
 
 export type DynamicValue = DynamicValueExpression | DynamicValueDate;
+
+// ----------------------------------------------------------------------
+
+export enum ValidationType {
+  Soft = 'soft',
+  Hard = 'hard'
+}
+
+export interface Validation {
+  key: string;
+  type: ValidationType; // hard or softvalidation
+  rule: Expression;
+}

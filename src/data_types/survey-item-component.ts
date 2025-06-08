@@ -1,44 +1,97 @@
 import { Expression, ExpressionArg } from "./expression";
+import { JsonItemComponent } from "./survey-file-schema";
 import { DynamicValue, LocalizedContent, LocalizedContentTranslation } from "./utils";
 
 // ----------------------------------------------------------------------
-export type ItemComponent = ItemComponentBase | ItemGroupComponent | ResponseComponent;
 
-interface ItemComponentBase {
-  role: string; // purpose of the component
-  key?: string; // unique identifier
-  displayCondition?: Expression | boolean;
-  disabled?: Expression | boolean;
-  style?: Array<{ key: string, value: string }>;
-  properties?: ComponentProperties;
+enum ItemComponentType {
+  Title = 'title',
+  ItemGroup = 'itemGroup',
+  Response = 'response'
+}
 
-  content?: Array<LocalizedContent>;
+
+
+interface ContentStuffWithAttributions {
+  todo: string
+}
+interface GenericItemComponent {
+  // toObject(): ItemComponentObject;
+}
+
+interface ItemComponentObject extends JsonItemComponent {
   translations?: {
-    [key: string]: LocalizedContentTranslation;
+    [locale: string]: {
+      [key: string]: ContentStuffWithAttributions;
+    }; // TODO: define type
   };
   dynamicValues?: DynamicValue[];
+  displayCondition?: Expression;
+  disabled?: Expression;
 }
 
-export interface ResponseComponent extends ItemComponentBase {
+class TitleComponent implements GenericItemComponent {
   key: string;
-  dtype?: string;
+  styles?: {
+    classNames?: string;
+  }
+
+  constructor(key: string) {
+    this.key = key;
+  }
+
+  // TODO: constructor
+  // TODO: getters
+
+
 }
 
-export interface ItemGroupComponent extends ItemComponentBase {
-  items: Array<ItemComponent>;
-  order?: Expression;
+class TitleComponentEditor extends TitleComponent {
+  translations?: {
+    [locale: string]: {
+      [key: string]: ContentStuffWithAttributions;
+    };
+  }
+
+  dynamicValues?: DynamicValue[];
+  displayCondition?: Expression;
+  disabled?: Expression;
+
+  // TODO: constructor
+  // TODO: setters
 }
 
-export const isItemGroupComponent = (item: ItemComponent): item is ItemGroupComponent => {
-  const items = (item as ItemGroupComponent).items;
-  return items !== undefined && items.length > 0;
+class ResolvedTitleComponent extends TitleComponent {
+  currentTranslation?: {
+    [key: string]: ContentStuffWithAttributions;
+  } // only translations for selected language
+  dynamicValues?: {
+    [key: string]: string;
+  }
+  displayCondition?: boolean;
+  disabled?: boolean;
+
+  // TODO: constructor
 }
 
-export interface ComponentProperties {
-  min?: ExpressionArg | number;
-  max?: ExpressionArg | number;
-  stepSize?: ExpressionArg | number;
-  dateInputMode?: ExpressionArg | string;
-  pattern?: string;
+export enum ConfidentialMode {
+  Add = 'add',
+  Replace = 'replace'
 }
 
+export class ResponseComponent implements GenericItemComponent {
+  key: string;
+  styles?: {
+    classNames?: string;
+  }
+
+  confidentiality?: {
+    mode: ConfidentialMode;
+    mapToKey?: string;
+  }
+  //confidentialMode?: ConfidentialMode;
+
+  constructor(key: string) {
+    this.key = key;
+  }
+}
