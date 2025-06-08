@@ -1,4 +1,4 @@
-import { JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyEditor, SurveyItemType } from "../data_types";
+import { CURRENT_SURVEY_SCHEMA, JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyEditor, SurveyItemType } from "../data_types";
 
 const surveyCardProps: JsonSurveyCardProps = {
   name: {
@@ -18,7 +18,7 @@ const surveyCardProps: JsonSurveyCardProps = {
 }
 
 const surveyJson: JsonSurvey = {
-  $schema: 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json',
+  $schema: CURRENT_SURVEY_SCHEMA,
   surveyDefinition: {
     key: 'survey',
     itemType: SurveyItemType.Group,
@@ -38,9 +38,22 @@ const surveyJson: JsonSurvey = {
 
 describe('Data Parsing', () => {
   describe('Read Survey from JSON', () => {
-    test('should parse survey attributes', () => {
-      const survey = JsonSurvey.fromJson(surveyJson);
-      expect(survey.$schema).toBe('https://github.com/case-framework/survey-engine/schemas/survey-schema.json');
+    test('should throw error if schema is not supported', () => {
+      const surveyJson = {
+        $schema: CURRENT_SURVEY_SCHEMA + '1',
+        surveyDefinition: {
+          key: 'survey',
+          itemType: SurveyItemType.Group,
+        }
+      }
+      expect(() => Survey.fromJson(surveyJson)).toThrow('Unsupported survey schema');
+    });
+
+    test('should throw error if survey definition is not present', () => {
+      const surveyJson = {
+        $schema: CURRENT_SURVEY_SCHEMA,
+      }
+      expect(() => Survey.fromJson(surveyJson)).toThrow('surveyDefinition is required');
     });
 
 
@@ -55,8 +68,6 @@ describe('Data Parsing', () => {
   describe('Read Survey for editing', () => {
     test('should parse survey definition', () => {
       const surveyEditor = SurveyEditor.fromSurvey(Survey.fromJson(surveyJson));
-
-
 
       expect(surveyEditor.surveyDefinition).toBeDefined();
       expect(surveyEditor.surveyDefinition?.key.fullKey).toBe(surveyJson.surveyDefinition?.key);

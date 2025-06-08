@@ -4,11 +4,19 @@ import { SurveyItemType } from "./survey-item";
 import { ConfidentialMode } from "./survey-item-component";
 import { DynamicValue, LocalizedContent, LocalizedContentTranslation, Validation } from "./utils";
 
-const DEFAULT_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
+export const CURRENT_SURVEY_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
 
-export class JsonSurvey {
-  $schema: string;
+export interface SurveyVersion {
   id?: string;
+  surveyKey: string;
+  published?: number;
+  unpublished?: number;
+  versionId?: string;
+  survey: JsonSurvey;
+}
+
+export type JsonSurvey = {
+  $schema: string;
   prefillRules?: Expression[];
   contextRules?: SurveyContextDef;
   maxItemsPerPage?: { large: number, small: number };
@@ -16,12 +24,11 @@ export class JsonSurvey {
   requireLoginBeforeSubmission?: boolean;
 
   surveyDefinition?: JsonSurveyItemGroup;
-  published?: number;
-  unpublished?: number;
-  versionId?: string;
+
   metadata?: {
     [key: string]: string
   }
+
   translations?: {
     [locale: string]: {
       surveyCardProps: JsonSurveyCardProps;
@@ -52,19 +59,6 @@ export class JsonSurvey {
         [componentKey: string]: Expression;
       }
     }
-  }
-
-  constructor() {
-    this.$schema = DEFAULT_SCHEMA;
-  }
-
-  static fromJson(json: object): JsonSurvey {
-    if (!(json as JsonSurvey).$schema) {
-      throw new Error('Missing required fields in JSON survey data');
-    }
-    const survey = new JsonSurvey();
-    Object.assign(survey, json);
-    return survey;
   }
 }
 
