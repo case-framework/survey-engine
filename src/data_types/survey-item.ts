@@ -1,6 +1,6 @@
 import { Expression } from './expression';
 import { JsonSurveyItem, JsonSurveyItemGroup } from './survey-file-schema';
-import { SurveyItemKey } from './survey-item-key';
+import { SurveyItemKey } from './item-component-key';
 
 
 export enum SurveyItemType {
