@@ -93,7 +93,7 @@ const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem
 export class GroupItem extends SurveyItem {
   itemType: SurveyItemType.Group = SurveyItemType.Group;
   items?: Array<string>;
-  selectionMethod?: Expression; // what method to use to pick next item if ambigous - default uniform random
+  shuffleItems?: boolean;
 
   constructor(itemFullKey: string) {
     super(
@@ -107,11 +107,9 @@ export class GroupItem extends SurveyItem {
     const group = new GroupItem(key);
     group.items = json.items;
 
-    group.selectionMethod = json.selectionMethod;
+    group.shuffleItems = json.shuffleItems;
     group.metadata = json.metadata;
 
-    group.follows = json.follows;
-    group.priority = json.priority;
     group.displayConditions = json.displayConditions;
     return group;
   }
@@ -120,10 +118,8 @@ export class GroupItem extends SurveyItem {
     return {
       itemType: SurveyItemType.Group,
       items: this.items,
-      selectionMethod: this.selectionMethod,
+      shuffleItems: this.shuffleItems,
       metadata: this.metadata,
-      follows: this.follows,
-      priority: this.priority,
       displayConditions: this.displayConditions,
     }
   }
@@ -144,9 +140,7 @@ export class DisplayItem extends SurveyItem {
   static fromJson(key: string, json: JsonSurveyDisplayItem): DisplayItem {
     const item = new DisplayItem(key);
     item.components = json.components?.map(component => DisplayComponent.fromJson(component, undefined, item.key.fullKey));
-    item.follows = json.follows;
     item.metadata = json.metadata;
-    item.priority = json.priority;
     item.displayConditions = json.displayConditions;
     item._dynamicValues = json.dynamicValues;
     return item;
@@ -156,9 +150,7 @@ export class DisplayItem extends SurveyItem {
     return {
       itemType: SurveyItemType.Display,
       components: this.components?.map(component => component.toJson()) ?? [],
-      follows: this.follows,
       metadata: this.metadata,
-      priority: this.priority,
       displayConditions: this.displayConditions,
       dynamicValues: this._dynamicValues,
     }
@@ -179,8 +171,6 @@ export class PageBreakItem extends SurveyItem {
   static fromJson(key: string, json: JsonSurveyPageBreakItem): PageBreakItem {
     const item = new PageBreakItem(key);
     item.metadata = json.metadata;
-    item.priority = json.priority;
-    item.follows = json.follows;
     item.displayConditions = json.displayConditions;
     return item;
   }
@@ -189,8 +179,6 @@ export class PageBreakItem extends SurveyItem {
     return {
       itemType: SurveyItemType.PageBreak,
       metadata: this.metadata,
-      priority: this.priority,
-      follows: this.follows,
       displayConditions: this.displayConditions,
     }
   }
@@ -206,8 +194,6 @@ export class SurveyEndItem extends SurveyItem {
   static fromJson(key: string, json: JsonSurveyEndItem): SurveyEndItem {
     const item = new SurveyEndItem(key);
     item.metadata = json.metadata;
-    item.priority = json.priority;
-    item.follows = json.follows;
     item.displayConditions = json.displayConditions;
     item._dynamicValues = json.dynamicValues;
     return item;
@@ -217,8 +203,6 @@ export class SurveyEndItem extends SurveyItem {
     return {
       itemType: SurveyItemType.SurveyEnd,
       metadata: this.metadata,
-      priority: this.priority,
-      follows: this.follows,
       displayConditions: this.displayConditions,
       dynamicValues: this._dynamicValues,
     }
@@ -245,8 +229,6 @@ export abstract class QuestionItem extends SurveyItem {
 
   protected readGenericAttributes(json: JsonSurveyResponseItem) {
     this.metadata = json.metadata;
-    this.priority = json.priority;
-    this.follows = json.follows;
     this.displayConditions = json.displayConditions;
     this._disabledConditions = json.disabledConditions;
     this._dynamicValues = json.dynamicValues;
@@ -272,8 +254,6 @@ export abstract class QuestionItem extends SurveyItem {
       itemType: this.itemType,
       responseConfig: this.responseConfig.toJson(),
       metadata: this.metadata,
-      priority: this.priority,
-      follows: this.follows,
       displayConditions: this.displayConditions,
       disabledConditions: this._disabledConditions,
       dynamicValues: this._dynamicValues,

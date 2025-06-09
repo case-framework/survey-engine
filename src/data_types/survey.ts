@@ -25,7 +25,6 @@ export class Survey extends SurveyBase {
 
   translations?: SurveyTranslations;
 
-
   constructor(key: string = 'survey') {
     super();
     this.surveyItems = {
@@ -108,5 +107,23 @@ export class Survey extends SurveyBase {
 
   get locales(): string[] {
     return Object.keys(this.translations || {});
+  }
+
+  get surveyKey(): string {
+    let key: string | undefined;
+    for (const item of Object.values(this.surveyItems)) {
+      if (item.key.isRoot) {
+        key = item.key.fullKey;
+        break;
+      }
+    }
+    if (!key) {
+      throw new Error('Survey key not found');
+    }
+    return key;
+  }
+
+  get rootItem(): GroupItem {
+    return this.surveyItems[this.surveyKey] as GroupItem;
   }
 }

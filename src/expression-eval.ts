@@ -1,7 +1,7 @@
-import { Expression, expressionArgParser, isExpression, ResponseItem, SurveyContext, SurveyGroupItem, SurveyGroupItemResponse, SurveyItem, SurveyItemResponse, SurveySingleItem, SurveyResponse, SurveySingleItemResponse } from "./data_types";
+import { Expression, expressionArgParser, isExpression, ResponseItem, SurveyContext, SurveyGroupItemResponse, SurveyItem, SurveyItemResponse, SurveySingleItem, SurveyResponse, SurveySingleItemResponse } from "./data_types";
 import {
   fromUnixTime, differenceInSeconds, differenceInMinutes, differenceInHours,
-  differenceInDays, differenceInMonths, differenceInWeeks, differenceInYears,
+  differenceInMonths, differenceInWeeks, differenceInYears,
 } from 'date-fns';
 
 export class ExpressionEval {

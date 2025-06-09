@@ -4,7 +4,7 @@ import { DisplayItem, GroupItem, SurveyItemTranslations, SingleChoiceQuestionIte
 import { DisplayComponent, SingleChoiceResponseConfigComponent, ScgMcgOption } from '../data_types/survey-item-component';
 import { ScgMcgOptionEditor } from '../survey-editor/component-editor';
 import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
-import { LocalizedContentTranslation } from '../data_types';
+import { LocalizedContentTranslation } from '../data_types/localized-content';
 
 
 describe('SurveyEditor', () => {

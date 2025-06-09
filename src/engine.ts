@@ -1,38 +1,21 @@
 import {
-  SurveyEngineCoreInterface,
   SurveyContext,
   TimestampType,
-  Expression,
   SurveyItemResponse,
-  isSurveyGroupItemResponse,
-  SurveyGroupItem,
-  SurveyGroupItemResponse,
   SurveyItem,
-  isSurveyGroupItem,
   SurveySingleItemResponse,
-  ResponseItem,
-  SurveySingleItem,
-  ItemGroupComponent,
-  isItemGroupComponent,
-  ComponentProperties,
-  ExpressionArg,
-  isExpression,
-  expressionArgParser,
   Survey,
-  ScreenSize,
   ResponseMeta,
-  DynamicValue,
-  LocalizedContent,
-  LocalizedContentTranslation,
+  SurveyItemType,
+  QuestionItem,
+  GroupItem,
+  SurveyItemKey,
 } from "./data_types";
-import {
-  removeItemByKey, flattenSurveyItemTree
-} from './utils';
-import { ExpressionEval } from "./expression-eval";
-import { SelectionMethod } from "./selection-method";
-import { compileSurvey, isSurveyCompiled } from "./survey-compilation";
-import { format, Locale } from 'date-fns';
+
+// import { ExpressionEval } from "./expression-eval";
+import { Locale } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+export type ScreenSize = "small" | "large";
 
 const initMeta: ResponseMeta = {
   rendered: [],
@@ -42,19 +25,47 @@ const initMeta: ResponseMeta = {
   localeCode: '',
 }
 
-export class SurveyEngineCore implements SurveyEngineCoreInterface {
+interface RenderedSurveyItem {
+  key: SurveyItemKey;
+  type: SurveyItemType;
+  items?: Array<RenderedSurveyItem>
+}
+
+export class SurveyEngineCore {
   private surveyDef: Survey;
-  private renderedSurvey: SurveyGroupItem;
-  private responses: SurveyGroupItemResponse;
+  private renderedSurveyTree: RenderedSurveyItem;
   private context: SurveyContext;
-  private prefills: SurveySingleItemResponse[];
-  private openedAt: number;
+
+  private responses: {
+    [itemKey: string]: SurveyItemResponse;
+  };
+  private prefills?: {
+    [itemKey: string]: SurveySingleItemResponse;
+  };
+  private _openedAt: number;
   private selectedLocale: string;
   private availableLocales: string[];
   private dateLocales: Array<{ code: string, locale: Locale }>;
 
-  private evalEngine: ExpressionEval;
+  //private evalEngine: ExpressionEval;
   private showDebugMsg: boolean;
+
+  private cache!: {
+    validations: {
+      itemsWithValidations: string[];
+    };
+    displayConditions: {
+      itemsWithDisplayConditions: string[];
+      values: {
+        [itemKey: string]: {
+          root?: boolean;
+          components?: {
+            [componentKey: string]: boolean;
+          }
+        };
+      }
+    };
+  }
 
   constructor(
     survey: Survey,
@@ -65,33 +76,38 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     dateLocales?: Array<{ code: string, locale: Locale }>,
   ) {
     // console.log('core engine')
-    this.evalEngine = new ExpressionEval();
+    //this.evalEngine = new ExpressionEval();
+    this._openedAt = Date.now();
 
-    if (!survey.schemaVersion || survey.schemaVersion !== 1) {
-      throw new Error('Unsupported survey schema version: ' + survey.schemaVersion);
-    }
 
-    if (!isSurveyCompiled(survey)) {
-      survey = compileSurvey(survey)
-
-    }
     this.surveyDef = survey;
     this.availableLocales = this.surveyDef.translations ? Object.keys(this.surveyDef.translations) : [];
 
     this.context = context ? context : {};
-    this.prefills = prefills ? prefills : [];
+    this.prefills = prefills ? prefills.reduce((acc, p) => {
+      acc[p.key] = p;
+      return acc;
+    }, {} as { [itemKey: string]: SurveySingleItemResponse }) : undefined;
+
     this.showDebugMsg = showDebugMsg !== undefined ? showDebugMsg : false;
     this.selectedLocale = selectedLocale || 'en';
     this.dateLocales = dateLocales || [{ code: 'en', locale: enUS }];
-    this.responses = this.initResponseObject(this.surveyDef.surveyDefinition);
-    this.renderedSurvey = {
-      key: survey.surveyDefinition.key,
-      items: []
-    };
-    this.openedAt = Date.now();
-    this.setTimestampFor('rendered', survey.surveyDefinition.key);
-    this.initRenderedGroup(survey.surveyDefinition, survey.surveyDefinition.key);
+    this.responses = this.initResponseObject(this.surveyDef.surveyItems);
+
+    this.initCache();
+    // TODO: init cache for dynamic values: which translations by language and item key have dynamic values
+    // TODO: init cache for validations: which items have validations at all
+    // TODO: init cache for translations resolved for current langague - to produce resolved template values
+    // TODO: init cache for disable conditions: list which items have disable conditions at all
+    // TODO: init cache for display conditions: list which items have display conditions at all
+
+    // TODO: eval display conditions for all items
+
+    // init rendered survey
+    this.renderedSurveyTree = this.renderGroup(survey.rootItem);
+
   }
+
 
   // PUBLIC METHODS
   setContext(context: SurveyContext) {
@@ -122,9 +138,11 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     this.selectedLocale = locale;
 
     // Re-render to update any locale-dependent expressions
-    this.reRenderGroup(this.renderedSurvey.key);
+    // TODO: this.reRenderGroup(this.renderedSurvey.key);
   }
 
+  /*
+  TODO:
   setResponse(targetKey: string, response?: ResponseItem) {
     const target = this.findResponseItem(targetKey);
     if (!target) {
@@ -139,21 +157,22 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     this.setTimestampFor('responded', targetKey);
 
     // Re-render whole tree
-    this.reRenderGroup(this.renderedSurvey.key);
+    // TODO: this.reRenderGroup(this.renderedSurvey.key);
+  } */
+
+  get openedAt(): number {
+    return this._openedAt;
   }
 
-  getSurveyOpenedAt(): number {
-    return this.openedAt;
-  }
-
-  getRenderedSurvey(): SurveyGroupItem {
+  /* getRenderedSurvey(): SurveyGroupItem {
+    // TODO: return this.renderedSurvey;
     return {
       ...this.renderedSurvey,
       items: this.renderedSurvey.items.slice()
-    };
-  };
+    }
+  };; */
 
-  getSurveyPages(size?: ScreenSize): SurveySingleItem[][] {
+  /* getSurveyPages(size?: ScreenSize): SurveySingleItem[][] {
     const renderedSurvey = flattenSurveyItemTree(this.getRenderedSurvey());
     const pages = new Array<SurveySingleItem[]>();
 
@@ -195,19 +214,23 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       pages.push([...currentPage]);
     }
     return pages;
-  }
+  } */
 
-  questionDisplayed(itemKey: string, localeCode?: string) {
-    this.setTimestampFor('displayed', itemKey, localeCode);
-  }
+  /*  TODO: questionDisplayed(itemKey: string, localeCode?: string) {
+      this.setTimestampFor('displayed', itemKey, localeCode);
+    } */
 
+  /*
+  TODO:
   getSurveyEndItem(): SurveySingleItem | undefined {
     const renderedSurvey = flattenSurveyItemTree(this.getRenderedSurvey());
     return renderedSurvey.find(item => item.type === 'surveyEnd');
-  }
+  } */
 
   getResponses(): SurveySingleItemResponse[] {
-    const itemsInOrder = flattenSurveyItemTree(this.renderedSurvey);
+    return [];
+    // TODO:
+    /* const itemsInOrder = flattenSurveyItemTree(this.renderedSurvey);
     const responses: SurveySingleItemResponse[] = [];
     itemsInOrder.forEach((item, index) => {
       if (item.type === 'pageBreak' || item.type === 'surveyEnd') {
@@ -228,34 +251,60 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       obj.meta.position = index;
       responses.push({ ...obj });
     })
-    return responses;
+    return responses; */
   }
 
   // INIT METHODS
-  private initResponseObject(qGroup: SurveyGroupItem): SurveyGroupItemResponse {
-    const respGroup: SurveyGroupItemResponse = {
-      key: qGroup.key,
-      meta: {
-        rendered: [],
-        displayed: [],
-        responded: [],
-        position: -1,
-        localeCode: '',
+
+  private initCache() {
+    const itemsWithValidations: string[] = [];
+    Object.keys(this.surveyDef.surveyItems).forEach(itemKey => {
+      const item = this.surveyDef.surveyItems[itemKey];
+      if (item instanceof QuestionItem && item.validations && Object.keys(item.validations).length > 0) {
+        itemsWithValidations.push(itemKey);
+      }
+    });
+
+    const itemsWithDisplayConditions: string[] = [];
+    Object.keys(this.surveyDef.surveyItems).forEach(itemKey => {
+      const item = this.surveyDef.surveyItems[itemKey];
+      if (item.displayConditions !== undefined && (item.displayConditions.root || item.displayConditions.components)) {
+        itemsWithDisplayConditions.push(itemKey);
+      }
+    });
+
+    this.cache = {
+      validations: {
+        itemsWithValidations: itemsWithValidations,
       },
-      items: [],
+      displayConditions: {
+        itemsWithDisplayConditions: itemsWithDisplayConditions,
+        values: {},
+      },
     };
+  }
 
-    qGroup.items.forEach(item => {
-      if (isSurveyGroupItem(item)) {
-        respGroup.items.push(this.initResponseObject(item));
+
+  private initResponseObject(items: {
+    [itemKey: string]: SurveyItem
+  }): {
+    [itemKey: string]: SurveyItemResponse;
+  } {
+    const respGroup: {
+      [itemKey: string]: SurveyItemResponse;
+    } = {};
+
+    Object.keys(items).forEach((itemKey) => {
+      const item = items[itemKey];
+      if (
+        item.itemType === SurveyItemType.Group ||
+        item.itemType === SurveyItemType.PageBreak ||
+        item.itemType === SurveyItemType.SurveyEnd
+      ) {
+        return;
       } else {
-        if (item.type === 'pageBreak' || item.type === 'surveyEnd') {
-          return;
-        }
-        const prefill = this.prefills.find(ri => ri.key === item.key);
-
-        const itemResp: SurveySingleItemResponse = {
-          key: item.key,
+        respGroup[itemKey] = {
+          key: itemKey,
           meta: {
             rendered: [],
             displayed: [],
@@ -263,79 +312,121 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
             position: -1,
             localeCode: '',
           },
-          response: prefill ? prefill.response : undefined,
+          response: this.prefills?.[itemKey]?.response,
         };
-        respGroup.items.push(itemResp);
       }
     });
 
     return respGroup;
   }
 
-  private sequentialRender(groupDef: SurveyGroupItem, parent: SurveyGroupItem, rerender?: boolean) {
-    let currentIndex = 0;
-    groupDef.items.forEach(itemDef => {
-      const itemCond = this.evalConditions(itemDef.condition);
-      const ind = parent.items.findIndex(rItem => rItem.key === itemDef.key);
-      if (ind < 0) {
-        if (itemCond) {
-          if (isSurveyGroupItem(itemDef)) {
-            this.addRenderedItem(itemDef, parent, currentIndex);
-            this.initRenderedGroup(itemDef, itemDef.key);
-          } else {
-            this.addRenderedItem(itemDef, parent, currentIndex);
-          }
-        } else {
-          return;
-        }
-      } else {
-        if (!itemCond) {
-          parent.items = removeItemByKey(parent.items, itemDef.key);
-          return
-        }
-        if (rerender) {
-          if (isSurveyGroupItem(itemDef)) {
-            this.reRenderGroup(itemDef.key);
-          } else {
-            parent.items[ind] = this.renderSingleSurveyItem(itemDef as SurveySingleItem, true);
-          }
-        }
-      }
-      currentIndex += 1;
-    })
+  private shouldRenderItem(fullItemKey: string): boolean {
+    const displayConditionResult = this.cache.displayConditions.values[fullItemKey]?.root;
+    return displayConditionResult !== undefined ? displayConditionResult : true;
   }
 
-  private initRenderedGroup(groupDef: SurveyGroupItem, parentKey: string) {
-    if (parentKey.split('.').length < 2) {
-      this.reEvaluateDynamicValues();
+  private sequentialRender(groupDef: GroupItem, parent: RenderedSurveyItem): RenderedSurveyItem {
+    const newItems: RenderedSurveyItem[] = [];
+
+    for (const fullItemKey of groupDef.items || []) {
+      const shouldRender = this.shouldRenderItem(fullItemKey);
+      if (!shouldRender) {
+        continue;
+      }
+
+      const itemDef = this.surveyDef.surveyItems[fullItemKey];
+      if (!itemDef) {
+        console.warn('sequentialRender: item not found: ' + fullItemKey);
+        continue;
+      }
+
+      if (itemDef.itemType === SurveyItemType.Group) {
+        newItems.push(this.renderGroup(itemDef as GroupItem, parent));
+        continue;
+      }
+
+      const renderedItem = {
+        key: itemDef.key,
+        type: itemDef.itemType,
+      }
+      newItems.push(renderedItem);
     }
 
-    const parent = this.findRenderedItem(parentKey) as SurveyGroupItem;
+    return {
+      key: groupDef.key,
+      type: SurveyItemType.Group,
+      items: newItems
+    };
+  }
+
+  private randomizedItemRender(groupDef: GroupItem, parent: RenderedSurveyItem): RenderedSurveyItem {
+    const newItems: RenderedSurveyItem[] = parent.items?.filter(rItem =>
+      this.shouldRenderItem(rItem.key.fullKey)
+    ) || [];
+
+    const itemKeys = groupDef.items || [];
+    const shuffledIndices = Array.from({ length: itemKeys.length }, (_, i) => i);
+
+    // Fisher-Yates shuffle algorithm
+    for (let i = shuffledIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+    }
+
+    for (const index of shuffledIndices) {
+      const fullItemKey = itemKeys[index];
+      const alreadyRenderedItem = parent.items?.find(rItem => rItem.key.fullKey === fullItemKey);
+      if (alreadyRenderedItem) {
+        continue;
+      }
+
+      const shouldRender = this.shouldRenderItem(fullItemKey);
+      if (!shouldRender) {
+        continue;
+      }
+
+      const itemDef = this.surveyDef.surveyItems[fullItemKey];
+      if (!itemDef) {
+        console.warn('randomizedItemRender: item not found: ' + fullItemKey);
+        continue;
+      }
+
+      if (itemDef.itemType === SurveyItemType.Group) {
+        newItems.push(this.renderGroup(itemDef as GroupItem, parent));
+        continue;
+      }
+
+      const renderedItem = {
+        key: itemDef.key,
+        type: itemDef.itemType,
+      }
+      newItems.push(renderedItem);
+    }
+
+    return {
+      key: groupDef.key,
+      type: SurveyItemType.Group,
+      items: newItems
+    };
+  }
+
+  private renderGroup(groupDef: GroupItem, parent?: RenderedSurveyItem): RenderedSurveyItem {
     if (!parent) {
-      console.warn('initRenderedGroup: parent not found: ' + parentKey);
-      return;
+      parent = {
+        key: groupDef.key,
+        type: SurveyItemType.Group,
+        items: []
+      };
     }
 
-    if (groupDef.selectionMethod && groupDef.selectionMethod.name === 'sequential') {
-      // simplified workflow:
-      this.sequentialRender(groupDef, parent);
-      return
+    if (groupDef.shuffleItems) {
+      return this.randomizedItemRender(groupDef, parent);
     }
 
-    let nextItem = this.getNextItem(groupDef, parent, parent.key, false);
-    while (nextItem !== null) {
-      if (!nextItem) {
-        break;
-      }
-      this.addRenderedItem(nextItem, parent);
-      if (isSurveyGroupItem(nextItem)) {
-        this.initRenderedGroup(nextItem, nextItem.key);
-      }
-      nextItem = this.getNextItem(groupDef, parent, nextItem.key, false);
-    }
+    return this.sequentialRender(groupDef, parent);
   }
 
-  private reRenderGroup(groupKey: string) {
+  /* TODO: private reRenderGroup(groupKey: string) {
     if (groupKey.split('.').length < 2) {
       this.reEvaluateDynamicValues();
     }
@@ -425,9 +516,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       }
       nextItem = this.getNextItem(groupDef, renderedGroup, nextItem.key, false);
     }
-  }
+  } */
 
-  private getNextItem(groupDef: SurveyGroupItem, parent: SurveyGroupItem, lastKey: string, onlyDirectFollower: boolean): SurveyItem | undefined {
+  /* TODO: private getNextItem(groupDef: SurveyGroupItem, parent: SurveyGroupItem, lastKey: string, onlyDirectFollower: boolean): SurveyItem | undefined {
     // get unrendered question groups only
     const availableItems = groupDef.items.filter(ai => {
       return !parent.items.some(item => item.key === ai.key) && this.evalConditions(ai.condition);
@@ -451,9 +542,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     }
 
     return SelectionMethod.pickAnItem(groupPool, groupDef.selectionMethod);
-  }
+  } */
 
-  private addRenderedItem(item: SurveyItem, parent: SurveyGroupItem, atPosition?: number): number {
+  /* TODO: private addRenderedItem(item: SurveyItem, parent: SurveyGroupItem, atPosition?: number): number {
     let renderedItem: SurveyItem = {
       ...item
     };
@@ -472,152 +563,10 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     parent.items.splice(atPosition, 0, renderedItem);
     this.setTimestampFor('rendered', renderedItem.key);
     return atPosition;
-  }
-
-  private renderSingleSurveyItem(item: SurveySingleItem, rerender?: boolean): SurveySingleItem {
-    const renderedItem = {
-      ...item,
-    }
-
-    if (item.validations) {
-      // question is not rendered yet, so to be able to handle validation using prefills, we need to add response extra:
-      const extraResponses: SurveyItemResponse[] = [];
-      const currentResponse = this.findResponseItem(item.key);
-      if (currentResponse) {
-        extraResponses.push(currentResponse);
-      }
-
-      renderedItem.validations = item.validations.map(validation => {
-        return {
-          ...validation,
-          rule: this.evalConditions(validation.rule as Expression, undefined, extraResponses)
-        }
-      });
-    }
-
-    renderedItem.components = this.resolveComponentGroup(renderedItem, '', item.components, rerender);
-
-    return renderedItem;
-  }
-
-  private resolveComponentGroup(parentItem: SurveySingleItem, parentComponentKey: string, group?: ItemGroupComponent, rerender?: boolean): ItemGroupComponent {
-    if (!group) {
-      return { role: '', items: [] }
-    }
-
-    const referenceKey = group.key || group.role;
-
-    const currentFullComponentKey = (parentComponentKey ? parentComponentKey + '.' : '') + referenceKey;
-
-    if (!group.order || group.order.name === 'sequential') {
-      if (!group.items) {
-        console.warn(`this should not be a component group, items is missing or empty: ${parentItem.key} -> ${group.key}/${group.role} `);
-        return {
-          ...group,
-          content: this.resolveContent(group.content, parentItem.key, currentFullComponentKey),
-          disabled: isExpression(group.disabled) ? this.evalConditions(group.disabled as Expression, parentItem) : undefined,
-          displayCondition: group.displayCondition ? this.evalConditions(group.displayCondition as Expression, parentItem) : undefined,
-        }
-      }
-      return {
-        ...group,
-        content: this.resolveContent(group.content, parentItem.key, currentFullComponentKey),
-        disabled: isExpression(group.disabled) ? this.evalConditions(group.disabled as Expression, parentItem) : undefined,
-        displayCondition: group.displayCondition ? this.evalConditions(group.displayCondition as Expression, parentItem) : undefined,
-        items: group.items.map(comp => {
-          const localRefKey = comp.key || comp.role;
-          const localCompKey = currentFullComponentKey + '.' + localRefKey;
-          if (isItemGroupComponent(comp)) {
-            return this.resolveComponentGroup(parentItem, currentFullComponentKey, comp);
-          }
-
-          return {
-            ...comp,
-            disabled: isExpression(comp.disabled) ? this.evalConditions(comp.disabled as Expression, parentItem) : undefined,
-            displayCondition: comp.displayCondition ? this.evalConditions(comp.displayCondition as Expression, parentItem) : undefined,
-            content: this.resolveContent(comp.content, parentItem.key, localCompKey),
-            properties: this.resolveComponentProperties(comp.properties),
-          }
-        }),
-      }
-    }
-    if (rerender) {
-      console.error('define how to deal with rerendering - order should not change');
-    }
-    console.error('order type not implemented: ', group.order.name);
-    return {
-      ...group
-    }
-  }
-
-  private findItemTranslation(itemKey: string): LocalizedContentTranslation | undefined {
-    let translation: LocalizedContentTranslation | undefined;
-    // find for selected locale
-    if (this.surveyDef.translations && this.surveyDef.translations[this.selectedLocale] && this.surveyDef.translations[this.selectedLocale][itemKey]) {
-      translation = this.surveyDef.translations[this.selectedLocale][itemKey];
-    }
-    // find for first available locale
-    if (!translation && this.surveyDef.translations && this.availableLocales.length > 0) {
-      for (const locale of this.availableLocales) {
-        if (this.surveyDef.translations && this.surveyDef.translations[locale] && this.surveyDef.translations[locale][itemKey]) {
-          translation = this.surveyDef.translations[locale][itemKey];
-          break;
-        }
-      }
-    }
-    return translation;
-  }
-
-  private resolveContent(contents: LocalizedContent[] | undefined, itemKey: string, componentKey: string): LocalizedContent[] | undefined {
-    if (!contents) { return contents }
-
-    const compKeyWithoutRoot = componentKey.startsWith('root.') ? componentKey.substring(5) : componentKey;
-
-    // find translations
-    const itemsTranslations = this.findItemTranslation(itemKey);
-
-    // find dynamic values
-    const itemsDynamicValues = this.surveyDef.dynamicValues ? this.surveyDef.dynamicValues.filter(dv => dv.key.startsWith(itemKey + '-' + compKeyWithoutRoot + '-')) : [];
-
-    return contents.map(cont => {
-      let text: string = itemsTranslations?.[compKeyWithoutRoot + '.' + cont.key] || '';
-
-      // Resolve CQM template if needed
-      if (cont.type === 'CQM') {
-        text = resolveCQMTemplate(text, itemsDynamicValues);
-      }
-
-      return {
-        ...cont,
-        resolvedText: text,
-      }
-    })
-  }
-
-  private resolveComponentProperties(props: ComponentProperties | undefined): ComponentProperties | undefined {
-    if (!props) { return; }
-
-    const resolvedProps = { ...props };
-    if (resolvedProps.min) {
-      const arg = expressionArgParser(resolvedProps.min as ExpressionArg);
-      resolvedProps.min = isExpression(arg) ? this.resolveExpression(arg) : arg;
-    } if (resolvedProps.max) {
-      const arg = expressionArgParser(resolvedProps.max as ExpressionArg);
-      resolvedProps.max = isExpression(arg) ? this.resolveExpression(arg) : arg;
-    }
-    if (resolvedProps.stepSize) {
-      const arg = expressionArgParser(resolvedProps.stepSize as ExpressionArg);
-      resolvedProps.stepSize = isExpression(arg) ? this.resolveExpression(arg) : arg;
-    }
-    if (resolvedProps.dateInputMode) {
-      const arg = expressionArgParser(resolvedProps.dateInputMode as ExpressionArg);
-      resolvedProps.dateInputMode = isExpression(arg) ? this.resolveExpression(arg) : arg;
-    }
-    return resolvedProps;
-  }
+  } */
 
   private setTimestampFor(type: TimestampType, itemID: string, localeCode?: string) {
-    const obj = this.findResponseItem(itemID);
+    const obj = this.getResponseItem(itemID);
     if (!obj) {
       return;
     }
@@ -652,7 +601,7 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     }
   }
 
-  findSurveyDefItem(itemID: string): SurveyItem | undefined {
+  /* TODO: findSurveyDefItem(itemID: string): SurveyItem | undefined {
     const ids = itemID.split('.');
     let obj: SurveyItem | undefined;
     let compID = '';
@@ -683,83 +632,58 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
 
     });
     return obj;
+  } */
+
+  /* TODO: findRenderedItem(itemID: string): SurveyItem | undefined {
+     const ids = itemID.split('.');
+     let obj: SurveyItem | undefined;
+     let compID = '';
+     ids.forEach(id => {
+       if (compID === '') {
+         compID = id;
+       } else {
+         compID += '.' + id;
+       }
+       if (!obj) {
+         if (compID === this.renderedSurvey.key) {
+           obj = this.renderedSurvey;
+         }
+         return;
+       }
+       if (!isSurveyGroupItem(obj)) {
+         return;
+       }
+       const ind = obj.items.findIndex(item => item.key === compID);
+       if (ind < 0) {
+         if (this.showDebugMsg) {
+           console.warn('findRenderedItem: cannot find object for : ' + compID);
+         }
+         obj = undefined;
+         return;
+       }
+       obj = obj.items[ind];
+
+     });
+     return obj;
+   } */
+
+  getResponseItem(itemFullKey: string): SurveyItemResponse | undefined {
+    return this.responses[itemFullKey];
   }
 
-  findRenderedItem(itemID: string): SurveyItem | undefined {
-    const ids = itemID.split('.');
-    let obj: SurveyItem | undefined;
-    let compID = '';
-    ids.forEach(id => {
-      if (compID === '') {
-        compID = id;
-      } else {
-        compID += '.' + id;
-      }
-      if (!obj) {
-        if (compID === this.renderedSurvey.key) {
-          obj = this.renderedSurvey;
-        }
-        return;
-      }
-      if (!isSurveyGroupItem(obj)) {
-        return;
-      }
-      const ind = obj.items.findIndex(item => item.key === compID);
-      if (ind < 0) {
-        if (this.showDebugMsg) {
-          console.warn('findRenderedItem: cannot find object for : ' + compID);
-        }
-        obj = undefined;
-        return;
-      }
-      obj = obj.items[ind];
 
-    });
-    return obj;
-  }
+  /* TODO: resolveExpression(exp?: Expression, temporaryItem?: SurveySingleItem): any {
+     return this.evalEngine.eval(
+       exp,
+       this.renderedSurvey,
+       this.context,
+       this.responses,
+       temporaryItem,
+       this.showDebugMsg,
+     );
+   } */
 
-  findResponseItem(itemID: string): SurveyItemResponse | undefined {
-    const ids = itemID.split('.');
-    let obj: SurveyItemResponse | undefined;
-    let compID = '';
-    ids.forEach(id => {
-      if (compID === '') {
-        compID = id;
-      } else {
-        compID += '.' + id;
-      }
-      if (!obj) {
-        if (compID === this.responses.key) {
-          obj = this.responses;
-        }
-        return;
-      }
-      if (!isSurveyGroupItemResponse(obj)) {
-        return;
-      }
-      const ind = obj.items.findIndex(item => item.key === compID);
-      if (ind < 0) {
-        // console.warn('findResponseItem: cannot find object for : ' + compID);
-        obj = undefined;
-        return;
-      }
-      obj = obj.items[ind];
-    });
-    return obj;
-  }
-
-  resolveExpression(exp?: Expression, temporaryItem?: SurveySingleItem): any {
-    return this.evalEngine.eval(
-      exp,
-      this.renderedSurvey,
-      this.context,
-      this.responses,
-      temporaryItem,
-      this.showDebugMsg,
-    );
-  }
-
-  private getOnlyRenderedResponses(items: SurveyItemResponse[]): SurveyItemResponse[] {
+  /* TODO: private getOnlyRenderedResponses(items: SurveyItemResponse[]): SurveyItemResponse[] {
     const responses: SurveyItemResponse[] = [];
     items.forEach(item => {
       let currentItem: SurveyItemResponse = {
@@ -778,8 +702,8 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     })
     return responses;
   }
-
-  evalConditions(condition?: Expression, temporaryItem?: SurveySingleItem, extraResponses?: SurveyItemResponse[]): boolean {
+ */
+  /* TODO: evalConditions(condition?: Expression, temporaryItem?: SurveySingleItem, extraResponses?: SurveyItemResponse[]): boolean {
     const extra = (extraResponses !== undefined) ? [...extraResponses] : [];
     const responsesForRenderedItems: SurveyGroupItemResponse = {
       ...this.responses,
@@ -794,9 +718,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       temporaryItem,
       this.showDebugMsg,
     );
-  }
+  } */
 
-  private reEvaluateDynamicValues() {
+  /* TODO: private reEvaluateDynamicValues() {
     const resolvedDynamicValues = this.surveyDef.dynamicValues?.map(dv => {
       const resolvedVal = this.evalEngine.eval(dv.expression, this.renderedSurvey, this.context, this.responses, undefined, this.showDebugMsg);
       let currentValue = ''
@@ -815,23 +739,5 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     if (resolvedDynamicValues) {
       this.surveyDef.dynamicValues = resolvedDynamicValues;
     }
-  }
-}
-
-
-const resolveCQMTemplate = (text: string, dynamicValues: DynamicValue[]): string => {
-  if (!text || !dynamicValues || dynamicValues.length < 1) {
-    return text;
-  }
-
-  let resolvedText = text;
-
-  // find {{ }}
-  const regex = /\{\{(.*?)\}\}/g;
-  resolvedText = resolvedText.replace(regex, (match, p1) => {
-    const dynamicValue = dynamicValues.find(dv => dv.key.split('-').pop() === p1.trim());
-    return dynamicValue?.resolvedValue || match;
-  });
-
-  return resolvedText;
+  } */
 }

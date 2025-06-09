@@ -1,37 +1,7 @@
 import { Expression } from "./expression";
 
 // ----------------------------------------------------------------------
-export enum LocalizedContentType {
-  CQM = 'CQM',
-  md = 'md'
-}
 
-export enum AttributionType {
-  style = 'style',
-  template = 'template'
-}
-
-export type Attribution = {
-  type: AttributionType;
-  // TODO
-}
-
-export type LocalizedCQMContent = {
-  type: LocalizedContentType.CQM;
-  content: string;
-  attributions: Array<Attribution>;
-}
-
-export type LocalizedMDContent = {
-  type: LocalizedContentType.md;
-  content: string;
-}
-
-export type LocalizedContent = LocalizedCQMContent | LocalizedMDContent;
-
-export type LocalizedContentTranslation = {
-  [contentKey: string]: LocalizedContent;
-}
 
 // ----------------------------------------------------------------------
 export enum DynamicValueTypes {

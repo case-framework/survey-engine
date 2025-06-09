@@ -1,7 +1,8 @@
 import { SurveyContextDef } from "./context";
-import { Expression, ExpressionArg } from "./expression";
+import { Expression } from "./expression";
 import { SurveyItemType, ConfidentialMode } from "./survey-item";
-import { DynamicValue, LocalizedContent, LocalizedContentTranslation, Validation } from "./utils";
+import { DynamicValue, Validation } from "./utils";
+import { LocalizedContent, LocalizedContentTranslation } from "./localized-content";
 
 export const CURRENT_SURVEY_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
 
@@ -55,8 +56,6 @@ export interface JsonSurveyItemBase {
   metadata?: {
     [key: string]: string;
   }
-  follows?: Array<string>;
-  priority?: number; // can be used to sort items in the list
 
   dynamicValues?: {
     [dynamicValueKey: string]: DynamicValue;
@@ -78,11 +77,10 @@ export interface JsonSurveyItemBase {
 }
 
 
-
 export interface JsonSurveyItemGroup extends JsonSurveyItemBase {
   itemType: SurveyItemType.Group;
   items?: Array<ItemKey>;
-  selectionMethod?: Expression;
+  shuffleItems?: boolean;
 }
 
 export interface JsonSurveyDisplayItem extends JsonSurveyItemBase {
@@ -129,8 +127,10 @@ export interface JsonItemComponent {
     }
   }
   properties?: {
-    [key: string]: string | number | boolean | ExpressionArg;
+    [key: string]: string | number | boolean | {
+      type: 'dynamicValue',
+      dynamicValueKey: string;
+    }
   }
   items?: Array<JsonItemComponent>;
-  order?: Expression;
 }

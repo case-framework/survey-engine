@@ -100,7 +100,6 @@ export class GroupComponent extends ItemComponent {
     const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
     const group = new GroupComponent(componentKey, parentFullKey, parentItemKey);
     group.items = json.items?.map(item => initComponentClassBasedOnType(item, group.key.fullKey, group.key.parentItemKey.fullKey));
-    group.order = json.order;
     group.styles = json.styles;
     return group;
   }
@@ -110,7 +109,6 @@ export class GroupComponent extends ItemComponent {
       key: this.key.fullKey,
       type: ItemComponentType.Group,
       items: this.items?.map(item => item.toJson()),
-      order: this.order,
       styles: this.styles,
     }
   }
@@ -180,7 +178,6 @@ export class SingleChoiceResponseConfigComponent extends ItemComponent {
     const singleChoice = new SingleChoiceResponseConfigComponent(componentKey, parentFullKey, parentItemKey);
     singleChoice.options = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
     singleChoice.styles = json.styles;
-    singleChoice.order = json.order;
     // TODO: parse single choice response config properties
     return singleChoice;
   }
@@ -190,7 +187,6 @@ export class SingleChoiceResponseConfigComponent extends ItemComponent {
       key: this.key.fullKey,
       type: ItemComponentType.SingleChoice,
       items: this.options.map(option => option.toJson()),
-      order: this.order,
       styles: this.styles,
     }
   }

@@ -62,7 +62,7 @@ export class SurveyItemKey extends Key {
     const keyParts = fullKey.split('.');
     const itemKey = keyParts[keyParts.length - 1];
     const parentFullKey = keyParts.slice(0, -1).join('.');
-    return new SurveyItemKey(itemKey, parentFullKey);
+    return new SurveyItemKey(itemKey, parentFullKey || undefined);
   }
 
   get itemKey(): string {

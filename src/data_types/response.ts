@@ -8,7 +8,10 @@ export interface SurveyResponse {
   submittedAt: number;
   openedAt?: number;
   versionId: string;
-  responses: SurveySingleItemResponse[];
+  //responses: SurveySingleItemResponse[];
+  responses: {
+    [key: string]: SurveyItemResponse;
+  };
   context?: any; // key value pairs of data
 }
 

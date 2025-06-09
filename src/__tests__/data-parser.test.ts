@@ -1,4 +1,5 @@
-import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyItemType, SingleChoiceQuestionItem, DynamicValueTypes, ValidationType, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../data_types";
+import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, JsonSurveyCardProps, Survey, SurveyItemType, SingleChoiceQuestionItem, DynamicValueTypes, ValidationType, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../data_types";
+import { LocalizedContentType } from "../data_types/localized-content";
 
 const surveyCardProps: JsonSurveyCardProps = {
   name: {

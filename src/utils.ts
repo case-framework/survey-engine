@@ -3,9 +3,6 @@
   return items[Math.floor(Math.random() * items.length)];
 }
 
-export const removeItemByKey = (items: Array<any>, key: string): Array<any> => {
-  return items.filter(item => item.key !== key);
-}
 
 
 export const printResponses = (responses: SurveySingleItemResponse[], prefix: string) => {
