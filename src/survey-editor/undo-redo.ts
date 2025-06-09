@@ -1,7 +1,7 @@
 import { JsonSurvey } from "../data_types/survey-file-schema";
 import { structuredCloneMethod } from "../utils";
 
-interface UndoRedoConfig {
+export interface UndoRedoConfig {
   maxTotalMemoryMB: number;
   minHistorySize: number;
   maxHistorySize: number;

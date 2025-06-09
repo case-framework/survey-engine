@@ -1,12 +1,11 @@
 import { SurveyContextDef } from "./context";
 import { Expression } from "./expression";
-import { CURRENT_SURVEY_SCHEMA, JsonSurvey } from "./survey-file-schema";
-import { GroupItem } from "./survey-item";
-import { GroupItemEditor } from "./survey-item-editor";
+import { CURRENT_SURVEY_SCHEMA, JsonSurvey, SurveyTranslations } from "./survey-file-schema";
+import { GroupItem, SurveyItem } from "./survey-item";
+
 
 
 abstract class SurveyBase {
-
   prefillRules?: Expression[];
   contextRules?: SurveyContextDef;
   maxItemsPerPage?: { large: number, small: number };
@@ -20,64 +19,94 @@ abstract class SurveyBase {
 
 
 export class Survey extends SurveyBase {
-  surveyDefinition: GroupItem;
+  surveyItems: {
+    [itemKey: string]: SurveyItem;
+  } = {};
+
+  translations?: SurveyTranslations;
 
 
   constructor(key: string = 'survey') {
     super();
-    this.surveyDefinition = new GroupItem(key);
+    this.surveyItems = {
+      [key]: new GroupItem(key),
+    };
   }
 
   static fromJson(json: object): Survey {
-    let survey = new Survey();
+    const survey = new Survey();
     const rawSurvey = json as JsonSurvey;
-    if (!rawSurvey.surveyDefinition) {
-      throw new Error('surveyDefinition is required');
+    if (!rawSurvey.surveyItems || Object.keys(rawSurvey.surveyItems).length === 0) {
+      throw new Error('surveyItems is required');
     }
     if (rawSurvey.$schema !== CURRENT_SURVEY_SCHEMA) {
       throw new Error(`Unsupported survey schema: ${rawSurvey.$schema}`);
     }
 
-    survey.surveyDefinition = GroupItem.fromJson(rawSurvey.surveyDefinition);
+    survey.surveyItems = {}
+    Object.keys(rawSurvey.surveyItems).forEach(itemFullKey => {
+      survey.surveyItems[itemFullKey] = SurveyItem.fromJson(itemFullKey, rawSurvey.surveyItems[itemFullKey]);
+    });
 
-    // TODO: parse other fields
+    // Parse other fields
+    if (rawSurvey.translations) {
+      survey.translations = rawSurvey.translations;
+    }
+    if (rawSurvey.prefillRules) {
+      survey.prefillRules = rawSurvey.prefillRules;
+    }
+    if (rawSurvey.contextRules) {
+      survey.contextRules = rawSurvey.contextRules;
+    }
+    if (rawSurvey.maxItemsPerPage) {
+      survey.maxItemsPerPage = rawSurvey.maxItemsPerPage;
+    }
+    if (rawSurvey.availableFor) {
+      survey.availableFor = rawSurvey.availableFor;
+    }
+    if (rawSurvey.requireLoginBeforeSubmission !== undefined) {
+      survey.requireLoginBeforeSubmission = rawSurvey.requireLoginBeforeSubmission;
+    }
+    if (rawSurvey.metadata) {
+      survey.metadata = rawSurvey.metadata;
+    }
+
     return survey;
   }
 
   toJson(): JsonSurvey {
     const json: JsonSurvey = {
       $schema: CURRENT_SURVEY_SCHEMA,
+      surveyItems: Object.fromEntries(Object.entries(this.surveyItems).map(([itemFullKey, item]) => [itemFullKey, item.toJson()])),
     };
-    json.surveyDefinition = this.surveyDefinition.toJson();
 
-    // TODO: export other fields
+    // Export other fields
+    if (this.translations) {
+      json.translations = this.translations as SurveyTranslations;
+    }
+    if (this.prefillRules) {
+      json.prefillRules = this.prefillRules;
+    }
+    if (this.contextRules) {
+      json.contextRules = this.contextRules;
+    }
+    if (this.maxItemsPerPage) {
+      json.maxItemsPerPage = this.maxItemsPerPage;
+    }
+    if (this.availableFor) {
+      json.availableFor = this.availableFor;
+    }
+    if (this.requireLoginBeforeSubmission !== undefined) {
+      json.requireLoginBeforeSubmission = this.requireLoginBeforeSubmission;
+    }
+    if (this.metadata) {
+      json.metadata = this.metadata;
+    }
+
     return json;
   }
-}
 
-
-export class SurveyEditor extends SurveyBase {
-  surveyDefinition!: GroupItemEditor;
-
-  constructor(key: string = 'survey') {
-    super();
-    this.surveyDefinition = new GroupItemEditor(key);
-  }
-
-  static fromSurvey(survey: Survey): SurveyEditor {
-    const surveyEditor = new SurveyEditor();
-    Object.assign(surveyEditor, survey);
-    surveyEditor.surveyDefinition = GroupItemEditor.fromSurveyItem(survey.surveyDefinition);
-
-    // TODO: parse survey definition include translations and dynamic values and validations and display conditions and disabled conditions
-
-    return surveyEditor;
-  }
-
-  getSurvey(): Survey {
-    const survey = new Survey(this.surveyDefinition.key.fullKey);
-    survey.surveyDefinition = this.surveyDefinition.toSurveyItem();
-    // TODO: export other fields
-    return survey;
+  get locales(): string[] {
+    return Object.keys(this.translations || {});
   }
 }

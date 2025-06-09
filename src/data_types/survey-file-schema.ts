@@ -1,10 +1,18 @@
 import { SurveyContextDef } from "./context";
 import { Expression, ExpressionArg } from "./expression";
-import { SurveyItemType } from "./survey-item";
-import { ConfidentialMode } from "./survey-item-component";
+import { SurveyItemType, ConfidentialMode } from "./survey-item";
 import { DynamicValue, LocalizedContent, LocalizedContentTranslation, Validation } from "./utils";
 
 export const CURRENT_SURVEY_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
+
+export interface SurveyTranslations {
+  [locale: string]: {
+    [key: string]: JsonSurveyCardProps | LocalizedContentTranslation;
+  } & {
+    surveyCardProps?: JsonSurveyCardProps;
+  }
+}
+
 
 export interface SurveyVersion {
   id?: string;
@@ -15,6 +23,8 @@ export interface SurveyVersion {
   survey: JsonSurvey;
 }
 
+type ItemKey = string;
+
 export type JsonSurvey = {
   $schema: string;
   prefillRules?: Expression[];
@@ -23,43 +33,15 @@ export type JsonSurvey = {
   availableFor?: string;
   requireLoginBeforeSubmission?: boolean;
 
-  surveyDefinition?: JsonSurveyItemGroup;
+  surveyItems: {
+    [itemKey: ItemKey]: JsonSurveyItem;
+  }
 
   metadata?: {
     [key: string]: string
   }
 
-  translations?: {
-    [locale: string]: {
-      surveyCardProps: JsonSurveyCardProps;
-      [key: string]: JsonSurveyCardProps | LocalizedContentTranslation;
-    }
-  };
-  dynamicValues?: {
-    [itemKey: string]: {
-      [dynamicValueKey: string]: DynamicValue;
-    }
-  };
-  validations?: {
-    [itemKey: string]: {
-      [validationKey: string]: Validation;
-    };
-  };
-  displayConditions?: {
-    [itemKey: string]: {
-      root?: Expression;
-      components?: {
-        [componentKey: string]: Expression;
-      }
-    }
-  }
-  disabledConditions?: {
-    [itemKey: string]: {
-      components?: {
-        [componentKey: string]: Expression;
-      }
-    }
-  }
+  translations?: SurveyTranslations;
 }
 
 export interface JsonSurveyCardProps {
@@ -69,18 +51,37 @@ export interface JsonSurveyCardProps {
 }
 
 export interface JsonSurveyItemBase {
-  key: string;
   itemType: string;
   metadata?: {
     [key: string]: string;
   }
   follows?: Array<string>;
   priority?: number; // can be used to sort items in the list
+
+  dynamicValues?: {
+    [dynamicValueKey: string]: DynamicValue;
+  };
+  validations?: {
+    [validationKey: string]: Validation;
+  };
+  displayConditions?: {
+    root?: Expression;
+    components?: {
+      [componentKey: string]: Expression;
+    }
+  }
+  disabledConditions?: {
+    components?: {
+      [componentKey: string]: Expression;
+    }
+  }
 }
+
+
 
 export interface JsonSurveyItemGroup extends JsonSurveyItemBase {
   itemType: SurveyItemType.Group;
-  items?: Array<JsonSurveyItem>;
+  items?: Array<ItemKey>;
   selectionMethod?: Expression;
 }
 

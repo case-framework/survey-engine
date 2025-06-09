@@ -1,8 +1,7 @@
-import { Expression, ExpressionArg } from "./expression";
+import { Expression } from "./expression";
 import { ItemComponentKey } from "./item-component-key";
 import { JsonItemComponent } from "./survey-file-schema";
-import { SurveyItemType } from "./survey-item";
-import { DynamicValue, LocalizedContent, LocalizedContentTranslation } from "./utils";
+
 
 // ----------------------------------------------------------------------
 
@@ -11,6 +10,17 @@ import { DynamicValue, LocalizedContent, LocalizedContentTranslation } from "./u
 export enum ItemComponentType {
   Display = 'display',
   Group = 'group',
+
+  SingleChoice = 'scg',
+  MultipleChoice = 'mcg',
+  ScgMcgOption = 'scgMcgOption',
+  ScgMcgOptionWithTextInput = 'scgMcgOptionWithTextInput',
+  ScgMcgOptionWithNumberInput = 'scgMcgOptionWithNumberInput',
+  ScgMcgOptionWithDateInput = 'scgMcgOptionWithDateInput',
+  ScgMcgOptionWithTimeInput = 'scgMcgOptionWithTimeInput',
+  ScgMcgOptionWithDropdown = 'scgMcgOptionWithDropdown',
+  ScgMcgOptionWithCloze = 'scgMcgOptionWithCloze',
+
 }
 
 /*
@@ -134,7 +144,74 @@ export class DisplayComponent extends ItemComponent {
 }
 
 
+export class SingleChoiceResponseConfigComponent extends ItemComponent {
+  componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
+  options: Array<ScgMcgOptionBase>;
+  order?: Expression;
 
+  // TODO: add single choice response config properties
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(
+      compKey,
+      parentFullKey,
+      ItemComponentType.SingleChoice,
+      parentItemKey,
+    );
+    this.options = [];
+  }
+
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): SingleChoiceResponseConfigComponent {
+    const singleChoice = new SingleChoiceResponseConfigComponent(json.key, parentFullKey, parentItemKey);
+    singleChoice.options = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
+    singleChoice.styles = json.styles;
+    singleChoice.order = json.order;
+    // TODO: parse single choice response config properties
+    return singleChoice;
+  }
+
+  toJson(): JsonItemComponent {
+    return {
+      key: this.key.fullKey,
+      type: ItemComponentType.SingleChoice,
+      items: this.options.map(option => option.toJson()),
+      order: this.order,
+      styles: this.styles,
+    }
+  }
+}
+
+abstract class ScgMcgOptionBase extends ItemComponent {
+
+  static fromJson(item: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOptionBase {
+    switch (item.type) {
+      case ItemComponentType.ScgMcgOption:
+        return ScgMcgOption.fromJson(item, parentFullKey, parentItemKey);
+      default:
+        throw new Error(`Unsupported item type for initialization: ${item.type}`);
+    }
+  }
+}
+
+export class ScgMcgOption extends ScgMcgOptionBase {
+  componentType: ItemComponentType.ScgMcgOption = ItemComponentType.ScgMcgOption;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(compKey, parentFullKey, ItemComponentType.ScgMcgOption, parentItemKey);
+  }
+
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOption {
+    const option = new ScgMcgOption(json.key, parentFullKey, parentItemKey);
+    return option;
+  }
+
+  toJson(): JsonItemComponent {
+    return {
+      key: this.key.fullKey,
+      type: ItemComponentType.ScgMcgOption,
+    }
+  }
+}
 
 
 
@@ -145,86 +222,5 @@ export class DisplayComponent extends ItemComponent {
 // ----------------------------------------------------------------------
 
 
-interface ContentStuffWithAttributions {
-  todo: string
-}
-interface GenericItemComponent {
-  // toObject(): ItemComponentObject;
-}
-
-interface ItemComponentObject extends JsonItemComponent {
-  translations?: {
-    [locale: string]: {
-      [key: string]: ContentStuffWithAttributions;
-    }; // TODO: define type
-  };
-  dynamicValues?: DynamicValue[];
-  displayCondition?: Expression;
-  disabled?: Expression;
-}
-
-class TitleComponent implements GenericItemComponent {
-  key: string;
-  styles?: {
-    classNames?: string;
-  }
-
-  constructor(key: string) {
-    this.key = key;
-  }
-
-  // TODO: constructor
-  // TODO: getters
 
 
-}
-
-class TitleComponentEditor extends TitleComponent {
-  translations?: {
-    [locale: string]: {
-      [key: string]: ContentStuffWithAttributions;
-    };
-  }
-
-  dynamicValues?: DynamicValue[];
-  displayCondition?: Expression;
-  disabled?: Expression;
-
-  // TODO: constructor
-  // TODO: setters
-}
-
-class ResolvedTitleComponent extends TitleComponent {
-  currentTranslation?: {
-    [key: string]: ContentStuffWithAttributions;
-  } // only translations for selected language
-  dynamicValues?: {
-    [key: string]: string;
-  }
-  displayCondition?: boolean;
-  disabled?: boolean;
-
-  // TODO: constructor
-}
-
-export enum ConfidentialMode {
-  Add = 'add',
-  Replace = 'replace'
-}
-
-export class ResponseComponent implements GenericItemComponent {
-  key: string;
-  styles?: {
-    classNames?: string;
-  }
-
-  confidentiality?: {
-    mode: ConfidentialMode;
-    mapToKey?: string;
-  }
-  //confidentialMode?: ConfidentialMode;
-
-  constructor(key: string) {
-    this.key = key;
-  }
-}
