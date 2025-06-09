@@ -301,4 +301,28 @@ export class SurveyEditor {
     this.markAsModified();
     return true;
   }
+
+  deleteComponent(itemKey: string, componentKey: string): void {
+    this.commitIfNeeded();
+
+    const item = this._survey.surveyItems[itemKey];
+    if (!item) {
+      throw new Error(`Item with key '${itemKey}' not found`);
+    }
+
+    item.onComponentDeleted?.(componentKey);
+
+    for (const locale of this._survey.locales) {
+      const itemTranslations = this._survey.translations?.[locale]?.[itemKey];
+      if (itemTranslations) {
+        for (const key of Object.keys(itemTranslations)) {
+          if (key.startsWith(componentKey)) {
+            delete itemTranslations[key as keyof typeof itemTranslations];
+          }
+        }
+      }
+    }
+
+    this.commit(`Deleted component ${componentKey} from ${itemKey}`);
+  }
 }

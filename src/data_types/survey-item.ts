@@ -60,6 +60,8 @@ export abstract class SurveyItem {
 
   abstract toJson(): JsonSurveyItem
 
+  onComponentDeleted?(componentKey: string): void;
+
   static fromJson(key: string, json: JsonSurveyItem): SurveyItem {
     return initItemClassBasedOnType(key, json);
   }
@@ -81,6 +83,8 @@ const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem
       return PageBreakItem.fromJson(key, json as JsonSurveyPageBreakItem);
     case SurveyItemType.SurveyEnd:
       return SurveyEndItem.fromJson(key, json as JsonSurveyEndItem);
+    case SurveyItemType.SingleChoiceQuestion:
+      return SingleChoiceQuestionItem.fromJson(key, json as JsonSurveyResponseItem);
     default:
       throw new Error(`Unsupported item type for initialization: ${json.itemType}`);
   }
@@ -123,6 +127,10 @@ export class GroupItem extends SurveyItem {
       displayConditions: this.displayConditions,
     }
   }
+
+  onComponentDeleted(_componentKey: string): void {
+    // can be ignored for group item
+  }
 }
 
 export class DisplayItem extends SurveyItem {
@@ -154,6 +162,10 @@ export class DisplayItem extends SurveyItem {
       displayConditions: this.displayConditions,
       dynamicValues: this._dynamicValues,
     }
+  }
+
+  onComponentDeleted(componentKey: string): void {
+    this.components = this.components?.filter(c => c.key.fullKey !== componentKey);
   }
 }
 
@@ -236,7 +248,9 @@ export abstract class QuestionItem extends SurveyItem {
     this.priority = json.priority;
     this.follows = json.follows;
     this.displayConditions = json.displayConditions;
+    this._disabledConditions = json.disabledConditions;
     this._dynamicValues = json.dynamicValues;
+    this._validations = json.validations;
 
     this.header = {
       title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) : undefined,
@@ -261,7 +275,9 @@ export abstract class QuestionItem extends SurveyItem {
       priority: this.priority,
       follows: this.follows,
       displayConditions: this.displayConditions,
+      disabledConditions: this._disabledConditions,
       dynamicValues: this._dynamicValues,
+      validations: this._validations,
     }
 
     json.header = {
@@ -285,6 +301,55 @@ export abstract class QuestionItem extends SurveyItem {
     [validationKey: string]: Validation;
   } | undefined {
     return this._validations;
+  }
+
+  get disabledConditions(): {
+    components?: {
+      [componentKey: string]: Expression;
+    }
+  } | undefined {
+    return this._disabledConditions;
+  }
+
+  set disabledConditions(disabledConditions: {
+    components?: {
+      [componentKey: string]: Expression;
+    }
+  } | undefined) {
+    this._disabledConditions = disabledConditions;
+  }
+
+  onComponentDeleted(componentKey: string): void {
+    if (this.header?.title?.key.fullKey === componentKey) {
+      this.header.title = undefined;
+    }
+    if (this.header?.subtitle?.key.fullKey === componentKey) {
+      this.header.subtitle = undefined;
+    }
+    if (this.header?.helpPopover?.key.fullKey === componentKey) {
+      this.header.helpPopover = undefined;
+    }
+    if (this.body?.topContent?.some(c => c.key.fullKey === componentKey)) {
+      this.body.topContent = this.body.topContent?.filter(c => c.key.fullKey !== componentKey);
+    }
+    if (this.body?.bottomContent?.some(c => c.key.fullKey === componentKey)) {
+      this.body.bottomContent = this.body.bottomContent?.filter(c => c.key.fullKey !== componentKey);
+    }
+    if (this.footer?.key.fullKey === componentKey) {
+      this.footer = undefined;
+    }
+
+    if (componentKey.startsWith(this.responseConfig.key.fullKey)) {
+      this.responseConfig.onSubComponentDeleted?.(componentKey);
+    }
+
+    if (this.displayConditions?.components?.[componentKey]) {
+      delete this.displayConditions.components[componentKey];
+    }
+
+    if (this._disabledConditions?.components?.[componentKey]) {
+      delete this._disabledConditions.components[componentKey];
+    }
   }
 }
 

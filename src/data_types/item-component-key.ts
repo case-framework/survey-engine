@@ -99,4 +99,12 @@ export class ItemComponentKey extends Key {
   get parentItemKey(): SurveyItemKey {
     return this._parentItemKey;
   }
+
+  static fromFullKey(fullKey: string): ItemComponentKey {
+    const keyParts = fullKey.split('.');
+    const componentKey = keyParts[keyParts.length - 1];
+    const parentComponentFullKey = keyParts.slice(0, -1).join('.');
+    const parentItemFullKey = keyParts.slice(0, -2).join('.');
+    return new ItemComponentKey(componentKey, parentComponentFullKey, parentItemFullKey);
+  }
 }

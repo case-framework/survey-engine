@@ -1,7 +1,11 @@
 import { Survey } from '../data_types/survey';
 import { SurveyEditor } from '../survey-editor/survey-editor';
-import { DisplayItem, GroupItem, SurveyItemType, SurveyItemTranslations } from '../data_types/survey-item';
-import { DisplayComponent } from '../data_types/survey-item-component';
+import { DisplayItem, GroupItem, SurveyItemTranslations, SingleChoiceQuestionItem } from '../data_types/survey-item';
+import { DisplayComponent, SingleChoiceResponseConfigComponent, ScgMcgOption } from '../data_types/survey-item-component';
+import { ScgMcgOptionEditor } from '../survey-editor/component-editor';
+import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
+import { LocalizedContentTranslation } from '../data_types';
+
 
 describe('SurveyEditor', () => {
   let survey: Survey;
@@ -752,6 +756,487 @@ describe('SurveyEditor', () => {
         expect(config).toHaveProperty('maxTotalMemoryMB');
         expect(config).toHaveProperty('minHistorySize');
         expect(config).toHaveProperty('maxHistorySize');
+      });
+    });
+  });
+
+  describe('deleteComponent functionality', () => {
+    let singleChoiceQuestion: SingleChoiceQuestionItem;
+    let questionTranslations: SurveyItemTranslations;
+
+    beforeEach(() => {
+      // Create a single choice question with options
+      singleChoiceQuestion = new SingleChoiceQuestionItem('testSurvey.scQuestion');
+
+      // Set up the response config with options
+      singleChoiceQuestion.responseConfig = new SingleChoiceResponseConfigComponent('rg', undefined, singleChoiceQuestion.key.fullKey);
+
+      // Add some options
+      const option1 = new ScgMcgOption('option1', singleChoiceQuestion.responseConfig.key.fullKey, singleChoiceQuestion.key.fullKey);
+      const option2 = new ScgMcgOption('option2', singleChoiceQuestion.responseConfig.key.fullKey, singleChoiceQuestion.key.fullKey);
+      const option3 = new ScgMcgOption('option3', singleChoiceQuestion.responseConfig.key.fullKey, singleChoiceQuestion.key.fullKey);
+
+      singleChoiceQuestion.responseConfig.options = [option1, option2, option3];
+
+      // Create translations for the question and options
+      questionTranslations = {
+        en: {
+          'title': 'What is your favorite color?',
+          'rg.option1': 'Red',
+          'rg.option2': 'Blue',
+          'rg.option3': 'Green'
+        },
+        es: {
+          'title': '¿Cuál es tu color favorito?',
+          'rg.option1': 'Rojo',
+          'rg.option2': 'Azul',
+          'rg.option3': 'Verde'
+        }
+      };
+
+      // Add the question to the survey
+      editor.addItem(undefined, singleChoiceQuestion, questionTranslations);
+    });
+
+    describe('deleting single choice option', () => {
+      it('should delete an option from single choice question', () => {
+        const originalOptionCount = singleChoiceQuestion.responseConfig.options.length;
+        expect(originalOptionCount).toBe(3);
+
+        // Delete the second option through option editor
+        const itemEditor = new SingleChoiceQuestionEditor(editor, 'testSurvey.scQuestion');
+        const optionEditor = new ScgMcgOptionEditor(itemEditor, singleChoiceQuestion.responseConfig.options[1] as ScgMcgOption);
+        optionEditor.delete();
+
+        // Check that the option was removed from the responseConfig
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.responseConfig.options).toHaveLength(2);
+
+        // Check that the correct option was removed
+        const remainingOptionKeys = updatedQuestion.responseConfig.options.map(opt => opt.key.componentKey);
+        expect(remainingOptionKeys).toEqual(['option1', 'option3']);
+        expect(remainingOptionKeys).not.toContain('option2');
+      });
+
+      it('should remove option translations when deleting option', () => {
+        // Verify translations exist before deletion
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Blue');
+        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Azul');
+
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify translations were removed
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
+        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
+
+        // Verify other translations remain
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option1']).toBe('Red');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toBe('Green');
+      });
+
+      it('should allow undo after deleting option', () => {
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify option was deleted
+        const questionAfterDelete = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterDelete.responseConfig.options).toHaveLength(2);
+
+        // Undo the deletion
+        const undoResult = editor.undo();
+        expect(undoResult).toBe(true);
+
+        // Verify option was restored
+        const questionAfterUndo = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterUndo.responseConfig.options).toHaveLength(3);
+
+        const restoredOptionKeys = questionAfterUndo.responseConfig.options.map(opt => opt.key.componentKey);
+        expect(restoredOptionKeys).toEqual(['option1', 'option2', 'option3']);
+      });
+
+      it('should restore option translations when undoing option deletion', () => {
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify translations were removed
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
+
+        // Undo the deletion
+        editor.undo();
+
+        // Verify translations were restored
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Blue');
+        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Azul');
+      });
+
+      it('should allow redo after undo of option deletion', () => {
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+        editor.undo();
+
+        expect(editor.canRedo()).toBe(true);
+        expect(editor.getRedoDescription()).toBe('Deleted component rg.option2 from testSurvey.scQuestion');
+
+        // Redo the deletion
+        const redoResult = editor.redo();
+        expect(redoResult).toBe(true);
+
+        // Verify option was deleted again
+        const questionAfterRedo = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterRedo.responseConfig.options).toHaveLength(2);
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
+      });
+
+      it('should handle deleting multiple options in sequence', () => {
+        // Delete multiple options
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option1');
+
+        const questionAfterDeletes = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterDeletes.responseConfig.options).toHaveLength(1);
+
+        const remainingOptionKeys = questionAfterDeletes.responseConfig.options.map(opt => opt.key.componentKey);
+        expect(remainingOptionKeys).toEqual(['option3']);
+
+        // Verify translations were removed
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option1']).toBeUndefined();
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toBe('Green');
+
+        // Should be able to undo both operations
+        expect(editor.undo()).toBe(true); // Undo second deletion (option1)
+        const questionAfterFirstUndo = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterFirstUndo.responseConfig.options).toHaveLength(2);
+
+        expect(editor.undo()).toBe(true); // Undo first deletion (option2)
+        const questionAfterSecondUndo = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterSecondUndo.responseConfig.options).toHaveLength(3);
+      });
+
+      it('should delete all options from a single choice question', () => {
+        // Delete all options
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option1');
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option3');
+
+        const questionAfterDeletes = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterDeletes.responseConfig.options).toHaveLength(0);
+
+        // Verify all option translations were removed
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option1']).toBeUndefined();
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toBeUndefined();
+
+        // Question title should remain
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['title']).toBe('What is your favorite color?');
+      });
+
+      it('should commit changes automatically when deleting option', () => {
+        expect(editor.hasUncommittedChanges).toBe(false);
+
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        expect(editor.hasUncommittedChanges).toBe(false); // Should be committed
+        expect(editor.canUndo()).toBe(true);
+        expect(editor.getUndoDescription()).toBe('Deleted component rg.option2 from testSurvey.scQuestion');
+      });
+
+      it('should commit uncommitted changes before deleting option', () => {
+        // Make some uncommitted changes first
+        const newTranslations: SurveyItemTranslations = {
+          en: { 'title': 'Updated: What is your favorite color?' }
+        };
+        editor.updateItemTranslations('testSurvey.scQuestion', newTranslations);
+        expect(editor.hasUncommittedChanges).toBe(true);
+
+        // Delete an option - should commit the uncommitted changes first
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        expect(editor.hasUncommittedChanges).toBe(false);
+
+        // Should be able to undo the deletion
+        expect(editor.undo()).toBe(true);
+
+        // Should be able to undo the translation update
+        expect(editor.undo()).toBe(true);
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['title']).toBe('What is your favorite color?');
+      });
+
+      it('should remove display conditions when deleting option', () => {
+        // Add display conditions for options
+        const question = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        question.displayConditions = {
+          components: {
+            'rg.option1': { name: 'gt', data: [{ num: 5 }, { num: 3 }] },
+            'rg.option2': { name: 'eq', data: [{ str: 'test' }, { str: 'value' }] },
+            'rg.option3': { name: 'lt', data: [{ num: 10 }, { num: 15 }] }
+          }
+        };
+
+        // Update the question in the survey
+        editor.survey.surveyItems['testSurvey.scQuestion'] = question;
+
+        // Verify display conditions exist before deletion
+        expect(question.displayConditions?.components?.['rg.option1']).toBeDefined();
+        expect(question.displayConditions?.components?.['rg.option2']).toBeDefined();
+        expect(question.displayConditions?.components?.['rg.option3']).toBeDefined();
+
+        // Delete the second option
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify the display condition for the deleted option was removed
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.displayConditions?.components?.['rg.option2']).toBeUndefined();
+
+        // Verify other display conditions remain
+        expect(updatedQuestion.displayConditions?.components?.['rg.option1']).toBeDefined();
+        expect(updatedQuestion.displayConditions?.components?.['rg.option3']).toBeDefined();
+      });
+
+      it('should handle deleting option with no display conditions gracefully', () => {
+        // Ensure question has no display conditions
+        const question = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        question.displayConditions = undefined;
+        editor.commitIfNeeded();
+
+        // This should not throw an error
+        expect(() => {
+          editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+        }).not.toThrow();
+
+        // Verify option was still deleted
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.responseConfig.options).toHaveLength(2);
+      });
+
+      it('should handle deleting option when only some options have display conditions', () => {
+        // Add display conditions only for some options
+        const question = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        question.displayConditions = {
+          components: {
+            'rg.option2': { name: 'eq', data: [{ str: 'test' }, { str: 'value' }] }
+            // No conditions for option1 and option3
+          }
+        };
+        editor.commitIfNeeded();
+
+        // Delete option2 (which has display conditions)
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify the display condition was removed
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.displayConditions?.components?.['rg.option2']).toBeUndefined();
+
+        // Verify the components object still exists (even if empty of this specific condition)
+        expect(updatedQuestion.displayConditions?.components).toBeDefined();
+
+        // Delete option1 (which has no display conditions)
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option1');
+
+        // This should not cause any errors
+        const finalQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(finalQuestion.responseConfig.options).toHaveLength(1);
+      });
+    });
+
+    describe('deleting options with disabled conditions', () => {
+      beforeEach(() => {
+        // Set up disabled conditions on the question BEFORE it gets committed to undo history
+        const question = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+
+        question.disabledConditions = {
+          components: {
+            'rg.option1': { name: 'gt', data: [{ num: 5 }, { num: 3 }] },
+            'rg.option2': { name: 'eq', data: [{ str: 'test' }, { str: 'value' }] },
+            'rg.option3': { name: 'lt', data: [{ num: 10 }, { num: 15 }] }
+          }
+        };
+
+        // Commit this state so disabled conditions are included in the history
+        editor.commit('test');
+      });
+
+      it('should remove disabled conditions when deleting option', () => {
+        // Verify disabled conditions exist before deletion
+        const question = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(question.disabledConditions?.components?.['rg.option1']).toBeDefined();
+        expect(question.disabledConditions?.components?.['rg.option2']).toBeDefined();
+        expect(question.disabledConditions?.components?.['rg.option3']).toBeDefined();
+
+        // Delete the second option
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify the disabled condition for the deleted option was removed
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option2']).toBeUndefined();
+
+        // Verify other disabled conditions remain
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option1']).toBeDefined();
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option3']).toBeDefined();
+      });
+
+      it('should restore disabled conditions when undoing option deletion', () => {
+        const question = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        const originalDisabledCondition = structuredClone(question.disabledConditions?.components?.['rg.option2']);
+
+        // Delete the second option
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify the disabled condition was removed
+        let updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option2']).toBeUndefined();
+
+        // Undo the deletion
+        editor.undo();
+
+        // Verify the disabled condition was restored
+        updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option2']).toEqual(originalDisabledCondition);
+
+        // Verify other disabled conditions are still intact
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option1']).toBeDefined();
+        expect(updatedQuestion.disabledConditions?.components?.['rg.option3']).toBeDefined();
+      });
+    });
+
+    describe('error handling', () => {
+      it('should throw error when trying to delete component from non-existent item', () => {
+        expect(() => {
+          editor.deleteComponent('nonexistent.item', 'rg.option1');
+        }).toThrow("Item with key 'nonexistent.item' not found");
+
+        expect(editor.hasUncommittedChanges).toBe(false);
+      });
+
+      it('should handle deleting non-existent option gracefully', () => {
+        const originalOptionCount = singleChoiceQuestion.responseConfig.options.length;
+
+        // This should not throw an error, just do nothing
+        expect(() => {
+          editor.deleteComponent('testSurvey.scQuestion', 'rg.nonexistentOption');
+        }).not.toThrow();
+
+        // Options should remain unchanged
+        const questionAfterDelete = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterDelete.responseConfig.options).toHaveLength(originalOptionCount);
+      });
+
+      it('should handle deleting option from question with no options', () => {
+        // Create a question with no options
+        const emptyQuestion = new SingleChoiceQuestionItem('testSurvey.emptyQuestion');
+        emptyQuestion.responseConfig = new SingleChoiceResponseConfigComponent('rg', undefined, emptyQuestion.key.fullKey);
+        emptyQuestion.responseConfig.options = [];
+
+        const emptyQuestionTranslations: SurveyItemTranslations = {
+          en: { 'title': 'Empty question' }
+        };
+
+        editor.addItem(undefined, emptyQuestion, emptyQuestionTranslations);
+
+        // This should not throw an error
+        expect(() => {
+          editor.deleteComponent('testSurvey.emptyQuestion', 'rg.option1');
+        }).not.toThrow();
+
+        // Options array should remain empty
+        const questionAfterDelete = editor.survey.surveyItems['testSurvey.emptyQuestion'] as SingleChoiceQuestionItem;
+        expect(questionAfterDelete.responseConfig.options).toHaveLength(0);
+      });
+    });
+
+    describe('integration with other components', () => {
+      it('should not affect other question components when deleting option', () => {
+        // Set up question with header/footer components
+        singleChoiceQuestion.header = {
+          title: new DisplayComponent('title', undefined, 'testSurvey.scQuestion'),
+          subtitle: new DisplayComponent('subtitle', undefined, 'testSurvey.scQuestion')
+        };
+        singleChoiceQuestion.footer = new DisplayComponent('footer', undefined, 'testSurvey.scQuestion');
+
+        // Update the question in the survey
+        editor.survey.surveyItems['testSurvey.scQuestion'] = singleChoiceQuestion;
+
+        // Delete an option
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Verify other components are unaffected
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        expect(updatedQuestion.header?.title).toBeDefined();
+        expect(updatedQuestion.header?.subtitle).toBeDefined();
+        expect(updatedQuestion.footer).toBeDefined();
+        expect(updatedQuestion.responseConfig.options).toHaveLength(2);
+      });
+
+      it('should handle option deletion with complex component hierarchies', () => {
+        // Create a question with nested components
+        const complexOption = new ScgMcgOption('complexOption', singleChoiceQuestion.responseConfig.key.fullKey, singleChoiceQuestion.key.fullKey);
+        singleChoiceQuestion.responseConfig.options.push(complexOption);
+
+        // Update the question in the survey
+        editor.survey.surveyItems['testSurvey.scQuestion'] = singleChoiceQuestion;
+
+        // Add translations for the complex option
+        const complexTranslations: SurveyItemTranslations = {
+          en: {
+            'rg.complexOption': 'Complex option',
+            'rg.complexOption.subComponent': 'Sub component text'
+          }
+        };
+        editor.updateItemTranslations('testSurvey.scQuestion', complexTranslations);
+
+        // Commit the translation updates
+        editor.commitIfNeeded();
+
+        // Delete the complex option
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.complexOption');
+
+        // Verify the option and its sub-components were removed
+        const updatedQuestion = editor.survey.surveyItems['testSurvey.scQuestion'] as SingleChoiceQuestionItem;
+        const optionKeys = updatedQuestion.responseConfig.options.map(opt => opt.key.componentKey);
+        expect(optionKeys).not.toContain('complexOption');
+
+        // Verify translations for the option and its sub-components were removed
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.complexOption']).toBeUndefined();
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.complexOption.subComponent']).toBeUndefined();
+      });
+    });
+
+    describe('memory and performance', () => {
+      it('should handle multiple option deletions without memory leaks', () => {
+        const initialMemory = editor.getMemoryUsage();
+
+        // Perform multiple deletions
+        for (let i = 0; i < 10; i++) {
+          // Add an option
+          const newOption = new ScgMcgOption(`tempOption${i}`, singleChoiceQuestion.responseConfig.key.fullKey, singleChoiceQuestion.key.fullKey);
+          singleChoiceQuestion.responseConfig.options.push(newOption);
+          editor.survey.surveyItems['testSurvey.scQuestion'] = singleChoiceQuestion;
+
+          // Delete the option
+          editor.deleteComponent('testSurvey.scQuestion', `rg.tempOption${i}`);
+        }
+
+        const finalMemory = editor.getMemoryUsage();
+
+        // Memory should have increased due to undo history, but not excessively
+        expect(finalMemory.entries).toBeGreaterThan(initialMemory.entries);
+        expect(finalMemory.totalMB).toBeGreaterThan(0);
+      });
+
+      it('should maintain consistent state across multiple undo/redo cycles', () => {
+        const originalState = JSON.parse(JSON.stringify(editor.survey.toJson()));
+
+        // Perform deletion
+        editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
+
+        // Undo and redo multiple times
+        for (let i = 0; i < 5; i++) {
+          editor.undo();
+          editor.redo();
+        }
+
+        // Final undo to return to original state
+        editor.undo();
+
+        const finalState = editor.survey.toJson();
+        expect(finalState).toEqual(originalState);
       });
     });
   });
