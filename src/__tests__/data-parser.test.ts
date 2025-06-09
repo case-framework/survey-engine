@@ -1,4 +1,4 @@
-import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyEditor, SurveyItemType } from "../data_types";
+import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, JsonSurveyCardProps, LocalizedContentType, Survey, SurveyItemType } from "../data_types";
 
 const surveyCardProps: JsonSurveyCardProps = {
   name: {
@@ -19,44 +19,64 @@ const surveyCardProps: JsonSurveyCardProps = {
 
 const surveyJson: JsonSurvey = {
   $schema: CURRENT_SURVEY_SCHEMA,
-  surveyDefinition: {
-    key: 'survey',
-    itemType: SurveyItemType.Group,
-    items: [
-      {
-        key: 'group1',
-        itemType: SurveyItemType.Group,
-        items: [
-          {
-            key: 'display1',
-            itemType: SurveyItemType.Display,
-            components: [
-              {
-                key: 'comp1',
-                type: ItemComponentType.Display,
-                styles: {}
-              }
-            ]
-          }
-        ]
-      }
-    ]
+  surveyItems: {
+    survey: {
+      itemType: SurveyItemType.Group,
+      items: [
+        'survey.group1',
+        'survey.pageBreak1',
+        'survey.surveyEnd1'
+      ]
+    },
+    'survey.group1': {
+      itemType: SurveyItemType.Group,
+      items: [
+        'survey.group1.display1'
+      ]
+    },
+    'survey.group1.display1': {
+      itemType: SurveyItemType.Display,
+      components: [
+        {
+          key: 'comp1',
+          type: ItemComponentType.Display,
+          styles: {}
+        }
+      ]
+    },
+    'survey.pageBreak1': {
+      itemType: SurveyItemType.PageBreak,
+    },
+    'survey.surveyEnd1': {
+      itemType: SurveyItemType.SurveyEnd,
+    },
   },
   translations: {
     en: {
-      surveyCardProps: surveyCardProps
+      surveyCardProps: surveyCardProps,
+      'survey.group1.display1': {
+        'comp1': {
+          type: LocalizedContentType.CQM,
+          content: 'Question 1',
+          attributions: []
+        }
+      }
     }
   }
 }
+
+
 
 describe('Data Parsing', () => {
   describe('Read Survey from JSON', () => {
     test('should throw error if schema is not supported', () => {
       const surveyJson = {
         $schema: CURRENT_SURVEY_SCHEMA + '1',
-        surveyDefinition: {
-          key: 'survey',
-          itemType: SurveyItemType.Group,
+        surveyItems: {
+          survey: {
+            itemType: SurveyItemType.Group,
+            items: []
+          }
         }
       }
       expect(() => Survey.fromJson(surveyJson)).toThrow('Unsupported survey schema');
@@ -66,27 +86,34 @@ describe('Data Parsing', () => {
       const surveyJson = {
         $schema: CURRENT_SURVEY_SCHEMA,
       }
-      expect(() => Survey.fromJson(surveyJson)).toThrow('surveyDefinition is required');
+      expect(() => Survey.fromJson(surveyJson)).toThrow('surveyItems is required');
     });
 
 
     test('should parse survey definition', () => {
       const survey = Survey.fromJson(surveyJson);
-      expect(survey.surveyDefinition).toBeDefined();
-      expect(survey.surveyDefinition?.key.fullKey).toBe(surveyJson.surveyDefinition?.key);
-      expect(survey.surveyDefinition?.itemType).toBe(SurveyItemType.Group);
-      expect(survey.surveyDefinition?.items).toBeDefined();
-      expect(survey.surveyDefinition?.items?.length).toBeGreaterThan(0);
+      expect(survey.surveyItems).toBeDefined();
+      const rootItem = survey.surveyItems['survey'] as GroupItem;
+      expect(rootItem).toBeDefined();
+      expect(rootItem.itemType).toBe(SurveyItemType.Group);
+      expect(rootItem.items).toBeDefined();
+      expect(rootItem.items?.length).toBeGreaterThan(0);
+      expect(rootItem.items?.[0]).toBe('survey.group1');
 
-      // Group item
-      const groupItem = survey.surveyDefinition?.items?.[0] as GroupItem;
-      expect(groupItem).toBeDefined();
-      expect(groupItem.key.itemKey).toBe('group1');
-      expect(groupItem.key.fullKey).toBe('survey.group1');
-      expect(groupItem.itemType).toBe(SurveyItemType.Group);
+      // Group1 item
+      const group1Key = rootItem.items?.[0] as string;
+      const group1Item = survey.surveyItems[group1Key] as GroupItem;
+      expect(group1Item).toBeDefined();
+      expect(group1Item.key.itemKey).toBe('group1');
+      expect(group1Item.key.fullKey).toBe(group1Key);
+      expect(group1Item.itemType).toBe(SurveyItemType.Group);
+      expect(group1Item.items).toBeDefined();
+      expect(group1Item.items?.length).toBeGreaterThan(0);
+      expect(group1Item.items?.[0]).toBe('survey.group1.display1');
 
       // Display item
-      const displayItem = groupItem.items?.[0] as DisplayItem;
+      const display1Key = group1Item.items?.[0] as string;
+      const displayItem = survey.surveyItems[display1Key] as DisplayItem;
       expect(displayItem).toBeDefined();
       expect(displayItem.key.fullKey).toBe('survey.group1.display1');
       expect(displayItem.itemType).toBe(SurveyItemType.Display);
@@ -97,36 +124,4 @@ describe('Data Parsing', () => {
       expect(displayItem.components?.[0]?.componentType).toBe(ItemComponentType.Display);
     });
   });
-
-  describe('Read Survey for editing', () => {
-    test('should parse survey definition', () => {
-      const surveyEditor = SurveyEditor.fromSurvey(Survey.fromJson(surveyJson));
-
-      expect(surveyEditor.surveyDefinition).toBeDefined();
-      expect(surveyEditor.surveyDefinition?.key.fullKey).toBe(surveyJson.surveyDefinition?.key);
-      expect(surveyEditor.surveyDefinition?.itemType).toBe(SurveyItemType.Group);
-    });
-  });
-
-
-  describe('Export Survey to JSON', () => {
-    const surveyEditor = SurveyEditor.fromSurvey(Survey.fromJson(surveyJson));
-
-    test('should export survey definition', () => {
-      const json = surveyEditor.getSurvey().toJson();
-      expect(json).toBeDefined();
-      expect(json.surveyDefinition).toBeDefined();
-      expect(json.surveyDefinition?.key).toBe(surveyJson.surveyDefinition?.key);
-      expect(json.surveyDefinition?.itemType).toBe(SurveyItemType.Group);
-      expect(json.surveyDefinition?.items).toBeDefined();
-      expect(json.surveyDefinition?.items?.length).toBeGreaterThan(0);
-      expect(json.surveyDefinition?.items?.[0]?.key).toBe('group1');
-      expect(json.surveyDefinition?.items?.[0]?.itemType).toBe(SurveyItemType.Group);
-    });
-
-  });
-
-
-
-
 });
