@@ -1,6 +1,5 @@
-import { isSurveyGroupItem, SurveyGroupItem, SurveySingleItem, SurveySingleItemResponse } from "./data_types";
 
-export const pickRandomListItem = (items: Array<any>): any => {
+/* TODO: export const pickRandomListItem = (items: Array<any>): any => {
   return items[Math.floor(Math.random() * items.length)];
 }
 
@@ -31,4 +30,12 @@ export const flattenSurveyItemTree = (itemTree: SurveyGroupItem): SurveySingleIt
     }
   });
   return flatTree;
+} */
+
+export function structuredCloneMethod<T>(obj: T): T {
+  if (typeof structuredClone !== 'undefined') {
+    return structuredClone(obj);
+  }
+  // Fallback to JSON method
+  return JSON.parse(JSON.stringify(obj));
 }
