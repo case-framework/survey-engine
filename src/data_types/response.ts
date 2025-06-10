@@ -1,47 +1,37 @@
-import { ConfidentialMode } from "./survey-item";
+import { SurveyItemKey } from "./item-component-key";
+import { ConfidentialMode, SurveyItem, SurveyItemType } from "./survey-item";
+import { ItemComponentType } from "./survey-item-component";
 
 export type TimestampType = 'rendered' | 'displayed' | 'responded';
 
-export interface SurveyResponse {
+
+export interface JsonSurveyResponse {
   key: string;
   participantId?: string;
-  submittedAt: number;
+  submittedAt?: number;
   openedAt?: number;
   versionId: string;
-  //responses: SurveySingleItemResponse[];
-  responses: {
-    [key: string]: SurveyItemResponse;
-  };
-  context?: any; // key value pairs of data
+  responses: JsonSurveyItemResponse[];
+  context?: {
+    [key: string]: string;
+  }; // key value pairs of data
 }
 
-export type SurveyItemResponse = SurveySingleItemResponse | SurveyGroupItemResponse;
 
-interface SurveyItemResponseBase {
+export interface JsonSurveyItemResponse {
   key: string;
+  itemType: SurveyItemType;
   meta?: ResponseMeta;
-}
-
-export interface SurveySingleItemResponse extends SurveyItemResponseBase {
-  response?: ResponseItem;
+  response?: JsonResponseItem;
   confidentialMode?: ConfidentialMode;
-  mapToKey?: string; // if the response should be mapped to another key in confidential mode
+  mapToKey?: string;
 }
 
-export interface SurveyGroupItemResponse extends SurveyItemResponseBase {
-  items: Array<SurveyItemResponse | SurveyItemResponse>
-}
-
-export const isSurveyGroupItemResponse = (item: SurveyGroupItemResponse | SurveyItemResponse): item is SurveyGroupItemResponse => {
-  const items = (item as SurveyGroupItemResponse).items;
-  return items !== undefined && items.length > 0;
-}
-
-export interface ResponseItem {
+export interface JsonResponseItem {
   key: string;
   value?: string;
   dtype?: string;
-  items?: ResponseItem[];
+  items?: JsonResponseItem[];
 }
 
 export interface ResponseMeta {
@@ -51,4 +41,243 @@ export interface ResponseMeta {
   rendered: Array<number>;
   displayed: Array<number>;
   responded: Array<number>;
+}
+
+
+
+/**
+ *
+ */
+
+export class SurveyResponse {
+  key: string;
+  participantId?: string;
+  submittedAt?: number;
+  openedAt?: number;
+  versionId: string;
+  responses: {
+    [key: string]: SurveyItemResponse;
+  };
+  context?: {
+    [key: string]: string;
+  };
+
+  constructor(key: string, versionId: string) {
+    this.key = key;
+    this.participantId = '';
+    this.submittedAt = 0;
+    this.versionId = versionId;
+    this.responses = {};
+  }
+
+  toJson(): JsonSurveyResponse {
+    return {
+      key: this.key,
+      participantId: this.participantId,
+      submittedAt: this.submittedAt,
+      openedAt: this.openedAt,
+      versionId: this.versionId,
+      responses: Object.values(this.responses).map(r => r.toJson()),
+      context: this.context,
+    };
+  }
+}
+
+
+
+export class SurveyItemResponse {
+  key: SurveyItemKey;
+  itemType: SurveyItemType;
+  meta?: ResponseMeta;
+  response?: ResponseItem;
+  confidentiality?: {
+    mode: ConfidentialMode;
+    mapToKey?: string;
+  };
+
+  constructor(itemDef: SurveyItem, response?: ResponseItem) {
+    this.key = itemDef.key;
+    this.itemType = itemDef.itemType;
+    this.response = response;
+  }
+
+
+
+  toJson(): JsonSurveyItemResponse {
+    return {
+      key: this.key.fullKey,
+      itemType: this.itemType,
+      meta: this.meta,
+      response: this.response?.toJson(),
+      confidentialMode: this.confidentiality?.mode,
+      mapToKey: this.confidentiality?.mapToKey,
+    };
+  }
+
+
+
+}
+
+export abstract class ResponseItem {
+  abstract toJson(): JsonResponseItem | undefined;
+}
+
+export class SingleResponseItem extends ResponseItem {
+  selectedOption?: ScgMcgOptionSlotResponse;
+
+  toJson(): JsonResponseItem | undefined {
+    if (!this.selectedOption) {
+      return undefined
+    }
+    return this.selectedOption.toJson();
+  }
+}
+
+
+
+type GenericSlotResponseValue = string | number | boolean | SlotResponse | SlotResponse[];
+
+abstract class SlotResponse {
+  key: string;
+  type: ItemComponentType;
+  value?: GenericSlotResponseValue;
+
+  constructor(key: string, type: ItemComponentType, value?: GenericSlotResponseValue) {
+    this.key = key;
+    this.type = type;
+    this.value = value;
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: this.type,
+      value: this.value?.toString(),
+    };
+  }
+}
+
+
+abstract class ScgMcgOptionSlotResponseBase extends SlotResponse {
+
+  abstract toJson(): JsonResponseItem;
+}
+
+export class ScgMcgOptionSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOption;
+
+  constructor(key: string) {
+    super(key, ItemComponentType.ScgMcgOption);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      value: this.value as string,
+    };
+  }
+}
+
+
+export class ScgMcgOptionWithTextInputSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOptionWithTextInput;
+  value?: string;
+
+  constructor(key: string, value?: string) {
+    super(key, ItemComponentType.ScgMcgOptionWithTextInput, value);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: 'text',
+      value: this.value,
+    };
+  }
+}
+
+export class ScgMcgOptionWithNumberInputSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOptionWithNumberInput;
+  value?: number;
+
+  constructor(key: string, value?: number) {
+    super(key, ItemComponentType.ScgMcgOptionWithNumberInput, value);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: 'number',
+      value: this.value?.toString(),
+    };
+  }
+}
+
+export class ScgMcgOptionWithDateInputSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOptionWithDateInput;
+  value?: number;
+
+  constructor(key: string, value?: number) {
+    super(key, ItemComponentType.ScgMcgOptionWithDateInput, value);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: 'date',
+      value: this.value?.toString(),
+    };
+  }
+}
+
+export class ScgMcgOptionWithTimeInputSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOptionWithTimeInput;
+  value?: number;
+
+  constructor(key: string, value?: number) {
+    super(key, ItemComponentType.ScgMcgOptionWithTimeInput, value);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: 'time',
+      value: this.value?.toString(),
+    };
+  }
+}
+
+export class ScgMcgOptionWithDropdownSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOptionWithDropdown;
+  value?: string;
+
+  constructor(key: string, value?: string) {
+    super(key, ItemComponentType.ScgMcgOptionWithDropdown, value);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: 'dropdown',
+      value: this.value,
+    };
+  }
+}
+
+export class ScgMcgOptionWithClozeSlotResponse extends ScgMcgOptionSlotResponseBase {
+  type: ItemComponentType = ItemComponentType.ScgMcgOptionWithCloze;
+  // TODO: use cloze response type
+  value?: SlotResponse[];
+
+  constructor(key: string, value?: SlotResponse[]) {
+    super(key, ItemComponentType.ScgMcgOptionWithCloze, value);
+  }
+
+  toJson(): JsonResponseItem {
+    return {
+      key: this.key,
+      dtype: 'cloze',
+      items: this.value?.map(v => v.toJson()),
+    };
+  }
 }
