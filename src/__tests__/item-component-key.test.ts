@@ -71,8 +71,8 @@ describe('SurveyItemKey', () => {
 
       expect(itemKey.itemKey).toBe('item1');
       expect(itemKey.fullKey).toBe('item1');
-      expect(itemKey.isRoot).toBe(false);
-      expect(itemKey.parentFullKey).toBe('');
+      expect(itemKey.isRoot).toBe(true);
+      expect(itemKey.parentFullKey).toBeUndefined();
       expect(itemKey.parentKey).toBeUndefined();
     });
 
@@ -214,8 +214,8 @@ describe('ItemComponentKey', () => {
 
       expect(componentKey.parentItemKey.itemKey).toBe('Q1');
       expect(componentKey.parentItemKey.fullKey).toBe('Q1');
-      expect(componentKey.parentItemKey.parentFullKey).toBe('');
-      expect(componentKey.parentItemKey.isRoot).toBe(false);
+      expect(componentKey.parentItemKey.parentFullKey).toBeUndefined();
+      expect(componentKey.parentItemKey.isRoot).toBe(true);
     });
   });
 });
