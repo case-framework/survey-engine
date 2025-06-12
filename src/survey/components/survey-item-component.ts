@@ -1,6 +1,6 @@
-import { Expression } from "./expression";
-import { ItemComponentKey } from "./item-component-key";
-import { JsonItemComponent } from "./survey-file-schema";
+import { Expression } from "../../data_types/expression";
+import { ItemComponentKey } from "../../data_types/item-component-key";
+import { JsonItemComponent } from "../survey-file-schema";
 
 
 // ----------------------------------------------------------------------

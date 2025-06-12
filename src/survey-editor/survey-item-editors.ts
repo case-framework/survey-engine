@@ -1,9 +1,10 @@
 import { SurveyItemKey } from "../data_types/item-component-key";
 import { SurveyEditor } from "./survey-editor";
-import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType } from "../data_types/survey-item";
+import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType } from "../survey/items/survey-item";
 import { DisplayComponentEditor, ScgMcgOptionBaseEditor } from "./component-editor";
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase, ScgMcgOptionTypes } from "../data_types";
-import { LocalizedContent } from "../data_types/localized-content";
+import { Content } from "../survey/utils/content";
+import { Locale, SurveyItemTranslations } from "../survey/utils";
 
 
 
@@ -40,29 +41,11 @@ export abstract class SurveyItemEditor {
   updateComponentTranslations(target: {
     componentFullKey: string,
     contentKey?: string
-  }, locale: string, translation?: LocalizedContent): void {
-    const currentTranslations = this.editor.survey.getItemTranslations(this._currentItem.key.fullKey) ?? {};
+  }, locale: Locale, translation?: Content): void {
+    const currentTranslations = this.editor.survey.getItemTranslations(this._currentItem.key.fullKey) ?? new SurveyItemTranslations();
     const translationKey = `${target.componentFullKey}${target.contentKey ? '.' + target.contentKey : ''}`;
 
-    if (translation) {
-      // add new translations
-
-      // Initialize translation for the locale if it doesn't exist
-      if (!currentTranslations[locale]) {
-        currentTranslations[locale] = {};
-      }
-
-      // Set/override the translation for the contentKey
-      currentTranslations[locale][translationKey] = translation;
-
-    } else {
-      // remove translations
-
-      // Remove the contentKey from the locale if it exists
-      if (currentTranslations[locale] && currentTranslations[locale][translationKey]) {
-        delete currentTranslations[locale][translationKey];
-      }
-    }
+    currentTranslations.setContent(locale, translationKey, translation);
 
     this.editor.updateItemTranslations(this._currentItem.key.fullKey, currentTranslations);
   }

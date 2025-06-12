@@ -1,7 +1,7 @@
 import { SurveyEngineCore } from '../engine';
-import { Survey } from '../data_types/survey';
-import { GroupItem, DisplayItem } from '../data_types/survey-item';
-import { DisplayComponent } from '../data_types/survey-item-component';
+import { Survey } from '../survey/survey';
+import { GroupItem, DisplayItem } from '../survey/items/survey-item';
+import { DisplayComponent } from '../survey/components/survey-item-component';
 
 describe('SurveyEngineCore - ShuffleItems Rendering', () => {
   describe('Sequential Rendering (shuffleItems: false/undefined)', () => {

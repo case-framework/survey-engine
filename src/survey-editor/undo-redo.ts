@@ -1,4 +1,4 @@
-import { JsonSurvey } from "../data_types/survey-file-schema";
+import { JsonSurvey } from "../survey/survey-file-schema";
 import { structuredCloneMethod } from "../utils";
 
 export interface UndoRedoConfig {

@@ -1,6 +1,7 @@
-import { Survey } from "../data_types/survey";
-import { SurveyItem, SurveyItemTranslations, GroupItem, SurveyItemType } from "../data_types/survey-item";
+import { Survey } from "../survey/survey";
+import { SurveyItem, GroupItem, SurveyItemType } from "../survey/items/survey-item";
 import { SurveyEditorUndoRedo, type UndoRedoConfig } from "./undo-redo";
+import { SurveyItemTranslations } from "../survey/utils";
 
 export class SurveyEditor {
   private _survey: Survey;
@@ -166,18 +167,7 @@ export class SurveyEditor {
     parentGroup.items.splice(insertIndex, 0, item.key.fullKey);
 
     // Update translations in the survey
-    if (!this._survey.translations) {
-      this._survey.translations = {};
-    }
-
-    // Merge translations for each locale
-    Object.keys(content).forEach(locale => {
-      if (!this._survey.translations![locale]) {
-        this._survey.translations![locale] = {};
-      }
-      // Add the item's translations to the survey - content[locale] is LocalizedContentTranslation
-      this._survey.translations![locale][item.key.fullKey] = content[locale];
-    });
+    this._survey.translations.setItemTranslations(item.key.fullKey, content);
 
     // Mark as modified (uncommitted change)
     this.commit(`Added ${item.key.fullKey}`);
@@ -213,13 +203,8 @@ export class SurveyEditor {
     delete this._survey.surveyItems[itemKey];
 
     // Remove translations
-    if (this._survey.translations) {
-      this._survey.locales.forEach(locale => {
-        if (this._survey.translations![locale][itemKey]) {
-          delete this._survey.translations![locale][itemKey];
-        }
-      });
-    }
+    this._survey.translations?.onItemDeleted(itemKey);
+
 
     // TODO: remove references to the item from other items (e.g., expressions)
 
@@ -279,34 +264,15 @@ export class SurveyEditor {
 
   // TODO: Update item
 
-  // TODO: change to update component translations (updating part of the item)
+  // TODO: add also to update component translations (updating part of the item)
   // Update item translations
-  updateItemTranslations(itemKey: string, translations?: SurveyItemTranslations): boolean {
+  updateItemTranslations(itemKey: string, updatedContent?: SurveyItemTranslations): boolean {
     const item = this._survey.surveyItems[itemKey];
     if (!item) {
       throw new Error(`Item with key '${itemKey}' not found`);
     }
 
-    if (!this._survey.translations) {
-      this._survey.translations = {};
-    }
-
-    if (!translations) {
-      // remove all translations for the item
-      for (const locale of this._survey.locales) {
-        if (this._survey.translations![locale][itemKey]) {
-          delete this._survey.translations![locale][itemKey];
-        }
-      }
-    } else {
-      // add/update translations
-      Object.keys(translations).forEach(locale => {
-        if (!this._survey.translations![locale]) {
-          this._survey.translations![locale] = {};
-        }
-        this._survey.translations![locale][itemKey] = translations[locale];
-      });
-    }
+    this._survey.translations.setItemTranslations(itemKey, updatedContent);
 
     this.markAsModified();
     return true;
@@ -322,17 +288,8 @@ export class SurveyEditor {
 
     item.onComponentDeleted?.(componentKey);
 
-    // TODO: move to Translation class onDeleted
-    for (const locale of this._survey.locales) {
-      const itemTranslations = this._survey.translations?.[locale]?.[itemKey];
-      if (itemTranslations) {
-        for (const key of Object.keys(itemTranslations)) {
-          if (key.startsWith(componentKey)) {
-            delete itemTranslations[key as keyof typeof itemTranslations];
-          }
-        }
-      }
-    }
+    // remove translations:
+    this._survey.translations?.onComponentDeleted(itemKey, componentKey);
 
     this.commit(`Deleted component ${componentKey} from ${itemKey}`);
   }

@@ -1,18 +1,19 @@
-import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, JsonSurveyCardProps, Survey, SurveyItemType, SingleChoiceQuestionItem, DynamicValueTypes, ValidationType, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../data_types";
-import { LocalizedContentType } from "../data_types/localized-content";
+import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, Survey, SurveyItemType, SingleChoiceQuestionItem, DynamicValueTypes, ValidationType, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../data_types";
+import { ContentType } from "../survey/utils/content";
+import { JsonSurveyCardContent } from "../survey/utils/translations";
 
-const surveyCardProps: JsonSurveyCardProps = {
+const surveyCardProps: JsonSurveyCardContent = {
   name: {
-    type: LocalizedContentType.CQM,
+    type: ContentType.CQM,
     content: 'Survey Name',
     attributions: []
   },
   description: {
-    type: LocalizedContentType.md,
+    type: ContentType.md,
     content: 'Survey Description',
   },
   typicalDuration: {
-    type: LocalizedContentType.CQM,
+    type: ContentType.CQM,
     content: 'Survey Instructions',
     attributions: []
   }
@@ -57,7 +58,7 @@ const surveyJson: JsonSurvey = {
       surveyCardProps: surveyCardProps,
       'survey.group1.display1': {
         'comp1': {
-          type: LocalizedContentType.CQM,
+          type: ContentType.CQM,
           content: 'Question 1',
           attributions: []
         }
@@ -205,24 +206,24 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       surveyCardProps: surveyCardProps,
       'survey.group1.display1': {
         'comp1': {
-          type: LocalizedContentType.CQM,
+          type: ContentType.CQM,
           content: 'Display Component',
           attributions: []
         }
       },
       'survey.question1': {
         'title': {
-          type: LocalizedContentType.CQM,
+          type: ContentType.CQM,
           content: 'Single Choice Question',
           attributions: []
         },
         'rg.option1': {
-          type: LocalizedContentType.CQM,
+          type: ContentType.CQM,
           content: 'Option 1',
           attributions: []
         },
         'rg.option2': {
-          type: LocalizedContentType.CQM,
+          type: ContentType.CQM,
           content: 'Option 2',
           attributions: []
         }

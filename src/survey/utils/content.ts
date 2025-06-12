@@ -1,4 +1,4 @@
-export enum LocalizedContentType {
+export enum ContentType {
   CQM = 'CQM',
   md = 'md'
 }
@@ -24,19 +24,20 @@ export type TemplateAttribution = {
 
 export type Attribution = StyleAttribution | TemplateAttribution;
 
-export type LocalizedCQMContent = {
-  type: LocalizedContentType.CQM;
+
+// TODO: create JSON schema
+// TODO: create classes to represent the content
+
+export type CQMContent = {
+  type: ContentType.CQM;
   content: string;
   attributions?: Array<Attribution>;
 }
 
-export type LocalizedMDContent = {
-  type: LocalizedContentType.md;
+export type MDContent = {
+  type: ContentType.md;
   content: string;
 }
 
-export type LocalizedContent = LocalizedCQMContent | LocalizedMDContent;
+export type Content = CQMContent | MDContent;
 
-export type LocalizedContentTranslation = {
-  [contentKey: string]: LocalizedContent;
-}

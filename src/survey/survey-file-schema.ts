@@ -1,18 +1,10 @@
-import { SurveyContextDef } from "./context";
-import { Expression } from "./expression";
-import { SurveyItemType, ConfidentialMode } from "./survey-item";
-import { DynamicValue, Validation } from "./utils";
-import { LocalizedContent, LocalizedContentTranslation } from "./localized-content";
+import { SurveyContextDef } from "../data_types/context";
+import { Expression } from "../data_types/expression";
+import { SurveyItemType, ConfidentialMode } from "./items/survey-item";
+import { DynamicValue, Validation } from "../data_types/utils";
+import { JsonSurveyTranslations } from "./utils/translations";
 
 export const CURRENT_SURVEY_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
-
-export interface SurveyTranslations {
-  [locale: string]: {
-    [key: string]: JsonSurveyCardProps | LocalizedContentTranslation;
-  } & {
-    surveyCardProps?: JsonSurveyCardProps;
-  }
-}
 
 
 export interface SurveyVersion {
@@ -42,15 +34,11 @@ export type JsonSurvey = {
     [key: string]: string
   }
 
-  translations?: SurveyTranslations;
+  translations?: JsonSurveyTranslations;
 }
 
-export interface JsonSurveyCardProps {
-  name?: LocalizedContent;
-  description?: LocalizedContent;
-  typicalDuration?: LocalizedContent;
-}
 
+// TODO: move to survey-item.ts
 export interface JsonSurveyItemBase {
   itemType: string;
   metadata?: {
@@ -118,6 +106,7 @@ export interface JsonSurveyResponseItem extends JsonSurveyItemBase {
 export type JsonSurveyItem = JsonSurveyItemGroup | JsonSurveyDisplayItem | JsonSurveyPageBreakItem | JsonSurveyEndItem | JsonSurveyResponseItem;
 
 
+// TODO: move to survey-item-component.ts
 export interface JsonItemComponent {
   key: string; // unique identifier
   type: string; // type of the component

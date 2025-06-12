@@ -1,6 +1,6 @@
 import { SurveyItemKey } from "./item-component-key";
-import { ConfidentialMode, SurveyItemType } from "./survey-item";
-import { ItemComponentType } from "./survey-item-component";
+import { ConfidentialMode, SurveyItemType } from "../survey/items/survey-item";
+import { ItemComponentType } from "../survey/components/survey-item-component";
 
 export type TimestampType = 'rendered' | 'displayed' | 'responded';
 

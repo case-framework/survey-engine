@@ -1,18 +1,15 @@
-import { Expression } from './expression';
-import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from './survey-file-schema';
-import { SurveyItemKey } from './item-component-key';
-import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from './survey-item-component';
-import { DynamicValue, Validation } from './utils';
-import { LocalizedContentTranslation } from './localized-content';
+import { Expression } from '../../data_types/expression';
+import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from '../survey-file-schema';
+import { SurveyItemKey } from '../../data_types/item-component-key';
+import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from '../components/survey-item-component';
+import { DynamicValue, Validation } from '../../data_types/utils';
+
 
 export enum ConfidentialMode {
   Add = 'add',
   Replace = 'replace'
 }
 
-export interface SurveyItemTranslations {
-  [locale: string]: LocalizedContentTranslation
-}
 
 export enum SurveyItemType {
   Group = 'group',

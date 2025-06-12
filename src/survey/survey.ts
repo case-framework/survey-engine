@@ -1,8 +1,8 @@
-import { SurveyContextDef } from "./context";
-import { Expression } from "./expression";
-import { LocalizedContentTranslation } from "./localized-content";
-import { CURRENT_SURVEY_SCHEMA, JsonSurvey, SurveyTranslations } from "./survey-file-schema";
-import { GroupItem, SurveyItem, SurveyItemTranslations } from "./survey-item";
+import { SurveyContextDef } from "../data_types/context";
+import { Expression } from "../data_types/expression";
+import { CURRENT_SURVEY_SCHEMA, JsonSurvey, } from "./survey-file-schema";
+import { SurveyItemTranslations, SurveyTranslations } from "./utils/translations";
+import { GroupItem, SurveyItem } from "./items/survey-item";
 
 
 
@@ -24,13 +24,14 @@ export class Survey extends SurveyBase {
     [itemKey: string]: SurveyItem;
   } = {};
 
-  translations?: SurveyTranslations;
+  private _translations?: SurveyTranslations;
 
   constructor(key: string = 'survey') {
     super();
     this.surveyItems = {
       [key]: new GroupItem(key),
     };
+    this._translations = new SurveyTranslations();
   }
 
   static fromJson(json: object): Survey {
@@ -49,9 +50,8 @@ export class Survey extends SurveyBase {
     });
 
     // Parse other fields
-    if (rawSurvey.translations) {
-      survey.translations = rawSurvey.translations;
-    }
+    survey._translations = new SurveyTranslations(rawSurvey.translations);
+
     if (rawSurvey.prefillRules) {
       survey.prefillRules = rawSurvey.prefillRules;
     }
@@ -81,9 +81,8 @@ export class Survey extends SurveyBase {
     };
 
     // Export other fields
-    if (this.translations) {
-      json.translations = this.translations as SurveyTranslations;
-    }
+    json.translations = this._translations?.toJson();
+
     if (this.prefillRules) {
       json.prefillRules = this.prefillRules;
     }
@@ -107,7 +106,7 @@ export class Survey extends SurveyBase {
   }
 
   get locales(): string[] {
-    return Object.keys(this.translations || {});
+    return this._translations?.locales || [];
   }
 
   get surveyKey(): string {
@@ -128,19 +127,19 @@ export class Survey extends SurveyBase {
     return this.surveyItems[this.surveyKey] as GroupItem;
   }
 
+  get translations(): SurveyTranslations {
+    if (!this._translations) {
+      this._translations = new SurveyTranslations();
+    }
+    return this._translations;
+  }
+
   getItemTranslations(fullItemKey: string): SurveyItemTranslations | undefined {
     const item = this.surveyItems[fullItemKey];
     if (!item) {
       throw new Error(`Item ${fullItemKey} not found`);
     }
 
-    const translations: SurveyItemTranslations = {};
-    for (const locale of this.locales) {
-      const contentForLocale = this.translations?.[locale]?.[fullItemKey];
-      if (contentForLocale) {
-        translations[locale] = contentForLocale as LocalizedContentTranslation;
-      }
-    }
-    return translations;
+    return this._translations?.getItemTranslations(fullItemKey);
   }
 }
