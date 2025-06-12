@@ -1,5 +1,5 @@
 import { SurveyItemKey } from "./item-component-key";
-import { ConfidentialMode, SurveyItem, SurveyItemType } from "./survey-item";
+import { ConfidentialMode, SurveyItemType } from "./survey-item";
 import { ItemComponentType } from "./survey-item-component";
 
 export type TimestampType = 'rendered' | 'displayed' | 'responded';
@@ -95,7 +95,10 @@ export class SurveyItemResponse {
     mapToKey?: string;
   };
 
-  constructor(itemDef: SurveyItem, response?: ResponseItem) {
+  constructor(itemDef: {
+    key: SurveyItemKey;
+    itemType: SurveyItemType;
+  }, response?: ResponseItem) {
     this.key = itemDef.key;
     this.itemType = itemDef.itemType;
     this.response = response;
@@ -114,15 +117,41 @@ export class SurveyItemResponse {
     };
   }
 
+  static fromJson(json: JsonSurveyItemResponse): SurveyItemResponse {
+    const itemDef: {
+      key: SurveyItemKey;
+      itemType: SurveyItemType;
+    } = {
+      key: SurveyItemKey.fromFullKey(json.key),
+      itemType: json.itemType,
+    };
 
+    let response: ResponseItem;
+    switch (json.itemType) {
+      case SurveyItemType.SingleChoiceQuestion:
+        response = SingleChoiceResponseItem.fromJson(json);
+        break;
+      default:
+        throw new Error(`Unknown response item type: ${json.itemType}`);
+    }
 
+    const newResponse = new SurveyItemResponse(itemDef, response);
+    newResponse.meta = json.meta;
+    newResponse.confidentiality = json.confidentialMode ? {
+      mode: json.confidentialMode,
+      mapToKey: json.mapToKey,
+    } : undefined;
+
+    return newResponse;
+  }
 }
 
 export abstract class ResponseItem {
   abstract toJson(): JsonResponseItem | undefined;
+
 }
 
-export class SingleResponseItem extends ResponseItem {
+export class SingleChoiceResponseItem extends ResponseItem {
   selectedOption?: ScgMcgOptionSlotResponse;
 
   toJson(): JsonResponseItem | undefined {
@@ -130,6 +159,12 @@ export class SingleResponseItem extends ResponseItem {
       return undefined
     }
     return this.selectedOption.toJson();
+  }
+
+  static fromJson(json: JsonResponseItem): SingleChoiceResponseItem {
+    const newResponse = new SingleChoiceResponseItem();
+    newResponse.selectedOption = SlotResponse.fromJson(json);
+    return newResponse;
   }
 }
 
@@ -155,12 +190,22 @@ abstract class SlotResponse {
       value: this.value?.toString(),
     };
   }
+
+  static fromJson(json: JsonResponseItem): SlotResponse {
+    switch (json.dtype) {
+      case ItemComponentType.ScgMcgOption:
+        return ScgMcgOptionSlotResponse.fromJson(json);
+      default:
+        throw new Error(`Unknown slot response type: ${json.dtype}`);
+    }
+  }
 }
 
 
 abstract class ScgMcgOptionSlotResponseBase extends SlotResponse {
 
   abstract toJson(): JsonResponseItem;
+
 }
 
 export class ScgMcgOptionSlotResponse extends ScgMcgOptionSlotResponseBase {
@@ -175,6 +220,10 @@ export class ScgMcgOptionSlotResponse extends ScgMcgOptionSlotResponseBase {
       key: this.key,
       value: this.value as string,
     };
+  }
+
+  static fromJson(json: JsonResponseItem): ScgMcgOptionSlotResponse {
+    return new ScgMcgOptionSlotResponse(json.key);
   }
 }
 

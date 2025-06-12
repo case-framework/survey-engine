@@ -281,7 +281,7 @@ export class SurveyEditor {
 
   // TODO: change to update component translations (updating part of the item)
   // Update item translations
-  updateItemTranslations(itemKey: string, translations: SurveyItemTranslations): boolean {
+  updateItemTranslations(itemKey: string, translations?: SurveyItemTranslations): boolean {
     const item = this._survey.surveyItems[itemKey];
     if (!item) {
       throw new Error(`Item with key '${itemKey}' not found`);
@@ -291,12 +291,22 @@ export class SurveyEditor {
       this._survey.translations = {};
     }
 
-    Object.keys(translations).forEach(locale => {
-      if (!this._survey.translations![locale]) {
-        this._survey.translations![locale] = {};
+    if (!translations) {
+      // remove all translations for the item
+      for (const locale of this._survey.locales) {
+        if (this._survey.translations![locale][itemKey]) {
+          delete this._survey.translations![locale][itemKey];
+        }
       }
-      this._survey.translations![locale][itemKey] = translations[locale];
-    });
+    } else {
+      // add/update translations
+      Object.keys(translations).forEach(locale => {
+        if (!this._survey.translations![locale]) {
+          this._survey.translations![locale] = {};
+        }
+        this._survey.translations![locale][itemKey] = translations[locale];
+      });
+    }
 
     this.markAsModified();
     return true;
@@ -312,6 +322,7 @@ export class SurveyEditor {
 
     item.onComponentDeleted?.(componentKey);
 
+    // TODO: move to Translation class onDeleted
     for (const locale of this._survey.locales) {
       const itemTranslations = this._survey.translations?.[locale]?.[itemKey];
       if (itemTranslations) {

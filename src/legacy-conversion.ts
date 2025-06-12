@@ -1,4 +1,4 @@
-import {
+/* TODO: import {
   LegacySurvey,
   LegacySurveyItem,
   LegacySurveyGroupItem,
@@ -32,12 +32,7 @@ import {
 
 import { ExpressionArgDType } from './data_types/expression';
 
-/**
- * Converts a legacy survey to the new survey format (decompiled version)
- * The resulting survey will have component-level translations and dynamic values
- * @param legacySurvey - Legacy survey to convert
- * @returns Survey in new format with decompiled structure
- */
+
 export function convertLegacyToNewSurvey(legacySurvey: LegacySurvey): Survey {
   const newSurvey: Survey = {
     schemaVersion: 1,
@@ -62,11 +57,6 @@ export function convertLegacyToNewSurvey(legacySurvey: LegacySurvey): Survey {
   return newSurvey;
 }
 
-/**
- * Converts a new survey to the legacy survey format
- * @param survey - New survey to convert
- * @returns Survey in legacy format
- */
 export function convertNewToLegacySurvey(survey: Survey): LegacySurvey {
   const legacySurvey: LegacySurvey = {
     versionId: survey.versionId,
@@ -541,3 +531,4 @@ function convertValidationToLegacy(validation: Validation): LegacyValidation {
     rule: validation.rule,
   };
 }
+ */

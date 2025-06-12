@@ -1,14 +1,17 @@
 import { defineConfig } from 'tsdown/config'
 
 export default defineConfig({
-  entry: "src/**/*.ts",
+  entry: {
+    index: "src/index.ts",
+    editor: "src/survey-editor/index.ts"
+  },
   copy: [
     {
       from: "package.json",
       to: "build/package.json"
     }
   ],
-  format: "cjs",
+  format: "esm",
   dts: true,
   outDir: "build",
   sourcemap: true,

@@ -3,13 +3,13 @@ import {
   TimestampType,
   SurveyItemResponse,
   SurveyItem,
-  SurveySingleItemResponse,
   Survey,
   ResponseMeta,
   SurveyItemType,
   QuestionItem,
   GroupItem,
   SurveyItemKey,
+  JsonSurveyItemResponse,
 } from "./data_types";
 
 // import { ExpressionEval } from "./expression-eval";
@@ -40,7 +40,7 @@ export class SurveyEngineCore {
     [itemKey: string]: SurveyItemResponse;
   };
   private prefills?: {
-    [itemKey: string]: SurveySingleItemResponse;
+    [itemKey: string]: SurveyItemResponse;
   };
   private _openedAt: number;
   private selectedLocale: string;
@@ -70,7 +70,7 @@ export class SurveyEngineCore {
   constructor(
     survey: Survey,
     context?: SurveyContext,
-    prefills?: SurveySingleItemResponse[],
+    prefills?: JsonSurveyItemResponse[],
     showDebugMsg?: boolean,
     selectedLocale?: string,
     dateLocales?: Array<{ code: string, locale: Locale }>,
@@ -85,9 +85,9 @@ export class SurveyEngineCore {
 
     this.context = context ? context : {};
     this.prefills = prefills ? prefills.reduce((acc, p) => {
-      acc[p.key] = p;
+      acc[p.key] = SurveyItemResponse.fromJson(p);
       return acc;
-    }, {} as { [itemKey: string]: SurveySingleItemResponse }) : undefined;
+    }, {} as { [itemKey: string]: SurveyItemResponse }) : undefined;
 
     this.showDebugMsg = showDebugMsg !== undefined ? showDebugMsg : false;
     this.selectedLocale = selectedLocale || 'en';
@@ -227,7 +227,7 @@ export class SurveyEngineCore {
     return renderedSurvey.find(item => item.type === 'surveyEnd');
   } */
 
-  getResponses(): SurveySingleItemResponse[] {
+  getResponses(): SurveyItemResponse[] {
     return [];
     // TODO:
     /* const itemsInOrder = flattenSurveyItemTree(this.renderedSurvey);
@@ -294,26 +294,19 @@ export class SurveyEngineCore {
       [itemKey: string]: SurveyItemResponse;
     } = {};
 
-    Object.keys(items).forEach((itemKey) => {
-      const item = items[itemKey];
+    Object.entries(items).forEach(([itemKey, item]) => {
       if (
         item.itemType === SurveyItemType.Group ||
         item.itemType === SurveyItemType.PageBreak ||
-        item.itemType === SurveyItemType.SurveyEnd
+        item.itemType === SurveyItemType.SurveyEnd ||
+        item.itemType === SurveyItemType.Display
       ) {
         return;
       } else {
-        respGroup[itemKey] = {
-          key: itemKey,
-          meta: {
-            rendered: [],
-            displayed: [],
-            responded: [],
-            position: -1,
-            localeCode: '',
-          },
-          response: this.prefills?.[itemKey]?.response,
-        };
+        respGroup[itemKey] = new SurveyItemResponse(
+          item,
+          this.prefills?.[itemKey]?.response,
+        )
       }
     });
 

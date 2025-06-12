@@ -1,8 +1,9 @@
 import { Expression } from './expression';
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from './survey-file-schema';
 import { SurveyItemKey } from './item-component-key';
-import { DisplayComponent, ItemComponent, SingleChoiceResponseConfigComponent } from './survey-item-component';
+import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from './survey-item-component';
 import { DynamicValue, Validation } from './utils';
+import { LocalizedContentTranslation } from './localized-content';
 
 export enum ConfidentialMode {
   Add = 'add',
@@ -10,9 +11,7 @@ export enum ConfidentialMode {
 }
 
 export interface SurveyItemTranslations {
-  [locale: string]: {
-    [key: string]: string;
-  }
+  [locale: string]: LocalizedContentTranslation
 }
 
 export enum SurveyItemType {
@@ -33,8 +32,6 @@ export abstract class SurveyItem {
     [key: string]: string;
   }
 
-  follows?: Array<string>;
-  priority?: number; // can be used to sort items in the list
   displayConditions?: {
     root?: Expression;
     components?: {
@@ -227,22 +224,26 @@ export abstract class QuestionItem extends SurveyItem {
 
   abstract responseConfig: ItemComponent;
 
-  protected readGenericAttributes(json: JsonSurveyResponseItem) {
+  _readGenericAttributes(json: JsonSurveyResponseItem) {
     this.metadata = json.metadata;
     this.displayConditions = json.displayConditions;
     this._disabledConditions = json.disabledConditions;
     this._dynamicValues = json.dynamicValues;
     this._validations = json.validations;
 
-    this.header = {
-      title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) : undefined,
-      subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.parentFullKey) : undefined,
-      helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.parentFullKey) : undefined,
+    if (json.header) {
+      this.header = {
+        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) : undefined,
+        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.parentFullKey) : undefined,
+        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.parentFullKey) : undefined,
+      }
     }
 
-    this.body = {
-      topContent: json.body?.topContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
-      bottomContent: json.body?.bottomContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
+    if (json.body) {
+      this.body = {
+        topContent: json.body?.topContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
+        bottomContent: json.body?.bottomContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
+      }
     }
 
     this.footer = json.footer ? DisplayComponent.fromJson(json.footer, undefined, this.key.parentFullKey) : undefined;
@@ -260,15 +261,19 @@ export abstract class QuestionItem extends SurveyItem {
       validations: this._validations,
     }
 
-    json.header = {
-      title: this.header?.title?.toJson(),
-      subtitle: this.header?.subtitle?.toJson(),
-      helpPopover: this.header?.helpPopover?.toJson(),
+    if (this.header) {
+      json.header = {
+        title: this.header?.title?.toJson(),
+        subtitle: this.header?.subtitle?.toJson(),
+        helpPopover: this.header?.helpPopover?.toJson(),
+      }
     }
 
-    json.body = {
-      topContent: this.body?.topContent?.map(component => component.toJson()),
-      bottomContent: this.body?.bottomContent?.map(component => component.toJson()),
+    if (this.body) {
+      json.body = {
+        topContent: this.body?.topContent?.map(component => component.toJson()),
+        bottomContent: this.body?.bottomContent?.map(component => component.toJson()),
+      }
     }
 
     json.footer = this.footer?.toJson();
@@ -333,21 +338,42 @@ export abstract class QuestionItem extends SurveyItem {
   }
 }
 
-export class SingleChoiceQuestionItem extends QuestionItem {
-  itemType: SurveyItemType.SingleChoiceQuestion = SurveyItemType.SingleChoiceQuestion;
-  responseConfig!: SingleChoiceResponseConfigComponent;
+abstract class ScgMcgQuestionItem extends QuestionItem {
+  responseConfig!: ScgMcgChoiceResponseConfig;
 
-  constructor(itemFullKey: string) {
-    super(itemFullKey, SurveyItemType.SingleChoiceQuestion);
+  constructor(itemFullKey: string, itemType: SurveyItemType.SingleChoiceQuestion | SurveyItemType.MultipleChoiceQuestion) {
+    super(itemFullKey, itemType);
+    this.responseConfig = new ScgMcgChoiceResponseConfig(itemType === SurveyItemType.SingleChoiceQuestion ? 'scg' : 'mcg', undefined, this.key.fullKey);
   }
 
   static fromJson(key: string, json: JsonSurveyResponseItem): SingleChoiceQuestionItem {
     const item = new SingleChoiceQuestionItem(key);
 
-    item.responseConfig = SingleChoiceResponseConfigComponent.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
 
-    item.readGenericAttributes(json);
+    item._readGenericAttributes(json);
     return item;
+  }
+}
+
+export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
+  itemType: SurveyItemType.SingleChoiceQuestion = SurveyItemType.SingleChoiceQuestion;
+  responseConfig!: ScgMcgChoiceResponseConfig;
+
+  constructor(itemFullKey: string) {
+    super(itemFullKey, SurveyItemType.SingleChoiceQuestion);
+  }
+
+
+}
+
+
+export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
+  itemType: SurveyItemType.MultipleChoiceQuestion = SurveyItemType.MultipleChoiceQuestion;
+  responseConfig!: ScgMcgChoiceResponseConfig;
+
+  constructor(itemFullKey: string) {
+    super(itemFullKey, SurveyItemType.MultipleChoiceQuestion);
   }
 }
 

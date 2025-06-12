@@ -1,10 +1,10 @@
 import { Survey } from '../data_types/survey';
 import { SurveyEditor } from '../survey-editor/survey-editor';
 import { DisplayItem, GroupItem, SurveyItemTranslations, SingleChoiceQuestionItem } from '../data_types/survey-item';
-import { DisplayComponent, SingleChoiceResponseConfigComponent, ScgMcgOption } from '../data_types/survey-item-component';
+import { DisplayComponent, ScgMcgChoiceResponseConfig, ScgMcgOption } from '../data_types/survey-item-component';
 import { ScgMcgOptionEditor } from '../survey-editor/component-editor';
 import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
-import { LocalizedContentTranslation } from '../data_types/localized-content';
+import { LocalizedContentTranslation, LocalizedContentType } from '../data_types/localized-content';
 
 
 describe('SurveyEditor', () => {
@@ -39,10 +39,10 @@ describe('SurveyEditor', () => {
       // Create test translations
       testTranslations = {
         en: {
-          'title': 'What is your name?'
+          'title': { type: LocalizedContentType.md, content: 'What is your name?' }
         },
         es: {
-          'title': '¿Cuál es tu nombre?'
+          'title': { type: LocalizedContentType.md, content: '¿Cuál es tu nombre?' }
         }
       };
     });
@@ -260,10 +260,10 @@ describe('SurveyEditor', () => {
 
       testTranslations = {
         en: {
-          'title': 'What is your name?'
+          'title': { type: LocalizedContentType.md, content: 'What is your name?' }
         },
         es: {
-          'title': '¿Cuál es tu nombre?'
+          'title': { type: LocalizedContentType.md, content: '¿Cuál es tu nombre?' }
         }
       };
     });
@@ -464,8 +464,8 @@ describe('SurveyEditor', () => {
 
       it('should track uncommitted changes when updating translations', () => {
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated: What is your name?' },
-          fr: { 'title': 'Comment vous appelez-vous?' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated: What is your name?' } },
+          fr: { 'title': { type: LocalizedContentType.md, content: 'Comment vous appelez-vous?' } }
         };
 
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
@@ -478,7 +478,7 @@ describe('SurveyEditor', () => {
       it('should revert to last committed state when undoing uncommitted changes', () => {
         const originalTranslations = { ...editor.survey.translations?.['en']?.['testSurvey.question1'] };
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated: What is your name?' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated: What is your name?' } }
         };
 
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
@@ -501,7 +501,7 @@ describe('SurveyEditor', () => {
 
         // Make uncommitted changes
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
 
@@ -512,10 +512,10 @@ describe('SurveyEditor', () => {
 
       it('should handle multiple uncommitted changes', () => {
         const updates1: SurveyItemTranslations = {
-          en: { 'title': 'First update' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'First update' } }
         };
         const updates2: SurveyItemTranslations = {
-          en: { 'title': 'Second update' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Second update' } }
         };
 
         editor.updateItemTranslations('testSurvey.question1', updates1);
@@ -532,7 +532,7 @@ describe('SurveyEditor', () => {
 
       it('should throw error when updating non-existent item', () => {
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
 
         expect(() => {
@@ -552,7 +552,7 @@ describe('SurveyEditor', () => {
       it('should commit changes when there are uncommitted changes', () => {
         // Make some uncommitted changes
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated: What is your name?' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated: What is your name?' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
 
@@ -586,7 +586,7 @@ describe('SurveyEditor', () => {
       it('should allow normal undo/redo operations after committing', () => {
         // Make uncommitted changes
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
 
@@ -605,11 +605,11 @@ describe('SurveyEditor', () => {
       it('should preserve the current state when committing', () => {
         // Make multiple uncommitted changes
         const updates1: SurveyItemTranslations = {
-          en: { 'title': 'First update' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'First update' } }
         };
         const updates2: SurveyItemTranslations = {
-          en: { 'title': 'Second update' },
-          fr: { 'title': 'Deuxième mise à jour' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Second update' } },
+          fr: { 'title': { type: LocalizedContentType.md, content: 'Deuxième mise à jour' } }
         };
 
         editor.updateItemTranslations('testSurvey.question1', updates1);
@@ -629,7 +629,7 @@ describe('SurveyEditor', () => {
       it('should use default description "Latest content changes" when committing', () => {
         // Make uncommitted changes
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
 
@@ -644,7 +644,7 @@ describe('SurveyEditor', () => {
       it('should be called automatically by addItem', () => {
         // Make uncommitted changes first
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
         expect(editor.hasUncommittedChanges).toBe(true);
@@ -664,7 +664,7 @@ describe('SurveyEditor', () => {
 
         // Make uncommitted changes
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
         expect(editor.hasUncommittedChanges).toBe(true);
@@ -680,7 +680,7 @@ describe('SurveyEditor', () => {
       it('should handle multiple consecutive calls gracefully', () => {
         // Make uncommitted changes
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated title' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated title' } }
         };
         editor.updateItemTranslations('testSurvey.question1', newTranslations);
         expect(editor.hasUncommittedChanges).toBe(true);
@@ -708,7 +708,7 @@ describe('SurveyEditor', () => {
 
         // 2. Update translations (uncommitted)
         const updatedTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated question 1' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated question 1' } }
         };
         editor.updateItemTranslations('testSurvey.question1', updatedTranslations);
         expect(editor.hasUncommittedChanges).toBe(true);
@@ -769,7 +769,7 @@ describe('SurveyEditor', () => {
       singleChoiceQuestion = new SingleChoiceQuestionItem('testSurvey.scQuestion');
 
       // Set up the response config with options
-      singleChoiceQuestion.responseConfig = new SingleChoiceResponseConfigComponent('rg', undefined, singleChoiceQuestion.key.fullKey);
+      singleChoiceQuestion.responseConfig = new ScgMcgChoiceResponseConfig('rg', undefined, singleChoiceQuestion.key.fullKey);
 
       // Add some options
       const option1 = new ScgMcgOption('option1', singleChoiceQuestion.responseConfig.key.fullKey, singleChoiceQuestion.key.fullKey);
@@ -781,16 +781,16 @@ describe('SurveyEditor', () => {
       // Create translations for the question and options
       questionTranslations = {
         en: {
-          'title': 'What is your favorite color?',
-          'rg.option1': 'Red',
-          'rg.option2': 'Blue',
-          'rg.option3': 'Green'
+          'title': { type: LocalizedContentType.md, content: 'What is your favorite color?' },
+          'rg.option1': { type: LocalizedContentType.md, content: 'Red' },
+          'rg.option2': { type: LocalizedContentType.md, content: 'Blue' },
+          'rg.option3': { type: LocalizedContentType.md, content: 'Green' }
         },
         es: {
-          'title': '¿Cuál es tu color favorito?',
-          'rg.option1': 'Rojo',
-          'rg.option2': 'Azul',
-          'rg.option3': 'Verde'
+          'title': { type: LocalizedContentType.md, content: '¿Cuál es tu color favorito?' },
+          'rg.option1': { type: LocalizedContentType.md, content: 'Rojo' },
+          'rg.option2': { type: LocalizedContentType.md, content: 'Azul' },
+          'rg.option3': { type: LocalizedContentType.md, content: 'Verde' }
         }
       };
 
@@ -820,8 +820,8 @@ describe('SurveyEditor', () => {
 
       it('should remove option translations when deleting option', () => {
         // Verify translations exist before deletion
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Blue');
-        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Azul');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toEqual({ type: LocalizedContentType.md, content: 'Blue' });
+        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toEqual({ type: LocalizedContentType.md, content: 'Azul' });
 
         editor.deleteComponent('testSurvey.scQuestion', 'rg.option2');
 
@@ -830,8 +830,8 @@ describe('SurveyEditor', () => {
         expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
 
         // Verify other translations remain
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option1']).toBe('Red');
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toBe('Green');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option1']).toEqual({ type: LocalizedContentType.md, content: 'Red' });
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toEqual({ type: LocalizedContentType.md, content: 'Green' });
       });
 
       it('should allow undo after deleting option', () => {
@@ -863,8 +863,8 @@ describe('SurveyEditor', () => {
         editor.undo();
 
         // Verify translations were restored
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Blue');
-        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBe('Azul');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toEqual({ type: LocalizedContentType.md, content: 'Blue' });
+        expect((editor.survey.translations?.['es']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toEqual({ type: LocalizedContentType.md, content: 'Azul' });
       });
 
       it('should allow redo after undo of option deletion', () => {
@@ -898,7 +898,7 @@ describe('SurveyEditor', () => {
         // Verify translations were removed
         expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option1']).toBeUndefined();
         expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option2']).toBeUndefined();
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toBe('Green');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toEqual({ type: LocalizedContentType.md, content: 'Green' });
 
         // Should be able to undo both operations
         expect(editor.undo()).toBe(true); // Undo second deletion (option1)
@@ -925,7 +925,7 @@ describe('SurveyEditor', () => {
         expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['rg.option3']).toBeUndefined();
 
         // Question title should remain
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['title']).toBe('What is your favorite color?');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['title']).toEqual({ type: LocalizedContentType.md, content: 'What is your favorite color?' });
       });
 
       it('should commit changes automatically when deleting option', () => {
@@ -941,7 +941,7 @@ describe('SurveyEditor', () => {
       it('should commit uncommitted changes before deleting option', () => {
         // Make some uncommitted changes first
         const newTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Updated: What is your favorite color?' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Updated: What is your favorite color?' } }
         };
         editor.updateItemTranslations('testSurvey.scQuestion', newTranslations);
         expect(editor.hasUncommittedChanges).toBe(true);
@@ -956,7 +956,7 @@ describe('SurveyEditor', () => {
 
         // Should be able to undo the translation update
         expect(editor.undo()).toBe(true);
-        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['title']).toBe('What is your favorite color?');
+        expect((editor.survey.translations?.['en']?.['testSurvey.scQuestion'] as LocalizedContentTranslation)?.['title']).toEqual({ type: LocalizedContentType.md, content: 'What is your favorite color?' });
       });
 
       it('should remove display conditions when deleting option', () => {
@@ -1121,11 +1121,11 @@ describe('SurveyEditor', () => {
       it('should handle deleting option from question with no options', () => {
         // Create a question with no options
         const emptyQuestion = new SingleChoiceQuestionItem('testSurvey.emptyQuestion');
-        emptyQuestion.responseConfig = new SingleChoiceResponseConfigComponent('rg', undefined, emptyQuestion.key.fullKey);
+        emptyQuestion.responseConfig = new ScgMcgChoiceResponseConfig('rg', undefined, emptyQuestion.key.fullKey);
         emptyQuestion.responseConfig.options = [];
 
         const emptyQuestionTranslations: SurveyItemTranslations = {
-          en: { 'title': 'Empty question' }
+          en: { 'title': { type: LocalizedContentType.md, content: 'Empty question' } }
         };
 
         editor.addItem(undefined, emptyQuestion, emptyQuestionTranslations);
@@ -1175,8 +1175,8 @@ describe('SurveyEditor', () => {
         // Add translations for the complex option
         const complexTranslations: SurveyItemTranslations = {
           en: {
-            'rg.complexOption': 'Complex option',
-            'rg.complexOption.subComponent': 'Sub component text'
+            'rg.complexOption': { type: LocalizedContentType.md, content: 'Complex option' },
+            'rg.complexOption.subComponent': { type: LocalizedContentType.md, content: 'Sub component text' }
           }
         };
         editor.updateItemTranslations('testSurvey.scQuestion', complexTranslations);

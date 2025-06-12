@@ -1,11 +1,13 @@
-import { SurveySingleItem } from "./data_types";
+/*
+TODO: add validation checkers
+import { SurveyItem } from "./data_types";
 
 interface ValidityResults {
     soft: boolean;
     hard: boolean;
 }
 
-export const checkSurveyItemValidity = (item: SurveySingleItem): ValidityResults => {
+export const checkSurveyItemValidity = (item: SurveyItem): ValidityResults => {
     const results = {
         soft: true,
         hard: true
@@ -30,7 +32,7 @@ export const checkSurveyItemValidity = (item: SurveySingleItem): ValidityResults
     return results;
 }
 
-export const checkSurveyItemsValidity = (items: SurveySingleItem[]): ValidityResults => {
+export const checkSurveyItemsValidity = (items: SurveyItem[]): ValidityResults => {
     const results = {
         soft: true,
         hard: true
@@ -49,4 +51,4 @@ export const checkSurveyItemsValidity = (items: SurveySingleItem[]): ValidityRes
         }
     }
     return results;
-}
+} */

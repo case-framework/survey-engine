@@ -1,4 +1,4 @@
-import { Expression, expressionArgParser, isExpression, ResponseItem, SurveyContext, SurveyGroupItemResponse, SurveyItem, SurveyItemResponse, SurveySingleItem, SurveyResponse, SurveySingleItemResponse } from "./data_types";
+/* import { Expression, expressionArgParser, isExpression, ResponseItem, SurveyContext, SurveyGroupItemResponse, SurveyItem, SurveyItemResponse, SurveySingleItem, SurveyResponse, SurveySingleItemResponse } from "./data_types";
 import {
   fromUnixTime, differenceInSeconds, differenceInMinutes, differenceInHours,
   differenceInMonths, differenceInWeeks, differenceInYears,
@@ -668,9 +668,6 @@ export class ExpressionEval {
     return this.context.participantFlags[key];
   }
 
-  /**
-   * Validate if a selected option has a value - return false if response is selected but no value is set, true otherwise
-   */
   private validateSelectedOptionHasValueDefined(exp: Expression): boolean {
     if (!Array.isArray(exp.data) || exp.data.length !== 2) {
       this.logEvent('validateSelectedOptionHasValue: data attribute is missing or wrong: ' + exp.data);
@@ -1158,3 +1155,4 @@ export class ExpressionEval {
   }
 }
 
+ */

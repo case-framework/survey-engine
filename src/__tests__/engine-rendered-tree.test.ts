@@ -183,7 +183,6 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
 
       // At least some variance should occur in ordering (though this is probabilistic)
       const uniqueOrders = new Set(orders.map(order => order.join(',')));
-      console.log('uniqueOrders', uniqueOrders);
       expect(uniqueOrders.size).toBeGreaterThan(1);
     });
   });

@@ -13,6 +13,7 @@ export enum ItemComponentType {
 
   SingleChoice = 'scg',
   MultipleChoice = 'mcg',
+
   ScgMcgOption = 'scgMcgOption',
   ScgMcgOptionWithTextInput = 'scgMcgOptionWithTextInput',
   ScgMcgOptionWithNumberInput = 'scgMcgOptionWithNumberInput',
@@ -22,6 +23,16 @@ export enum ItemComponentType {
   ScgMcgOptionWithCloze = 'scgMcgOptionWithCloze',
 
 }
+
+// Union type for all ScgMcg option types
+export type ScgMcgOptionTypes =
+  | ItemComponentType.ScgMcgOption
+  | ItemComponentType.ScgMcgOptionWithTextInput
+  | ItemComponentType.ScgMcgOptionWithNumberInput
+  | ItemComponentType.ScgMcgOptionWithDateInput
+  | ItemComponentType.ScgMcgOptionWithTimeInput
+  | ItemComponentType.ScgMcgOptionWithDropdown
+  | ItemComponentType.ScgMcgOptionWithCloze;
 
 /*
 TODO: remove this when not needed anymore:
@@ -155,12 +166,11 @@ export class DisplayComponent extends ItemComponent {
 }
 
 
-export class SingleChoiceResponseConfigComponent extends ItemComponent {
+export class ScgMcgChoiceResponseConfig extends ItemComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
   options: Array<ScgMcgOptionBase>;
   order?: Expression;
 
-  // TODO: add single choice response config properties
 
   constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
     super(
@@ -172,10 +182,10 @@ export class SingleChoiceResponseConfigComponent extends ItemComponent {
     this.options = [];
   }
 
-  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): SingleChoiceResponseConfigComponent {
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgChoiceResponseConfig {
     // Extract component key from full key
     const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
-    const singleChoice = new SingleChoiceResponseConfigComponent(componentKey, parentFullKey, parentItemKey);
+    const singleChoice = new ScgMcgChoiceResponseConfig(componentKey, parentFullKey, parentItemKey);
     singleChoice.options = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
     singleChoice.styles = json.styles;
     // TODO: parse single choice response config properties
@@ -201,7 +211,7 @@ export class SingleChoiceResponseConfigComponent extends ItemComponent {
   }
 }
 
-abstract class ScgMcgOptionBase extends ItemComponent {
+export abstract class ScgMcgOptionBase extends ItemComponent {
   static fromJson(item: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOptionBase {
     switch (item.type) {
       case ItemComponentType.ScgMcgOption:

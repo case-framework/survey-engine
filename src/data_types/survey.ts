@@ -1,7 +1,8 @@
 import { SurveyContextDef } from "./context";
 import { Expression } from "./expression";
+import { LocalizedContentTranslation } from "./localized-content";
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey, SurveyTranslations } from "./survey-file-schema";
-import { GroupItem, SurveyItem } from "./survey-item";
+import { GroupItem, SurveyItem, SurveyItemTranslations } from "./survey-item";
 
 
 
@@ -125,5 +126,21 @@ export class Survey extends SurveyBase {
 
   get rootItem(): GroupItem {
     return this.surveyItems[this.surveyKey] as GroupItem;
+  }
+
+  getItemTranslations(fullItemKey: string): SurveyItemTranslations | undefined {
+    const item = this.surveyItems[fullItemKey];
+    if (!item) {
+      throw new Error(`Item ${fullItemKey} not found`);
+    }
+
+    const translations: SurveyItemTranslations = {};
+    for (const locale of this.locales) {
+      const contentForLocale = this.translations?.[locale]?.[fullItemKey];
+      if (contentForLocale) {
+        translations[locale] = contentForLocale as LocalizedContentTranslation;
+      }
+    }
+    return translations;
   }
 }

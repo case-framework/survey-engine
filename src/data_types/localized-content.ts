@@ -27,7 +27,7 @@ export type Attribution = StyleAttribution | TemplateAttribution;
 export type LocalizedCQMContent = {
   type: LocalizedContentType.CQM;
   content: string;
-  attributions: Array<Attribution>;
+  attributions?: Array<Attribution>;
 }
 
 export type LocalizedMDContent = {
