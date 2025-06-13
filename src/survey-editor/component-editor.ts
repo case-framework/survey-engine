@@ -1,6 +1,5 @@
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase } from "../data_types";
 import { Content } from "../survey/utils/content";
-import { Locale } from "../survey/utils";
 import { SurveyItemEditor } from "./survey-item-editors";
 
 
@@ -17,7 +16,7 @@ abstract class ComponentEditor {
     this._itemEditor.deleteComponent(this._component);
   }
 
-  updateContent(locale: Locale, content?: Content, contentKey?: string): void {
+  updateContent(locale: string, content?: Content, contentKey?: string): void {
     this._itemEditor.updateComponentTranslations({ componentFullKey: this._component.key.fullKey, contentKey }, locale, content)
   }
 

@@ -4,7 +4,7 @@ import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, Sur
 import { DisplayComponentEditor, ScgMcgOptionBaseEditor } from "./component-editor";
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase, ScgMcgOptionTypes } from "../data_types";
 import { Content } from "../survey/utils/content";
-import { Locale, SurveyItemTranslations } from "../survey/utils";
+import { SurveyItemTranslations } from "../survey/utils";
 
 
 
@@ -41,7 +41,7 @@ export abstract class SurveyItemEditor {
   updateComponentTranslations(target: {
     componentFullKey: string,
     contentKey?: string
-  }, locale: Locale, translation?: Content): void {
+  }, locale: string, translation?: Content): void {
     const currentTranslations = this.editor.survey.getItemTranslations(this._currentItem.key.fullKey) ?? new SurveyItemTranslations();
     const translationKey = `${target.componentFullKey}${target.contentKey ? '.' + target.contentKey : ''}`;
 
