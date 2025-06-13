@@ -266,7 +266,7 @@ describe('SurveyEditor', () => {
       expect(retrievedTranslations).toBeDefined();
 
       // Check if translations were actually set
-      const localeContent = retrievedTranslations!.getLocaleContent(enLocale);
+      const localeContent = retrievedTranslations!.getAllForLocale(enLocale);
       expect(localeContent).toBeDefined();
       expect(localeContent!['title']).toEqual({
         type: ContentType.md,
@@ -450,8 +450,8 @@ describe('SurveyEditor', () => {
       const retrievedTranslations = editor.survey.getItemTranslations('test-survey.page1.display1');
 
       // Check if translations were updated correctly
-      const enContent = retrievedTranslations!.getLocaleContent(enLocale);
-      const frContent = retrievedTranslations!.getLocaleContent('fr');
+      const enContent = retrievedTranslations!.getAllForLocale(enLocale);
+      const frContent = retrievedTranslations!.getAllForLocale('fr');
 
       expect(enContent).toBeDefined();
       expect(enContent!['title']).toEqual({

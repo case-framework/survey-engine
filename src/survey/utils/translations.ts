@@ -33,7 +33,7 @@ export class SurveyItemTranslations {
     }
   }
 
-  setContentForLocale(locale: string, content?: JsonComponentContent): void {
+  setAllForLocale(locale: string, content?: JsonComponentContent): void {
     validateLocale(locale);
     if (!this._translations?.[locale]) {
       if (!content) {
@@ -49,12 +49,19 @@ export class SurveyItemTranslations {
     return Object.keys(this._translations || {});
   }
 
-  getLocaleContent(locale: string): JsonComponentContent | undefined {
+  getAllForLocale(locale: string): JsonComponentContent | undefined {
     return this._translations?.[locale];
   }
 
-  getContent(locale: string, contentKey: string): Content | undefined {
-    return this._translations?.[locale]?.[contentKey];
+  getContent(locale: string, contentKey: string, fallbackLocale?: string): Content | undefined {
+    const content = this._translations?.[locale]?.[contentKey];
+    if (content) {
+      return content;
+    }
+    if (fallbackLocale) {
+      return this._translations?.[fallbackLocale]?.[contentKey];
+    }
+    return undefined;
   }
 }
 
@@ -131,7 +138,7 @@ export class SurveyTranslations {
     const itemTranslations: SurveyItemTranslations = new SurveyItemTranslations();
     for (const locale of this.locales) {
       const contentForLocale = this._translations?.[locale]?.[fullItemKey];
-      itemTranslations.setContentForLocale(locale, contentForLocale as JsonComponentContent);
+      itemTranslations.setAllForLocale(locale, contentForLocale as JsonComponentContent);
     }
     return itemTranslations;
   }
@@ -157,7 +164,7 @@ export class SurveyTranslations {
           if (!this._translations[locale]) {
             this._translations[locale] = {};
           }
-          this._translations[locale][fullItemKey] = itemContent.getLocaleContent(locale) ?? {};
+          this._translations[locale][fullItemKey] = itemContent.getAllForLocale(locale) ?? {};
         } else {
           delete this._translations[locale][fullItemKey];
         }

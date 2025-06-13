@@ -80,9 +80,9 @@ describe('SurveyItemTranslations', () => {
         description: mockCQMContent
       };
 
-      itemTranslations.setContentForLocale(enLocale, localeContent);
+      itemTranslations.setAllForLocale(enLocale, localeContent);
 
-      expect(itemTranslations.getLocaleContent(enLocale)).toEqual(localeContent);
+      expect(itemTranslations.getAllForLocale(enLocale)).toEqual(localeContent);
       expect(itemTranslations.getContent(enLocale, 'title')).toEqual(mockContent);
       expect(itemTranslations.getContent(enLocale, 'description')).toEqual(mockCQMContent);
     });
@@ -94,24 +94,24 @@ describe('SurveyItemTranslations', () => {
         description: mockCQMContent
       };
 
-      itemTranslations.setContentForLocale(enLocale, newLocaleContent);
+      itemTranslations.setAllForLocale(enLocale, newLocaleContent);
 
-      expect(itemTranslations.getLocaleContent(enLocale)).toEqual(newLocaleContent);
+      expect(itemTranslations.getAllForLocale(enLocale)).toEqual(newLocaleContent);
       expect(itemTranslations.getContent(enLocale, 'title')).toBeUndefined();
       expect(itemTranslations.getContent(enLocale, 'description')).toEqual(mockCQMContent);
     });
 
     test('should not create locale when content is undefined', () => {
-      itemTranslations.setContentForLocale(enLocale, undefined);
+      itemTranslations.setAllForLocale(enLocale, undefined);
 
       expect(itemTranslations.locales).toEqual([]);
     });
 
     test('should set empty object when content is undefined for existing locale', () => {
       itemTranslations.setContent(enLocale, 'title', mockContent);
-      itemTranslations.setContentForLocale(enLocale, undefined);
+      itemTranslations.setAllForLocale(enLocale, undefined);
 
-      expect(itemTranslations.getLocaleContent(enLocale)).toEqual({});
+      expect(itemTranslations.getAllForLocale(enLocale)).toEqual({});
     });
   });
 
@@ -128,7 +128,7 @@ describe('SurveyItemTranslations', () => {
     });
 
     test('should return undefined for non-existent locale content', () => {
-      expect(itemTranslations.getLocaleContent('nonexistent')).toBeUndefined();
+      expect(itemTranslations.getAllForLocale('nonexistent')).toBeUndefined();
     });
 
     test('should return undefined for non-existent content key', () => {
@@ -142,7 +142,7 @@ describe('SurveyItemTranslations', () => {
       }).toThrow('Locale cannot be empty');
 
       expect(() => {
-        itemTranslations.setContentForLocale('', { title: mockContent });
+        itemTranslations.setAllForLocale('', { title: mockContent });
       }).toThrow('Locale cannot be empty');
     });
   });
