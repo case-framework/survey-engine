@@ -1,6 +1,6 @@
 import { SurveyEngineCore } from '../engine';
 import { Survey } from '../survey/survey';
-import { GroupItem, DisplayItem } from '../survey/items/survey-item';
+import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType } from '../survey/items/survey-item';
 import { DisplayComponent } from '../survey/components/survey-item-component';
 
 describe('SurveyEngineCore - ShuffleItems Rendering', () => {
@@ -269,6 +269,94 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // inner2 has fixed order
       expect(inner2.items[0].key.fullKey).toBe('test-survey.outer.inner2.display3');
       expect(inner2.items[1].key.fullKey).toBe('test-survey.outer.inner2.display4');
+    });
+  });
+
+  describe('Survey End Item', () => {
+    test('should return survey end item when it exists in the survey', () => {
+      const survey = new Survey('test-survey');
+
+      // Create a survey end item
+      const surveyEndItem = new SurveyEndItem('test-survey.end');
+      survey.surveyItems['test-survey.end'] = surveyEndItem;
+
+      // Add the survey end item to the root group
+      const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+      rootItem.items = ['test-survey.end'];
+
+      const engine = new SurveyEngineCore(survey);
+      const endItem = engine.surveyEndItem;
+
+      expect(endItem).toBeDefined();
+      expect(endItem?.key.fullKey).toBe('test-survey.end');
+      expect(endItem?.itemType).toBe(SurveyItemType.SurveyEnd);
+    });
+
+    test('should return undefined when no survey end item exists', () => {
+      const survey = new Survey('test-survey');
+
+      // Create some other items but no survey end item
+      const displayItem = new DisplayItem('test-survey.display1');
+      displayItem.components = [
+        new DisplayComponent('title', 'test-survey.display1', 'test-survey.display1')
+      ];
+
+      survey.surveyItems['test-survey.display1'] = displayItem;
+
+      // Add the display item to the root group
+      const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+      rootItem.items = ['test-survey.display1'];
+
+      const engine = new SurveyEngineCore(survey);
+      const endItem = engine.surveyEndItem;
+
+      expect(endItem).toBeUndefined();
+    });
+
+    test('should return the first survey end item when multiple exist', () => {
+      const survey = new Survey('test-survey');
+
+      // Create multiple survey end items
+      const surveyEndItem1 = new SurveyEndItem('test-survey.end1');
+      const surveyEndItem2 = new SurveyEndItem('test-survey.end2');
+
+      survey.surveyItems['test-survey.end1'] = surveyEndItem1;
+      survey.surveyItems['test-survey.end2'] = surveyEndItem2;
+
+      // Add both survey end items to the root group
+      const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+      rootItem.items = ['test-survey.end1', 'test-survey.end2'];
+
+      const engine = new SurveyEngineCore(survey);
+      const endItem = engine.surveyEndItem;
+
+      expect(endItem).toBeDefined();
+      // Should return the first one found (end1 since it comes first in the items array)
+      expect(endItem?.key.fullKey).toBe('test-survey.end1');
+      expect(endItem?.itemType).toBe(SurveyItemType.SurveyEnd);
+    });
+
+    test('should return survey end item from nested groups', () => {
+      const survey = new Survey('test-survey');
+
+      // Create a nested group structure
+      const nestedGroup = new GroupItem('test-survey.nested');
+      const surveyEndItem = new SurveyEndItem('test-survey.nested.end');
+
+      survey.surveyItems['test-survey.nested'] = nestedGroup;
+      survey.surveyItems['test-survey.nested.end'] = surveyEndItem;
+
+      // Set up the nested structure
+      nestedGroup.items = ['test-survey.nested.end'];
+      const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+      rootItem.items = ['test-survey.nested'];
+
+      const engine = new SurveyEngineCore(survey);
+      const endItem = engine.surveyEndItem;
+
+      expect(endItem).toBeDefined();
+      expect(endItem?.key.fullKey).toBe('test-survey.nested.end');
+      expect(endItem?.itemType).toBe(SurveyItemType.SurveyEnd);
     });
   });
 });

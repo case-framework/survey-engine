@@ -10,6 +10,7 @@ import {
   GroupItem,
   SurveyItemKey,
   JsonSurveyItemResponse,
+  SurveyEndItem,
 } from "./data_types";
 
 // import { ExpressionEval } from "./expression-eval";
@@ -105,7 +106,6 @@ export class SurveyEngineCore {
 
     // init rendered survey
     this.renderedSurveyTree = this.renderGroup(survey.rootItem);
-
   }
 
 
@@ -216,16 +216,19 @@ export class SurveyEngineCore {
     return pages;
   } */
 
-  /*  TODO: questionDisplayed(itemKey: string, localeCode?: string) {
-      this.setTimestampFor('displayed', itemKey, localeCode);
-    } */
+  onQuestionDisplayed(itemKey: string, localeCode?: string) {
+    this.setTimestampFor('displayed', itemKey, localeCode);
+  }
 
-  /*
-  TODO:
-  getSurveyEndItem(): SurveySingleItem | undefined {
-    const renderedSurvey = flattenSurveyItemTree(this.getRenderedSurvey());
-    return renderedSurvey.find(item => item.type === 'surveyEnd');
-  } */
+
+  get surveyEndItem(): SurveyEndItem | undefined {
+    const renderedSurvey = flattenTree(this.renderedSurveyTree);
+    const firstRenderedSurveyEnd = renderedSurvey.find(item => item.type === SurveyItemType.SurveyEnd);
+    if (!firstRenderedSurveyEnd) {
+      return undefined;
+    }
+    return this.surveyDef.surveyItems[firstRenderedSurveyEnd.key.fullKey] as SurveyEndItem;
+  }
 
   getResponses(): SurveyItemResponse[] {
     return [];
@@ -511,53 +514,6 @@ export class SurveyEngineCore {
     }
   } */
 
-  /* TODO: private getNextItem(groupDef: SurveyGroupItem, parent: SurveyGroupItem, lastKey: string, onlyDirectFollower: boolean): SurveyItem | undefined {
-    // get unrendered question groups only
-    const availableItems = groupDef.items.filter(ai => {
-      return !parent.items.some(item => item.key === ai.key) && this.evalConditions(ai.condition);
-    });
-
-    if ((!lastKey || lastKey.length <= 0) && onlyDirectFollower) {
-      console.warn('getNextItem: missing input argument for lastKey');
-      return;
-    }
-    const followUpItems = availableItems.filter(item => item.follows && item.follows.includes(lastKey));
-
-    if (followUpItems.length > 0) {
-      return SelectionMethod.pickAnItem(followUpItems, groupDef.selectionMethod);
-    } else if (onlyDirectFollower) {
-      return;
-    }
-
-    const groupPool = availableItems.filter(item => !item.follows || item.follows.length < 1);
-    if (groupPool.length < 1) {
-      return;
-    }
-
-    return SelectionMethod.pickAnItem(groupPool, groupDef.selectionMethod);
-  } */
-
-  /* TODO: private addRenderedItem(item: SurveyItem, parent: SurveyGroupItem, atPosition?: number): number {
-    let renderedItem: SurveyItem = {
-      ...item
-    };
-
-    if (isSurveyGroupItem(item)) {
-      (renderedItem as SurveyGroupItem).items = [];
-    } else {
-      renderedItem = this.renderSingleSurveyItem(item);
-    }
-
-    if (atPosition === undefined || atPosition < 0) {
-      parent.items.push(renderedItem);
-      this.setTimestampFor('rendered', renderedItem.key);
-      return parent.items.length - 1;
-    }
-    parent.items.splice(atPosition, 0, renderedItem);
-    this.setTimestampFor('rendered', renderedItem.key);
-    return atPosition;
-  } */
-
   private setTimestampFor(type: TimestampType, itemID: string, localeCode?: string) {
     const obj = this.getResponseItem(itemID);
     if (!obj) {
@@ -593,39 +549,6 @@ export class SurveyEngineCore {
         break;
     }
   }
-
-  /* TODO: findSurveyDefItem(itemID: string): SurveyItem | undefined {
-    const ids = itemID.split('.');
-    let obj: SurveyItem | undefined;
-    let compID = '';
-    ids.forEach(id => {
-      if (compID === '') {
-        compID = id;
-      } else {
-        compID += '.' + id;
-      }
-      if (!obj) {
-        if (compID === this.surveyDef.surveyDefinition.key) {
-          obj = this.surveyDef.surveyDefinition;
-        }
-        return;
-      }
-      if (!isSurveyGroupItem(obj)) {
-        return;
-      }
-      const ind = obj.items.findIndex(item => item.key === compID);
-      if (ind < 0) {
-        if (this.showDebugMsg) {
-          console.warn('findSurveyDefItem: cannot find object for : ' + compID);
-        }
-        obj = undefined;
-        return;
-      }
-      obj = obj.items[ind];
-
-    });
-    return obj;
-  } */
 
   /* TODO: findRenderedItem(itemID: string): SurveyItem | undefined {
      const ids = itemID.split('.');
@@ -733,4 +656,17 @@ export class SurveyEngineCore {
       this.surveyDef.dynamicValues = resolvedDynamicValues;
     }
   } */
+}
+
+export const flattenTree = (itemTree: RenderedSurveyItem): RenderedSurveyItem[] => {
+  const flatTree = new Array<RenderedSurveyItem>();
+
+  itemTree.items?.forEach(item => {
+    if (item.type === SurveyItemType.Group) {
+      flatTree.push(...flattenTree(item));
+    } else {
+      flatTree.push({ ...item });
+    }
+  });
+  return flatTree;
 }
