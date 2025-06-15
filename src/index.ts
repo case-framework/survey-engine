@@ -2,6 +2,7 @@
 export * from './data_types';
 
 export * from './engine';
+export * from './expressions';
 export * from './utils';
 export * from './survey';
 

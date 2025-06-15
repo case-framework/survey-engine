@@ -1,7 +1,6 @@
 import { SurveyContextDef } from "../data_types/context";
 import { Expression } from "../data_types/expression";
-import { SurveyItemType, ConfidentialMode } from "./items/survey-item";
-import { DynamicValue, Validation } from "../data_types/utils";
+import { JsonSurveyItem } from "./items";
 import { JsonSurveyTranslations } from "./utils/translations";
 
 export const CURRENT_SURVEY_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
@@ -38,72 +37,6 @@ export type JsonSurvey = {
 }
 
 
-// TODO: move to survey-item.ts
-export interface JsonSurveyItemBase {
-  itemType: string;
-  metadata?: {
-    [key: string]: string;
-  }
-
-  dynamicValues?: {
-    [dynamicValueKey: string]: DynamicValue;
-  };
-  validations?: {
-    [validationKey: string]: Validation;
-  };
-  displayConditions?: {
-    root?: Expression;
-    components?: {
-      [componentKey: string]: Expression;
-    }
-  }
-  disabledConditions?: {
-    components?: {
-      [componentKey: string]: Expression;
-    }
-  }
-}
-
-
-export interface JsonSurveyItemGroup extends JsonSurveyItemBase {
-  itemType: SurveyItemType.Group;
-  items?: Array<ItemKey>;
-  shuffleItems?: boolean;
-}
-
-export interface JsonSurveyDisplayItem extends JsonSurveyItemBase {
-  itemType: SurveyItemType.Display;
-  components: Array<JsonItemComponent>;
-}
-
-export interface JsonSurveyPageBreakItem extends JsonSurveyItemBase {
-  itemType: SurveyItemType.PageBreak;
-}
-
-export interface JsonSurveyEndItem extends JsonSurveyItemBase {
-  itemType: SurveyItemType.SurveyEnd;
-}
-
-export interface JsonSurveyResponseItem extends JsonSurveyItemBase {
-  header?: {
-    title?: JsonItemComponent;
-    subtitle?: JsonItemComponent;
-    helpPopover?: JsonItemComponent;
-  }
-  body?: {
-    topContent?: Array<JsonItemComponent>;
-    bottomContent?: Array<JsonItemComponent>;
-  }
-  footer?: JsonItemComponent;
-  confidentiality?: {
-    mode: ConfidentialMode;
-    mapToKey?: string;
-  }
-
-  responseConfig: JsonItemComponent;
-}
-
-export type JsonSurveyItem = JsonSurveyItemGroup | JsonSurveyDisplayItem | JsonSurveyPageBreakItem | JsonSurveyEndItem | JsonSurveyResponseItem;
 
 
 // TODO: move to survey-item-component.ts

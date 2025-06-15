@@ -1,8 +1,10 @@
-import { Expression } from '../../data_types/expression';
-import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from '../survey-file-schema';
+import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from './survey-item-json';
 import { SurveyItemKey } from '../item-component-key';
 import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from '../components/survey-item-component';
-import { DynamicValue, Validation } from '../../data_types/utils';
+import { DynamicValue, dynamicValuesFromJson, dynamicValuesToJson } from '../../expressions/dynamic-value';
+import { Validation, validationsFromJson, validationsToJson } from '../../expressions/validations';
+import { Expression, JsonExpression } from '../../expressions';
+
 
 
 export enum ConfidentialMode {
@@ -21,6 +23,33 @@ export enum SurveyItemType {
   MultipleChoiceQuestion = 'multipleChoiceQuestion',
 }
 
+interface DisplayConditions {
+  root?: Expression;
+  components?: {
+    [componentKey: string]: Expression;
+  }
+}
+
+interface JsonDisplayConditions {
+  root?: JsonExpression;
+  components?: {
+    [componentKey: string]: JsonExpression;
+  }
+}
+
+interface JsonDisabledConditions {
+  components?: {
+    [componentKey: string]: JsonExpression;
+  }
+}
+
+interface DisabledConditions {
+  components?: {
+    [componentKey: string]: Expression;
+  }
+}
+
+
 
 export abstract class SurveyItem {
   key!: SurveyItemKey;
@@ -29,20 +58,11 @@ export abstract class SurveyItem {
     [key: string]: string;
   }
 
-  displayConditions?: {
-    root?: Expression;
-    components?: {
-      [componentKey: string]: Expression;
-    }
-  }
+  displayConditions?: DisplayConditions;
   protected _dynamicValues?: {
     [dynamicValueKey: string]: DynamicValue;
   }
-  protected _disabledConditions?: {
-    components?: {
-      [componentKey: string]: Expression;
-    }
-  }
+  protected _disabledConditions?: DisabledConditions;
   protected _validations?: {
     [validationKey: string]: Validation;
   }
@@ -84,6 +104,35 @@ const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem
   }
 }
 
+const displayConditionsFromJson = (json: JsonDisplayConditions): DisplayConditions => {
+  return {
+    root: json.root ? Expression.fromJson(json.root) : undefined,
+    components: json.components ? Object.fromEntries(Object.entries(json.components).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined
+  }
+}
+
+const displayConditionsToJson = (displayConditions: DisplayConditions): JsonDisplayConditions => {
+  return {
+    root: displayConditions.root ? displayConditions.root.toJson() : undefined,
+    components: displayConditions.components ? Object.fromEntries(Object.entries(displayConditions.components).map(([key, value]) => [key, value.toJson()])) : undefined
+  }
+}
+
+const disabledConditionsFromJson = (json: JsonDisabledConditions): DisabledConditions => {
+  return {
+    components: json.components ? Object.fromEntries(Object.entries(json.components).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined
+  }
+}
+
+const disabledConditionsToJson = (disabledConditions: DisabledConditions): JsonDisabledConditions => {
+  return {
+    components: disabledConditions.components ? Object.fromEntries(Object.entries(disabledConditions.components).map(([key, value]) => [key, value.toJson()])) : undefined
+  }
+}
+
+
+
+
 export class GroupItem extends SurveyItem {
   itemType: SurveyItemType.Group = SurveyItemType.Group;
   items?: Array<string>;
@@ -104,7 +153,7 @@ export class GroupItem extends SurveyItem {
     group.shuffleItems = json.shuffleItems;
     group.metadata = json.metadata;
 
-    group.displayConditions = json.displayConditions;
+    group.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
     return group;
   }
 
@@ -114,7 +163,7 @@ export class GroupItem extends SurveyItem {
       items: this.items,
       shuffleItems: this.shuffleItems,
       metadata: this.metadata,
-      displayConditions: this.displayConditions,
+      displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
     }
   }
 
@@ -135,8 +184,8 @@ export class DisplayItem extends SurveyItem {
     const item = new DisplayItem(key);
     item.components = json.components?.map(component => DisplayComponent.fromJson(component, undefined, item.key.fullKey));
     item.metadata = json.metadata;
-    item.displayConditions = json.displayConditions;
-    item._dynamicValues = json.dynamicValues;
+    item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
+    item._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
     return item;
   }
 
@@ -145,8 +194,8 @@ export class DisplayItem extends SurveyItem {
       itemType: SurveyItemType.Display,
       components: this.components?.map(component => component.toJson()) ?? [],
       metadata: this.metadata,
-      displayConditions: this.displayConditions,
-      dynamicValues: this._dynamicValues,
+      displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
+      dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
     }
   }
 
@@ -165,7 +214,7 @@ export class PageBreakItem extends SurveyItem {
   static fromJson(key: string, json: JsonSurveyPageBreakItem): PageBreakItem {
     const item = new PageBreakItem(key);
     item.metadata = json.metadata;
-    item.displayConditions = json.displayConditions;
+    item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
     return item;
   }
 
@@ -173,7 +222,7 @@ export class PageBreakItem extends SurveyItem {
     return {
       itemType: SurveyItemType.PageBreak,
       metadata: this.metadata,
-      displayConditions: this.displayConditions,
+      displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
     }
   }
 }
@@ -188,8 +237,8 @@ export class SurveyEndItem extends SurveyItem {
   static fromJson(key: string, json: JsonSurveyEndItem): SurveyEndItem {
     const item = new SurveyEndItem(key);
     item.metadata = json.metadata;
-    item.displayConditions = json.displayConditions;
-    item._dynamicValues = json.dynamicValues;
+    item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
+    item._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
     return item;
   }
 
@@ -197,8 +246,8 @@ export class SurveyEndItem extends SurveyItem {
     return {
       itemType: SurveyItemType.SurveyEnd,
       metadata: this.metadata,
-      displayConditions: this.displayConditions,
-      dynamicValues: this._dynamicValues,
+      displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
+      dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
     }
   }
 }
@@ -223,10 +272,10 @@ export abstract class QuestionItem extends SurveyItem {
 
   _readGenericAttributes(json: JsonSurveyResponseItem) {
     this.metadata = json.metadata;
-    this.displayConditions = json.displayConditions;
-    this._disabledConditions = json.disabledConditions;
-    this._dynamicValues = json.dynamicValues;
-    this._validations = json.validations;
+    this.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
+    this._disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
+    this._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
+    this._validations = json.validations ? validationsFromJson(json.validations) : undefined;
 
     if (json.header) {
       this.header = {
@@ -252,10 +301,10 @@ export abstract class QuestionItem extends SurveyItem {
       itemType: this.itemType,
       responseConfig: this.responseConfig.toJson(),
       metadata: this.metadata,
-      displayConditions: this.displayConditions,
-      disabledConditions: this._disabledConditions,
-      dynamicValues: this._dynamicValues,
-      validations: this._validations,
+      displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
+      disabledConditions: this._disabledConditions ? disabledConditionsToJson(this._disabledConditions) : undefined,
+      dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
+      validations: this._validations ? validationsToJson(this._validations) : undefined,
     }
 
     if (this.header) {

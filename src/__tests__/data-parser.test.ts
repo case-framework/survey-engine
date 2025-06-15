@@ -1,11 +1,15 @@
-import { CURRENT_SURVEY_SCHEMA, JsonSurvey, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../survey/survey-file-schema";
+import { CURRENT_SURVEY_SCHEMA, JsonSurvey } from "../survey/survey-file-schema";
 import { SingleChoiceQuestionItem, DisplayItem, GroupItem } from "../survey/items/survey-item";
 import { ItemComponentType } from "../survey/components/survey-item-component";
 import { ContentType } from "../survey/utils/content";
 import { JsonSurveyCardContent } from "../survey/utils/translations";
 import { Survey } from "../survey/survey";
 import { SurveyItemType } from "../survey/items/survey-item";
-import { DynamicValueTypes, ValidationType } from "../data_types";
+import { ExpressionType, FunctionExpression } from "../expressions/expression";
+import { DynamicValueTypes } from "../expressions/dynamic-value";
+import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItemGroup, JsonSurveyResponseItem } from "../survey/items";
+import { ValidationType } from "../expressions/validations";
+
 
 const surveyCardProps: JsonSurveyCardContent = {
   name: {
@@ -90,10 +94,11 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       ],
       displayConditions: {
         root: {
-          name: 'eq',
-          data: [
-            { str: 'test' },
-            { str: 'value' }
+          type: ExpressionType.Function,
+          functionName: 'eq',
+          arguments: [
+            { type: ExpressionType.Const, value: 'test' },
+            { type: ExpressionType.Const, value: 'value' }
           ]
         }
       }
@@ -110,22 +115,24 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       displayConditions: {
         components: {
           'comp1': {
-            name: 'gt',
-            data: [
-              { num: 10 },
-              { num: 5 }
+            type: ExpressionType.Function,
+            functionName: 'gt',
+            arguments: [
+              { type: ExpressionType.Const, value: 10 },
+              { type: ExpressionType.Const, value: 5 }
             ]
           }
         }
       },
       dynamicValues: {
         'dynVal1': {
-          type: DynamicValueTypes.Expression,
+          type: DynamicValueTypes.String,
           expression: {
-            name: 'getAttribute',
-            data: [
-              { dtype: 'exp', exp: { name: 'getContext' } },
-              { str: 'userId' }
+            type: ExpressionType.Function,
+            functionName: 'getAttribute',
+            arguments: [
+              { type: ExpressionType.Function, functionName: 'getContext', arguments: [] },
+              { type: ExpressionType.Const, value: 'userId' }
             ]
           }
         }
@@ -155,9 +162,10 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
           key: 'val1',
           type: ValidationType.Hard,
           rule: {
-            name: 'isDefined',
-            data: [
-              { dtype: 'exp', exp: { name: 'getResponseItem', data: [{ str: 'survey.question1' }, { str: 'rg' }] } }
+            type: ExpressionType.Function,
+            functionName: 'isDefined',
+            arguments: [
+              { type: ExpressionType.Function, functionName: 'getResponseItem', arguments: [{ type: ExpressionType.Const, value: 'survey.question1' }, { type: ExpressionType.Const, value: 'rg' }] }
             ]
           }
         },
@@ -165,27 +173,30 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
           key: 'val2',
           type: ValidationType.Soft,
           rule: {
-            name: 'not',
-            data: [
-              { dtype: 'exp', exp: { name: 'eq', data: [{ str: 'option1' }, { str: 'option2' }] } }
+            type: ExpressionType.Function,
+            functionName: 'not',
+            arguments: [
+              { type: ExpressionType.Function, functionName: 'eq', arguments: [{ type: ExpressionType.Const, value: 'option1' }, { type: ExpressionType.Const, value: 'option2' }] }
             ]
           }
         }
       },
       displayConditions: {
         root: {
-          name: 'and',
-          data: [
-            { dtype: 'exp', exp: { name: 'eq', data: [{ str: 'show' }, { str: 'show' }] } },
-            { dtype: 'exp', exp: { name: 'gt', data: [{ num: 15 }, { num: 10 }] } }
+          type: ExpressionType.Function,
+          functionName: 'and',
+          arguments: [
+            { type: ExpressionType.Function, functionName: 'eq', arguments: [{ type: ExpressionType.Const, value: 'show' }, { type: ExpressionType.Const, value: 'show' }] },
+            { type: ExpressionType.Function, functionName: 'gt', arguments: [{ type: ExpressionType.Const, value: 15 }, { type: ExpressionType.Const, value: 10 }] }
           ]
         },
         components: {
           'rg.option1': {
-            name: 'lt',
-            data: [
-              { num: 5 },
-              { num: 10 }
+            type: ExpressionType.Function,
+            functionName: 'lt',
+            arguments: [
+              { type: ExpressionType.Const, value: 5 },
+              { type: ExpressionType.Const, value: 10 }
             ]
           }
         }
@@ -193,10 +204,11 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       disabledConditions: {
         components: {
           'rg.option2': {
-            name: 'or',
-            data: [
-              { dtype: 'exp', exp: { name: 'eq', data: [{ str: 'disabled' }, { str: 'disabled' }] } },
-              { dtype: 'exp', exp: { name: 'gte', data: [{ num: 20 }, { num: 15 }] } }
+            type: ExpressionType.Function,
+            functionName: 'or',
+            arguments: [
+              { type: ExpressionType.Function, functionName: 'eq', arguments: [{ type: ExpressionType.Const, value: 'disabled' }, { type: ExpressionType.Const, value: 'disabled' }] },
+              { type: ExpressionType.Function, functionName: 'gte', arguments: [{ type: ExpressionType.Const, value: 20 }, { type: ExpressionType.Const, value: 15 }] }
             ]
           }
         }
@@ -303,10 +315,10 @@ describe('Data Parsing', () => {
       expect(group1Item).toBeDefined();
       expect(group1Item.displayConditions).toBeDefined();
       expect(group1Item.displayConditions?.root).toBeDefined();
-      expect(group1Item.displayConditions?.root?.name).toBe('eq');
-      expect(group1Item.displayConditions?.root?.data).toHaveLength(2);
-      expect(group1Item.displayConditions?.root?.data?.[0]).toEqual({ str: 'test' });
-      expect(group1Item.displayConditions?.root?.data?.[1]).toEqual({ str: 'value' });
+      expect((group1Item.displayConditions?.root as FunctionExpression)?.functionName).toBe('eq');
+      expect((group1Item.displayConditions?.root as FunctionExpression)?.arguments).toHaveLength(2);
+      expect((group1Item.displayConditions?.root as FunctionExpression)?.arguments?.[0]).toEqual({ type: ExpressionType.Const, value: 'test' });
+      expect((group1Item.displayConditions?.root as FunctionExpression)?.arguments?.[1]).toEqual({ type: ExpressionType.Const, value: 'value' });
 
       // Test Display item with component display conditions and dynamic values
       const displayItem = survey.surveyItems['survey.group1.display1'] as DisplayItem;
@@ -314,17 +326,18 @@ describe('Data Parsing', () => {
       expect(displayItem.displayConditions).toBeDefined();
       expect(displayItem.displayConditions?.components).toBeDefined();
       expect(displayItem.displayConditions?.components?.['comp1']).toBeDefined();
-      expect(displayItem.displayConditions?.components?.['comp1']?.name).toBe('gt');
-      expect(displayItem.displayConditions?.components?.['comp1']?.data).toHaveLength(2);
-      expect(displayItem.displayConditions?.components?.['comp1']?.data?.[0]).toEqual({ num: 10 });
-      expect(displayItem.displayConditions?.components?.['comp1']?.data?.[1]).toEqual({ num: 5 });
+      expect((displayItem.displayConditions?.components?.['comp1'] as FunctionExpression)?.functionName).toBe('gt');
+      expect((displayItem.displayConditions?.components?.['comp1'] as FunctionExpression)?.arguments).toHaveLength(2);
+      expect((displayItem.displayConditions?.components?.['comp1'] as FunctionExpression)?.arguments?.[0]).toEqual({ type: ExpressionType.Const, value: 10 });
+      expect((displayItem.displayConditions?.components?.['comp1'] as FunctionExpression)?.arguments?.[1]).toEqual({ type: ExpressionType.Const, value: 5 });
 
       // Test dynamic values
       expect(displayItem.dynamicValues).toBeDefined();
       expect(displayItem.dynamicValues?.['dynVal1']).toBeDefined();
-      expect(displayItem.dynamicValues?.['dynVal1']?.type).toBe(DynamicValueTypes.Expression);
+      expect(displayItem.dynamicValues?.['dynVal1']?.type).toBe(DynamicValueTypes.String);
       expect(displayItem.dynamicValues?.['dynVal1']?.expression).toBeDefined();
-      expect(displayItem.dynamicValues?.['dynVal1']?.expression?.name).toBe('getAttribute');
+      expect(displayItem.dynamicValues?.['dynVal1']?.expression?.type).toBe(ExpressionType.Function);
+      expect((displayItem.dynamicValues?.['dynVal1']?.expression as FunctionExpression)?.functionName).toBe('getAttribute');
 
       // Test Single Choice Question with validations, display conditions, and disabled conditions
       const questionItem = survey.surveyItems['survey.question1'] as SingleChoiceQuestionItem;
@@ -339,29 +352,29 @@ describe('Data Parsing', () => {
       expect(questionItem.validations?.['val1']?.key).toBe('val1');
       expect(questionItem.validations?.['val1']?.type).toBe(ValidationType.Hard);
       expect(questionItem.validations?.['val1']?.rule).toBeDefined();
-      expect(questionItem.validations?.['val1']?.rule?.name).toBe('isDefined');
+      expect((questionItem.validations?.['val1']?.rule as FunctionExpression)?.functionName).toBe('isDefined');
 
       expect(questionItem.validations?.['val2']).toBeDefined();
       expect(questionItem.validations?.['val2']?.key).toBe('val2');
       expect(questionItem.validations?.['val2']?.type).toBe(ValidationType.Soft);
-      expect(questionItem.validations?.['val2']?.rule?.name).toBe('not');
+      expect((questionItem.validations?.['val2']?.rule as FunctionExpression)?.functionName).toBe('not');
 
       // Test display conditions on question
       expect(questionItem.displayConditions).toBeDefined();
       expect(questionItem.displayConditions?.root).toBeDefined();
-      expect(questionItem.displayConditions?.root?.name).toBe('and');
-      expect(questionItem.displayConditions?.root?.data).toHaveLength(2);
+      expect((questionItem.displayConditions?.root as FunctionExpression)?.functionName).toBe('and');
+      expect((questionItem.displayConditions?.root as FunctionExpression)?.arguments).toHaveLength(2);
 
       expect(questionItem.displayConditions?.components).toBeDefined();
       expect(questionItem.displayConditions?.components?.['rg.option1']).toBeDefined();
-      expect(questionItem.displayConditions?.components?.['rg.option1']?.name).toBe('lt');
+      expect((questionItem.displayConditions?.components?.['rg.option1'] as FunctionExpression)?.functionName).toBe('lt');
 
       // Test disabled conditions on question
       expect(questionItem.disabledConditions).toBeDefined();
       expect(questionItem.disabledConditions?.components).toBeDefined();
       expect(questionItem.disabledConditions?.components?.['rg.option2']).toBeDefined();
-      expect(questionItem.disabledConditions?.components?.['rg.option2']?.name).toBe('or');
-      expect(questionItem.disabledConditions?.components?.['rg.option2']?.data).toHaveLength(2);
+      expect((questionItem.disabledConditions?.components?.['rg.option2'] as FunctionExpression)?.functionName).toBe('or');
+      expect((questionItem.disabledConditions?.components?.['rg.option2'] as FunctionExpression)?.arguments).toHaveLength(2);
 
       // Verify response config was parsed correctly
       expect(questionItem.responseConfig).toBeDefined();
