@@ -1,5 +1,5 @@
 import { SurveyEditorUndoRedo } from '../survey-editor/undo-redo';
-import { JsonSurvey, CURRENT_SURVEY_SCHEMA } from '../data_types';
+import { JsonSurvey, CURRENT_SURVEY_SCHEMA } from '../survey/survey-file-schema';
 import { GroupItem, SurveyItemType } from '../survey/items/survey-item';
 
 // Helper function to create a minimal valid JsonSurvey

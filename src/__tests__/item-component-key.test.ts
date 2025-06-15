@@ -1,4 +1,4 @@
-import { SurveyItemKey, ItemComponentKey } from '../data_types/item-component-key';
+import { SurveyItemKey, ItemComponentKey } from '../survey/item-component-key';
 
 describe('SurveyItemKey', () => {
   describe('constructor', () => {

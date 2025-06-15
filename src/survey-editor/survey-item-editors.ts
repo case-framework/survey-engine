@@ -1,4 +1,4 @@
-import { SurveyItemKey } from "../data_types/item-component-key";
+import { SurveyItemKey } from "../survey/item-component-key";
 import { SurveyEditor } from "./survey-editor";
 import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType } from "../survey/items/survey-item";
 import { DisplayComponentEditor, ScgMcgOptionBaseEditor } from "./component-editor";

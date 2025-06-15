@@ -1,4 +1,4 @@
-import { SurveyItemKey } from "./item-component-key";
+import { SurveyItemKey } from "../survey/item-component-key";
 import { ConfidentialMode, SurveyItemType } from "../survey/items/survey-item";
 import { ItemComponentType } from "../survey/components/survey-item-component";
 

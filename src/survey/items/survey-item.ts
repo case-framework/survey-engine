@@ -1,6 +1,6 @@
 import { Expression } from '../../data_types/expression';
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from '../survey-file-schema';
-import { SurveyItemKey } from '../../data_types/item-component-key';
+import { SurveyItemKey } from '../item-component-key';
 import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from '../components/survey-item-component';
 import { DynamicValue, Validation } from '../../data_types/utils';
 

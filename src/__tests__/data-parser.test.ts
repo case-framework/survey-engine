@@ -1,6 +1,11 @@
-import { CURRENT_SURVEY_SCHEMA, DisplayItem, GroupItem, ItemComponentType, JsonSurvey, Survey, SurveyItemType, SingleChoiceQuestionItem, DynamicValueTypes, ValidationType, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../data_types";
+import { CURRENT_SURVEY_SCHEMA, JsonSurvey, JsonSurveyItemGroup, JsonSurveyDisplayItem, JsonSurveyResponseItem, JsonSurveyEndItem } from "../survey/survey-file-schema";
+import { SingleChoiceQuestionItem, DisplayItem, GroupItem } from "../survey/items/survey-item";
+import { ItemComponentType } from "../survey/components/survey-item-component";
 import { ContentType } from "../survey/utils/content";
 import { JsonSurveyCardContent } from "../survey/utils/translations";
+import { Survey } from "../survey/survey";
+import { SurveyItemType } from "../survey/items/survey-item";
+import { DynamicValueTypes, ValidationType } from "../data_types";
 
 const surveyCardProps: JsonSurveyCardContent = {
   name: {
