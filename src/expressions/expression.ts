@@ -1,6 +1,6 @@
 import { ValueReference } from "../survey/utils/value-reference";
 
-export type ExpressionDataTypes = string | number | boolean | Date | string[] | number[] | boolean[] | Date[];
+export type ExpressionDataTypes = string | number | boolean | Date | string[] | number[] | Date[];
 
 export enum ExpressionType {
   Const = 'const',

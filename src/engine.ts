@@ -1,9 +1,5 @@
 import {
   SurveyContext,
-  TimestampType,
-  SurveyItemResponse,
-  ResponseMeta,
-  JsonSurveyItemResponse,
 } from "./data_types";
 
 import { Locale } from 'date-fns';
@@ -18,17 +14,11 @@ import {
   GroupItem,
   SurveyEndItem,
 } from "./survey";
+import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "./survey/responses";
 
 
 export type ScreenSize = "small" | "large";
 
-const initMeta: ResponseMeta = {
-  rendered: [],
-  displayed: [],
-  responded: [],
-  position: -1,
-  localeCode: '',
-}
 
 interface RenderedSurveyItem {
   key: SurveyItemKey;
@@ -49,7 +39,6 @@ export class SurveyEngineCore {
   };
   private _openedAt: number;
   private selectedLocale: string;
-  private availableLocales: string[];
   private dateLocales: Array<{ code: string, locale: Locale }>;
 
   //private evalEngine: ExpressionEval;
@@ -86,7 +75,6 @@ export class SurveyEngineCore {
 
 
     this.surveyDef = survey;
-    this.availableLocales = this.surveyDef.translations ? Object.keys(this.surveyDef.translations) : [];
 
     this.context = context ? context : {};
     this.prefills = prefills ? prefills.reduce((acc, p) => {
@@ -145,36 +133,23 @@ export class SurveyEngineCore {
     // TODO: this.reRenderGroup(this.renderedSurvey.key);
   }
 
-  /*
-  TODO:
+
   setResponse(targetKey: string, response?: ResponseItem) {
-    const target = this.findResponseItem(targetKey);
+    const target = this.getResponseItem(targetKey);
     if (!target) {
-      console.error('setResponse: cannot find target object for key: ' + targetKey);
-      return;
+      throw new Error('setResponse: target not found for key: ' + targetKey);
     }
-    if (isSurveyGroupItemResponse(target)) {
-      console.error('setResponse: object is a response group - not defined: ' + targetKey);
-      return;
-    }
+
     target.response = response;
     this.setTimestampFor('responded', targetKey);
 
     // Re-render whole tree
     // TODO: this.reRenderGroup(this.renderedSurvey.key);
-  } */
+  }
 
   get openedAt(): number {
     return this._openedAt;
   }
-
-  /* TODO: getRenderedSurvey(): SurveyGroupItem {
-    return this.renderedSurvey;
-    return {
-      ...this.renderedSurvey,
-      items: this.renderedSurvey.items.slice()
-    }
-  };; */
 
   getSurveyPages(size?: ScreenSize): RenderedSurveyItem[][] {
     const renderedSurvey = flattenTree(this.renderedSurveyTree);
@@ -220,8 +195,8 @@ export class SurveyEngineCore {
     return pages;
   }
 
-  onQuestionDisplayed(itemKey: string, localeCode?: string) {
-    this.setTimestampFor('displayed', itemKey, localeCode);
+  onQuestionDisplayed(itemKey: string) {
+    this.setTimestampFor('displayed', itemKey);
   }
 
 
@@ -235,34 +210,32 @@ export class SurveyEngineCore {
   }
 
   getResponses(): SurveyItemResponse[] {
-    return [];
-    // TODO:
-    /* const itemsInOrder = flattenSurveyItemTree(this.renderedSurvey);
-    const responses: SurveySingleItemResponse[] = [];
-    itemsInOrder.forEach((item, index) => {
-      if (item.type === 'pageBreak' || item.type === 'surveyEnd') {
+    const renderedSurvey = flattenTree(this.renderedSurveyTree).filter(
+      item => item.type !== SurveyItemType.PageBreak && item.type !== SurveyItemType.SurveyEnd
+    );
+
+    const responses: SurveyItemResponse[] = [];
+    renderedSurvey.forEach((item, index) => {
+      const response = this.getResponseItem(item.key.fullKey);
+      if (!response) {
         return;
       }
-      const obj = this.findResponseItem(item.key);
-      if (!obj) {
-        return;
+      if (!response.meta) {
+        response.meta = new ResponseMeta();
       }
-      if (!obj.meta) {
-        obj.meta = { ...initMeta };
+      response.meta.setPosition(index);
+
+      const itemDef = this.surveyDef.surveyItems[item.key.fullKey];
+      if (itemDef instanceof QuestionItem) {
+        response.confidentiality = itemDef.confidentiality;
       }
-      if (item.confidentialMode) {
-        obj.meta = { ...initMeta }; // reset meta
-        (obj as SurveySingleItemResponse).confidentialMode = item.confidentialMode;
-        (obj as SurveySingleItemResponse).mapToKey = item.mapToKey
-      }
-      obj.meta.position = index;
-      responses.push({ ...obj });
-    })
-    return responses; */
+
+      responses.push(response);
+    });
+    return responses;
   }
 
   // INIT METHODS
-
   private initCache() {
     const itemsWithValidations: string[] = [];
     Object.keys(this.surveyDef.surveyItems).forEach(itemKey => {
@@ -518,74 +491,17 @@ export class SurveyEngineCore {
     }
   } */
 
-  private setTimestampFor(type: TimestampType, itemID: string, localeCode?: string) {
+  private setTimestampFor(type: TimestampType, itemID: string) {
     const obj = this.getResponseItem(itemID);
     if (!obj) {
       return;
     }
     if (!obj.meta) {
-      obj.meta = { ...initMeta };
-    }
-    if (localeCode) {
-      obj.meta.localeCode = localeCode;
+      obj.meta = new ResponseMeta();
     }
 
-    const timestampLimit = 100;
-
-    switch (type) {
-      case 'rendered':
-        obj.meta.rendered.push(Date.now());
-        if (obj.meta.rendered.length > timestampLimit) {
-          obj.meta.rendered.splice(0, 1);
-        }
-        break;
-      case 'displayed':
-        obj.meta.displayed.push(Date.now());
-        if (obj.meta.displayed.length > timestampLimit) {
-          obj.meta.displayed.splice(0, 1);
-        }
-        break;
-      case 'responded':
-        obj.meta.responded.push(Date.now());
-        if (obj.meta.responded.length > timestampLimit) {
-          obj.meta.responded.splice(0, 1);
-        }
-        break;
-    }
+    obj.meta.addTimestamp(type, Date.now());
   }
-
-  /* TODO: findRenderedItem(itemID: string): SurveyItem | undefined {
-     const ids = itemID.split('.');
-     let obj: SurveyItem | undefined;
-     let compID = '';
-     ids.forEach(id => {
-       if (compID === '') {
-         compID = id;
-       } else {
-         compID += '.' + id;
-       }
-       if (!obj) {
-         if (compID === this.renderedSurvey.key) {
-           obj = this.renderedSurvey;
-         }
-         return;
-       }
-       if (!isSurveyGroupItem(obj)) {
-         return;
-       }
-       const ind = obj.items.findIndex(item => item.key === compID);
-       if (ind < 0) {
-         if (this.showDebugMsg) {
-           console.warn('findRenderedItem: cannot find object for : ' + compID);
-         }
-         obj = undefined;
-         return;
-       }
-       obj = obj.items[ind];
-
-     });
-     return obj;
-   } */
 
   getResponseItem(itemFullKey: string): SurveyItemResponse | undefined {
     return this.responses[itemFullKey];

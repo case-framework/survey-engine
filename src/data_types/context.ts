@@ -1,4 +1,4 @@
-import { SurveyResponse } from "./response";
+import { SurveyResponse } from "../survey/responses/response";
 import { ExpressionArg, Expression } from "./expression";
 
 export interface SurveyContext {
