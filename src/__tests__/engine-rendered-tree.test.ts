@@ -1,7 +1,8 @@
 import { SurveyEngineCore } from '../engine';
 import { Survey } from '../survey/survey';
-import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType } from '../survey/items/survey-item';
+import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem } from '../survey/items/survey-item';
 import { DisplayComponent } from '../survey/components/survey-item-component';
+import { PageBreakItem } from '../survey/items/survey-item';
 
 describe('SurveyEngineCore - ShuffleItems Rendering', () => {
   describe('Sequential Rendering (shuffleItems: false/undefined)', () => {
@@ -358,5 +359,104 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       expect(endItem?.key.fullKey).toBe('test-survey.nested.end');
       expect(endItem?.itemType).toBe(SurveyItemType.SurveyEnd);
     });
+  });
+});
+
+describe('SurveyEngineCore.getSurveyPages', () => {
+  function makeSurvey(items: SurveyItem[], maxItemsPerPage?: { large: number, small: number }) {
+    const rootKey = 'test-survey';
+    const survey = new Survey(rootKey);
+    const root = survey.surveyItems[rootKey] as GroupItem;
+    root.items = items.map(item => item.key.fullKey);
+    for (const item of items) {
+      survey.surveyItems[item.key.fullKey] = item;
+    }
+    if (maxItemsPerPage) {
+      survey.maxItemsPerPage = maxItemsPerPage;
+    }
+    return survey;
+  }
+
+  it('returns all items in one page if no maxItemsPerPage and no page breaks', () => {
+    const items = [
+      new DisplayItem('test-survey.q1'),
+      new DisplayItem('test-survey.q2'),
+      new DisplayItem('test-survey.q3'),
+    ];
+    const survey = makeSurvey(items);
+    const engine = new SurveyEngineCore(survey);
+    const pages = engine.getSurveyPages();
+    expect(pages).toHaveLength(1);
+    expect(pages[0].length).toBe(3);
+  });
+
+  it('splits items into pages according to maxItemsPerPage', () => {
+    const items = [
+      new DisplayItem('test-survey.q1'),
+      new DisplayItem('test-survey.q2'),
+      new DisplayItem('test-survey.q3'),
+      new DisplayItem('test-survey.q4'),
+      new DisplayItem('test-survey.q5'),
+    ];
+    const survey = makeSurvey(items, { large: 2, small: 3 });
+    const engine = new SurveyEngineCore(survey);
+    const pagesLarge = engine.getSurveyPages('large');
+    expect(pagesLarge).toHaveLength(3);
+    expect(pagesLarge[0].length).toBe(2);
+    expect(pagesLarge[1].length).toBe(2);
+    expect(pagesLarge[2].length).toBe(1);
+    const pagesSmall = engine.getSurveyPages('small');
+    expect(pagesSmall).toHaveLength(2);
+    expect(pagesSmall[0].length).toBe(3);
+    expect(pagesSmall[1].length).toBe(2);
+  });
+
+  it('splits pages at page breaks', () => {
+    const items = [
+      new DisplayItem('test-survey.q1'),
+      new PageBreakItem('test-survey.pb1'),
+      new DisplayItem('test-survey.q2'),
+      new PageBreakItem('test-survey.pb2'),
+      new DisplayItem('test-survey.q3'),
+    ];
+    const survey = makeSurvey(items);
+    const engine = new SurveyEngineCore(survey);
+    const pages = engine.getSurveyPages();
+    expect(pages).toHaveLength(3);
+    expect(pages[0].length).toBe(1);
+    expect(pages[1].length).toBe(1);
+    expect(pages[2].length).toBe(1);
+  });
+
+  it('splits at both page breaks and maxItemsPerPage', () => {
+    const items = [
+      new DisplayItem('test-survey.q1'),
+      new DisplayItem('test-survey.q2'),
+      new PageBreakItem('test-survey.pb1'),
+      new DisplayItem('test-survey.q3'),
+      new DisplayItem('test-survey.q4'),
+      new DisplayItem('test-survey.q5'),
+      new DisplayItem('test-survey.q6'),
+      new DisplayItem('test-survey.q7'),
+      new DisplayItem('test-survey.q8'),
+    ];
+    const survey = makeSurvey(items, { large: 4, small: 4 });
+    const engine = new SurveyEngineCore(survey);
+    const pagesLarge = engine.getSurveyPages('large');
+    expect(pagesLarge).toHaveLength(3);
+    expect(pagesLarge[0].length).toBe(2);
+    expect(pagesLarge[1].length).toBe(4);
+    expect(pagesLarge[2].length).toBe(2);
+  });
+
+  it('returns empty if only page breaks', () => {
+    const items = [
+      new PageBreakItem('test-survey.pb1'),
+      new PageBreakItem('test-survey.pb2'),
+    ];
+    const survey = makeSurvey(items);
+    const engine = new SurveyEngineCore(survey);
+    const pages = engine.getSurveyPages();
+    expect(pages).toHaveLength(0);
   });
 });

@@ -2,20 +2,24 @@ import {
   SurveyContext,
   TimestampType,
   SurveyItemResponse,
-  SurveyItem,
-  Survey,
   ResponseMeta,
-  SurveyItemType,
-  QuestionItem,
-  GroupItem,
-  SurveyItemKey,
   JsonSurveyItemResponse,
-  SurveyEndItem,
 } from "./data_types";
 
-// import { ExpressionEval } from "./expression-eval";
 import { Locale } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+
+import {
+  Survey,
+  SurveyItemKey,
+  SurveyItemType,
+  SurveyItem,
+  QuestionItem,
+  GroupItem,
+  SurveyEndItem,
+} from "./survey";
+
+
 export type ScreenSize = "small" | "large";
 
 const initMeta: ResponseMeta = {
@@ -164,26 +168,26 @@ export class SurveyEngineCore {
     return this._openedAt;
   }
 
-  /* getRenderedSurvey(): SurveyGroupItem {
-    // TODO: return this.renderedSurvey;
+  /* TODO: getRenderedSurvey(): SurveyGroupItem {
+    return this.renderedSurvey;
     return {
       ...this.renderedSurvey,
       items: this.renderedSurvey.items.slice()
     }
   };; */
 
-  /* getSurveyPages(size?: ScreenSize): SurveySingleItem[][] {
-    const renderedSurvey = flattenSurveyItemTree(this.getRenderedSurvey());
-    const pages = new Array<SurveySingleItem[]>();
+  getSurveyPages(size?: ScreenSize): RenderedSurveyItem[][] {
+    const renderedSurvey = flattenTree(this.renderedSurveyTree);
+    const pages = new Array<RenderedSurveyItem[]>();
 
     if (!size) {
       size = 'large';
     }
 
-    let currentPage: SurveySingleItem[] = [];
+    let currentPage: RenderedSurveyItem[] = [];
 
     renderedSurvey.forEach(item => {
-      if (item.type === 'pageBreak') {
+      if (item.type === SurveyItemType.PageBreak) {
         if (currentPage.length > 0) {
           pages.push([...currentPage]);
           currentPage = [];
@@ -214,7 +218,7 @@ export class SurveyEngineCore {
       pages.push([...currentPage]);
     }
     return pages;
-  } */
+  }
 
   onQuestionDisplayed(itemKey: string, localeCode?: string) {
     this.setTimestampFor('displayed', itemKey, localeCode);
