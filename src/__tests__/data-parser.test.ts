@@ -7,8 +7,7 @@ import { Survey } from "../survey/survey";
 import { SurveyItemType } from "../survey/items/survey-item";
 import { ExpressionType, FunctionExpression } from "../expressions/expression";
 import { DynamicValueTypes } from "../expressions/dynamic-value";
-import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItemGroup, JsonSurveyResponseItem } from "../survey/items";
-import { ValidationType } from "../expressions/validations";
+import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItemGroup, JsonSurveyQuestionItem } from "../survey/items";
 
 
 const surveyCardProps: JsonSurveyCardContent = {
@@ -159,26 +158,18 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       },
       validations: {
         'val1': {
-          key: 'val1',
-          type: ValidationType.Hard,
-          rule: {
-            type: ExpressionType.Function,
-            functionName: 'isDefined',
-            arguments: [
-              { type: ExpressionType.Function, functionName: 'getResponseItem', arguments: [{ type: ExpressionType.Const, value: 'survey.question1' }, { type: ExpressionType.Const, value: 'rg' }] }
-            ]
-          }
+          type: ExpressionType.Function,
+          functionName: 'isDefined',
+          arguments: [
+            { type: ExpressionType.Function, functionName: 'getResponseItem', arguments: [{ type: ExpressionType.Const, value: 'survey.question1' }, { type: ExpressionType.Const, value: 'rg' }] }
+          ]
         },
         'val2': {
-          key: 'val2',
-          type: ValidationType.Soft,
-          rule: {
-            type: ExpressionType.Function,
-            functionName: 'not',
-            arguments: [
-              { type: ExpressionType.Function, functionName: 'eq', arguments: [{ type: ExpressionType.Const, value: 'option1' }, { type: ExpressionType.Const, value: 'option2' }] }
-            ]
-          }
+          type: ExpressionType.Function,
+          functionName: 'not',
+          arguments: [
+            { type: ExpressionType.Function, functionName: 'eq', arguments: [{ type: ExpressionType.Const, value: 'option1' }, { type: ExpressionType.Const, value: 'option2' }] }
+          ]
         }
       },
       displayConditions: {
@@ -349,15 +340,12 @@ describe('Data Parsing', () => {
       expect(Object.keys(questionItem.validations || {})).toHaveLength(2);
 
       expect(questionItem.validations?.['val1']).toBeDefined();
-      expect(questionItem.validations?.['val1']?.key).toBe('val1');
-      expect(questionItem.validations?.['val1']?.type).toBe(ValidationType.Hard);
-      expect(questionItem.validations?.['val1']?.rule).toBeDefined();
-      expect((questionItem.validations?.['val1']?.rule as FunctionExpression)?.functionName).toBe('isDefined');
+      expect(questionItem.validations?.['val1']?.type).toBe(ExpressionType.Function);
+      expect((questionItem.validations?.['val1'] as FunctionExpression)?.functionName).toBe('isDefined');
 
       expect(questionItem.validations?.['val2']).toBeDefined();
-      expect(questionItem.validations?.['val2']?.key).toBe('val2');
-      expect(questionItem.validations?.['val2']?.type).toBe(ValidationType.Soft);
-      expect((questionItem.validations?.['val2']?.rule as FunctionExpression)?.functionName).toBe('not');
+      expect(questionItem.validations?.['val2']?.type).toBe(ExpressionType.Function);
+      expect((questionItem.validations?.['val2'] as FunctionExpression)?.functionName).toBe('not');
 
       // Test display conditions on question
       expect(questionItem.displayConditions).toBeDefined();
@@ -419,8 +407,8 @@ describe('Data Parsing', () => {
       expect(exportedDisplay.dynamicValues).toEqual(originalDisplay.dynamicValues);
 
       // Test single choice question with validations, display conditions, and disabled conditions
-      const originalQuestion = surveyJsonWithConditionsAndValidations.surveyItems['survey.question1'] as JsonSurveyResponseItem;
-      const exportedQuestion = exportedJson.surveyItems['survey.question1'] as JsonSurveyResponseItem;
+      const originalQuestion = surveyJsonWithConditionsAndValidations.surveyItems['survey.question1'] as JsonSurveyQuestionItem;
+      const exportedQuestion = exportedJson.surveyItems['survey.question1'] as JsonSurveyQuestionItem;
       expect(exportedQuestion.itemType).toBe(originalQuestion.itemType);
 
       // Test validations are preserved

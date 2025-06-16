@@ -1,8 +1,7 @@
-import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyResponseItem } from './survey-item-json';
+import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyQuestionItem } from './survey-item-json';
 import { SurveyItemKey } from '../item-component-key';
 import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from '../components/survey-item-component';
 import { DynamicValue, dynamicValuesFromJson, dynamicValuesToJson } from '../../expressions/dynamic-value';
-import { Validation, validationsFromJson, validationsToJson } from '../../expressions/validations';
 import { Expression, JsonExpression } from '../../expressions';
 
 
@@ -64,7 +63,7 @@ export abstract class SurveyItem {
   }
   protected _disabledConditions?: DisabledConditions;
   protected _validations?: {
-    [validationKey: string]: Validation;
+    [validationKey: string]: Expression;
   }
 
   constructor(itemFullKey: string, itemType: SurveyItemType) {
@@ -98,7 +97,7 @@ const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem
     case SurveyItemType.SurveyEnd:
       return SurveyEndItem.fromJson(key, json as JsonSurveyEndItem);
     case SurveyItemType.SingleChoiceQuestion:
-      return SingleChoiceQuestionItem.fromJson(key, json as JsonSurveyResponseItem);
+      return SingleChoiceQuestionItem.fromJson(key, json as JsonSurveyQuestionItem);
     default:
       throw new Error(`Unsupported item type for initialization: ${json.itemType}`);
   }
@@ -270,12 +269,12 @@ export abstract class QuestionItem extends SurveyItem {
 
   abstract responseConfig: ItemComponent;
 
-  _readGenericAttributes(json: JsonSurveyResponseItem) {
+  _readGenericAttributes(json: JsonSurveyQuestionItem) {
     this.metadata = json.metadata;
     this.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
     this._disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
     this._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
-    this._validations = json.validations ? validationsFromJson(json.validations) : undefined;
+    this._validations = json.validations ? Object.fromEntries(Object.entries(json.validations).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined;
 
     if (json.header) {
       this.header = {
@@ -296,15 +295,15 @@ export abstract class QuestionItem extends SurveyItem {
     this.confidentiality = json.confidentiality;
   }
 
-  toJson(): JsonSurveyResponseItem {
-    const json: JsonSurveyResponseItem = {
+  toJson(): JsonSurveyQuestionItem {
+    const json: JsonSurveyQuestionItem = {
       itemType: this.itemType,
       responseConfig: this.responseConfig.toJson(),
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
       disabledConditions: this._disabledConditions ? disabledConditionsToJson(this._disabledConditions) : undefined,
       dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
-      validations: this._validations ? validationsToJson(this._validations) : undefined,
+      validations: this._validations ? Object.fromEntries(Object.entries(this._validations).map(([key, value]) => [key, value.toJson()])) : undefined,
     }
 
     if (this.header) {
@@ -329,7 +328,7 @@ export abstract class QuestionItem extends SurveyItem {
   }
 
   get validations(): {
-    [validationKey: string]: Validation;
+    [validationKey: string]: Expression;
   } | undefined {
     return this._validations;
   }
@@ -392,7 +391,7 @@ abstract class ScgMcgQuestionItem extends QuestionItem {
     this.responseConfig = new ScgMcgChoiceResponseConfig(itemType === SurveyItemType.SingleChoiceQuestion ? 'scg' : 'mcg', undefined, this.key.fullKey);
   }
 
-  static fromJson(key: string, json: JsonSurveyResponseItem): SingleChoiceQuestionItem {
+  static fromJson(key: string, json: JsonSurveyQuestionItem): SingleChoiceQuestionItem {
     const item = new SingleChoiceQuestionItem(key);
 
     item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);

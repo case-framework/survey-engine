@@ -2,7 +2,6 @@ import { ConfidentialMode, SurveyItemType } from "./survey-item";
 import { JsonExpression } from "../../expressions";
 import { JsonItemComponent } from "../survey-file-schema";
 import { JsonDynamicValue } from "../../expressions/dynamic-value";
-import { JsonValidation } from "../../expressions/validations";
 
 
 export interface JsonSurveyItemBase {
@@ -15,7 +14,7 @@ export interface JsonSurveyItemBase {
     [dynamicValueKey: string]: JsonDynamicValue;
   };
   validations?: {
-    [validationKey: string]: JsonValidation;
+    [validationKey: string]: JsonExpression;
   };
   displayConditions?: {
     root?: JsonExpression;
@@ -50,7 +49,7 @@ export interface JsonSurveyEndItem extends JsonSurveyItemBase {
   itemType: SurveyItemType.SurveyEnd;
 }
 
-export interface JsonSurveyResponseItem extends JsonSurveyItemBase {
+export interface JsonSurveyQuestionItem extends JsonSurveyItemBase {
   header?: {
     title?: JsonItemComponent;
     subtitle?: JsonItemComponent;
@@ -69,4 +68,4 @@ export interface JsonSurveyResponseItem extends JsonSurveyItemBase {
   responseConfig: JsonItemComponent;
 }
 
-export type JsonSurveyItem = JsonSurveyItemGroup | JsonSurveyDisplayItem | JsonSurveyPageBreakItem | JsonSurveyEndItem | JsonSurveyResponseItem;
+export type JsonSurveyItem = JsonSurveyItemGroup | JsonSurveyDisplayItem | JsonSurveyPageBreakItem | JsonSurveyEndItem | JsonSurveyQuestionItem;

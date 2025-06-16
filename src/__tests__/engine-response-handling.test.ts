@@ -1,16 +1,14 @@
 import { SurveyEngineCore } from '../engine';
 import { Survey } from '../survey/survey';
-import { GroupItem, DisplayItem, QuestionItem, SurveyItemType, SingleChoiceQuestionItem } from '../survey/items/survey-item';
-import { SurveyItemResponse, ResponseItem, JsonSurveyItemResponse } from '../survey/responses/item-response';
+import { GroupItem, SurveyItemType } from '../survey/items/survey-item';
+import { ResponseItem, JsonSurveyItemResponse } from '../survey/responses/item-response';
 import { ResponseMeta } from '../survey/responses/response-meta';
-import { ItemComponentType, ScgMcgOption } from '../survey';
-import { SingleChoiceQuestionEditor, SurveyEditor } from '../survey-editor';
+import { SurveyEditor } from '../survey-editor';
 
 describe('SurveyEngineCore response handling', () => {
   function makeSurveyWithQuestions(keys: string[]): Survey {
     const rootKey = 'test-survey';
     const survey = new Survey(rootKey);
-    const root = survey.surveyItems[rootKey] as GroupItem;
     const editor = new SurveyEditor(survey);
 
     for (const key of keys) {
@@ -30,7 +28,6 @@ describe('SurveyEngineCore response handling', () => {
 
   it('initializes responses for all items', () => {
     const survey = makeSurveyWithQuestions(['q1', 'q2']);
-    console.log(survey.surveyItems);
     const engine = new SurveyEngineCore(survey);
     const responses = engine.getResponses();
     expect(responses.length).toBe(2);
