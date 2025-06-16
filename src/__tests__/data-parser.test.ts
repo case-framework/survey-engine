@@ -49,7 +49,7 @@ const surveyJson: JsonSurvey = {
       components: [
         {
           key: 'comp1',
-          type: ItemComponentType.Display,
+          type: ItemComponentType.Text,
           styles: {}
         }
       ]
@@ -107,7 +107,7 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       components: [
         {
           key: 'comp1',
-          type: ItemComponentType.Display,
+          type: ItemComponentType.Text,
           styles: {}
         }
       ],
@@ -294,7 +294,7 @@ describe('Data Parsing', () => {
       expect(displayItem.components?.length).toBeGreaterThan(0);
       expect(displayItem.components?.[0]?.key.fullKey).toBe('comp1');
       expect(displayItem.components?.[0]?.key.parentItemKey.fullKey).toBe('survey.group1.display1');
-      expect(displayItem.components?.[0]?.componentType).toBe(ItemComponentType.Display);
+      expect(displayItem.components?.[0]?.componentType).toBe(ItemComponentType.Text);
     });
 
     test('should parse displayConditions, validations, and disabled conditions correctly', () => {

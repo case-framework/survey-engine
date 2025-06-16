@@ -3,7 +3,7 @@ import { SurveyEditor } from '../survey-editor/survey-editor';
 import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from '../survey/items/survey-item';
 import { SurveyItemTranslations } from '../survey/utils';
 import { Content, ContentType } from '../survey/utils/content';
-import { DisplayComponent } from '../survey/components/survey-item-component';
+import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components/survey-item-component';
 
 // Helper function to create a test survey
 const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
@@ -491,8 +491,8 @@ describe('SurveyEditor', () => {
     test('should delete component and update item', () => {
       const testItem = new DisplayItem('test-survey.page1.display1');
       testItem.components = [
-        new DisplayComponent('title', undefined, 'test-survey.page1.display1'),
-        new DisplayComponent('description', undefined, 'test-survey.page1.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', undefined, 'test-survey.page1.display1'),
+        new DisplayComponent(ItemComponentType.Text, 'description', undefined, 'test-survey.page1.display1')
       ];
       const testTranslations = createTestTranslations();
 
@@ -515,7 +515,7 @@ describe('SurveyEditor', () => {
     test('should commit changes and remove translations when deleting component', () => {
       const testItem = new DisplayItem('test-survey.page1.display1');
       testItem.components = [
-        new DisplayComponent('title', undefined, 'test-survey.page1.display1')
+        new TextComponent('title', undefined, 'test-survey.page1.display1')
       ];
       const testTranslations = createTestTranslations();
 

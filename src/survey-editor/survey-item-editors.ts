@@ -63,14 +63,14 @@ abstract class QuestionEditor extends SurveyItemEditor {
 
   get title(): DisplayComponentEditor {
     if (!this._currentItem.header?.title) {
-      return new DisplayComponentEditor(this, new DisplayComponent('title', undefined, this._currentItem.key.fullKey))
+      return new DisplayComponentEditor(this, new DisplayComponent(ItemComponentType.Text, 'title', undefined, this._currentItem.key.fullKey))
     }
     return new DisplayComponentEditor(this, this._currentItem.header.title);
   }
 
   get subtitle(): DisplayComponentEditor {
     if (!this._currentItem.header?.subtitle) {
-      return new DisplayComponentEditor(this, new DisplayComponent('subtitle', undefined, this._currentItem.key.fullKey))
+      return new DisplayComponentEditor(this, new DisplayComponent(ItemComponentType.Text, 'subtitle', undefined, this._currentItem.key.fullKey))
     }
     return new DisplayComponentEditor(this, this._currentItem.header.subtitle);
   }

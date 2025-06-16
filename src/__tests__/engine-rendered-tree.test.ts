@@ -1,7 +1,7 @@
 import { SurveyEngineCore } from '../engine/engine';
 import { Survey } from '../survey/survey';
 import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem } from '../survey/items/survey-item';
-import { DisplayComponent } from '../survey/components/survey-item-component';
+import { DisplayComponent, ItemComponentType } from '../survey/components/survey-item-component';
 import { PageBreakItem } from '../survey/items/survey-item';
 
 describe('SurveyEngineCore - ShuffleItems Rendering', () => {
@@ -12,17 +12,17 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // Create multiple items
       const displayItem1 = new DisplayItem('test-survey.display1');
       displayItem1.components = [
-        new DisplayComponent('title', 'test-survey.display1', 'test-survey.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display1', 'test-survey.display1')
       ];
 
       const displayItem2 = new DisplayItem('test-survey.display2');
       displayItem2.components = [
-        new DisplayComponent('title', 'test-survey.display2', 'test-survey.display2')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display2', 'test-survey.display2')
       ];
 
       const displayItem3 = new DisplayItem('test-survey.display3');
       displayItem3.components = [
-        new DisplayComponent('title', 'test-survey.display3', 'test-survey.display3')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display3', 'test-survey.display3')
       ];
 
       survey.surveyItems['test-survey.display1'] = displayItem1;
@@ -50,17 +50,17 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // Create multiple items
       const displayItem1 = new DisplayItem('test-survey.display1');
       displayItem1.components = [
-        new DisplayComponent('title', 'test-survey.display1', 'test-survey.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display1', 'test-survey.display1')
       ];
 
       const displayItem2 = new DisplayItem('test-survey.display2');
       displayItem2.components = [
-        new DisplayComponent('title', 'test-survey.display2', 'test-survey.display2')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display2', 'test-survey.display2')
       ];
 
       const displayItem3 = new DisplayItem('test-survey.display3');
       displayItem3.components = [
-        new DisplayComponent('title', 'test-survey.display3', 'test-survey.display3')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display3', 'test-survey.display3')
       ];
 
       survey.surveyItems['test-survey.display1'] = displayItem1;
@@ -89,17 +89,17 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // Create multiple items
       const displayItem1 = new DisplayItem('test-survey.display1');
       displayItem1.components = [
-        new DisplayComponent('title', 'test-survey.display1', 'test-survey.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display1', 'test-survey.display1')
       ];
 
       const displayItem2 = new DisplayItem('test-survey.display2');
       displayItem2.components = [
-        new DisplayComponent('title', 'test-survey.display2', 'test-survey.display2')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display2', 'test-survey.display2')
       ];
 
       const displayItem3 = new DisplayItem('test-survey.display3');
       displayItem3.components = [
-        new DisplayComponent('title', 'test-survey.display3', 'test-survey.display3')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display3', 'test-survey.display3')
       ];
 
       survey.surveyItems['test-survey.display1'] = displayItem1;
@@ -134,22 +134,22 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // Create multiple items
       const displayItem1 = new DisplayItem('test-survey.display1');
       displayItem1.components = [
-        new DisplayComponent('title', 'test-survey.display1', 'test-survey.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display1', 'test-survey.display1')
       ];
 
       const displayItem2 = new DisplayItem('test-survey.display2');
       displayItem2.components = [
-        new DisplayComponent('title', 'test-survey.display2', 'test-survey.display2')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display2', 'test-survey.display2')
       ];
 
       const displayItem3 = new DisplayItem('test-survey.display3');
       displayItem3.components = [
-        new DisplayComponent('title', 'test-survey.display3', 'test-survey.display3')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display3', 'test-survey.display3')
       ];
 
       const displayItem4 = new DisplayItem('test-survey.display4');
       displayItem4.components = [
-        new DisplayComponent('title', 'test-survey.display4', 'test-survey.display4')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display4', 'test-survey.display4')
       ];
 
       survey.surveyItems['test-survey.display1'] = displayItem1;
@@ -205,23 +205,23 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // Items for inner1 (will be shuffled)
       const display1 = new DisplayItem('test-survey.outer.inner1.display1');
       display1.components = [
-        new DisplayComponent('title', 'test-survey.outer.inner1.display1', 'test-survey.outer.inner1.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.outer.inner1.display1', 'test-survey.outer.inner1.display1')
       ];
 
       const display2 = new DisplayItem('test-survey.outer.inner1.display2');
       display2.components = [
-        new DisplayComponent('title', 'test-survey.outer.inner1.display2', 'test-survey.outer.inner1.display2')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.outer.inner1.display2', 'test-survey.outer.inner1.display2')
       ];
 
       // Items for inner2 (fixed order)
       const display3 = new DisplayItem('test-survey.outer.inner2.display3');
       display3.components = [
-        new DisplayComponent('title', 'test-survey.outer.inner2.display3', 'test-survey.outer.inner2.display3')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.outer.inner2.display3', 'test-survey.outer.inner2.display3')
       ];
 
       const display4 = new DisplayItem('test-survey.outer.inner2.display4');
       display4.components = [
-        new DisplayComponent('title', 'test-survey.outer.inner2.display4', 'test-survey.outer.inner2.display4')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.outer.inner2.display4', 'test-survey.outer.inner2.display4')
       ];
 
       // Set up hierarchy
@@ -299,7 +299,7 @@ describe('SurveyEngineCore - ShuffleItems Rendering', () => {
       // Create some other items but no survey end item
       const displayItem = new DisplayItem('test-survey.display1');
       displayItem.components = [
-        new DisplayComponent('title', 'test-survey.display1', 'test-survey.display1')
+        new DisplayComponent(ItemComponentType.Text, 'title', 'test-survey.display1', 'test-survey.display1')
       ];
 
       survey.surveyItems['test-survey.display1'] = displayItem;

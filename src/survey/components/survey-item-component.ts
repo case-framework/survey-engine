@@ -8,7 +8,12 @@ import { JsonItemComponent } from "../survey-file-schema";
 
 
 export enum ItemComponentType {
-  Display = 'display',
+  Text = 'text',
+  Markdown = 'markdown',
+  Info = 'info',
+  Warning = 'warning',
+  Error = 'error',
+
   Group = 'group',
 
   SingleChoice = 'scg',
@@ -33,6 +38,14 @@ export type ScgMcgOptionTypes =
   | ItemComponentType.ScgMcgOptionWithTimeInput
   | ItemComponentType.ScgMcgOptionWithDropdown
   | ItemComponentType.ScgMcgOptionWithCloze;
+
+export type DisplayComponentTypes =
+  | ItemComponentType.Text
+  | ItemComponentType.Markdown
+  | ItemComponentType.Info
+  | ItemComponentType.Warning
+  | ItemComponentType.Error
+
 
 /*
 TODO: remove this when not needed anymore:
@@ -138,20 +151,22 @@ export class GroupComponent extends ItemComponent {
  * Display component
  */
 export class DisplayComponent extends ItemComponent {
-  componentType: ItemComponentType.Display = ItemComponentType.Display;
+  componentType!: DisplayComponentTypes;
 
-  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+  constructor(
+    type: DisplayComponentTypes,
+    compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
     super(
       compKey,
       parentFullKey,
-      ItemComponentType.Display,
+      type,
       parentItemKey,
     );
   }
 
   static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): DisplayComponent {
     const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
-    const display = new DisplayComponent(componentKey, parentFullKey, parentItemKey);
+    const display = new DisplayComponent(json.type as DisplayComponentTypes, componentKey, parentFullKey, parentItemKey);
     display.styles = json.styles;
     return display;
   }
@@ -159,9 +174,49 @@ export class DisplayComponent extends ItemComponent {
   toJson(): JsonItemComponent {
     return {
       key: this.key.fullKey,
-      type: ItemComponentType.Display,
+      type: this.componentType,
       styles: this.styles,
     }
+  }
+}
+
+export class TextComponent extends DisplayComponent {
+  componentType: ItemComponentType.Text = ItemComponentType.Text;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(ItemComponentType.Text, compKey, parentFullKey, parentItemKey);
+  }
+}
+
+export class MarkdownComponent extends DisplayComponent {
+  componentType: ItemComponentType.Markdown = ItemComponentType.Markdown;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(ItemComponentType.Markdown, compKey, parentFullKey, parentItemKey);
+  }
+}
+
+export class InfoComponent extends DisplayComponent {
+  componentType: ItemComponentType.Info = ItemComponentType.Info;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(ItemComponentType.Info, compKey, parentFullKey, parentItemKey);
+  }
+}
+
+export class WarningComponent extends DisplayComponent {
+  componentType: ItemComponentType.Warning = ItemComponentType.Warning;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(ItemComponentType.Warning, compKey, parentFullKey, parentItemKey);
+  }
+}
+
+export class ErrorComponent extends DisplayComponent {
+  componentType: ItemComponentType.Error = ItemComponentType.Error;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(ItemComponentType.Error, compKey, parentFullKey, parentItemKey);
   }
 }
 
