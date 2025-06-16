@@ -1,7 +1,8 @@
 import { Survey } from "../survey/survey";
-import { SurveyItem, GroupItem, SurveyItemType } from "../survey/items/survey-item";
+import { SurveyItem, GroupItem, SurveyItemType, SingleChoiceQuestionItem } from "../survey/items/survey-item";
 import { SurveyEditorUndoRedo, type UndoRedoConfig } from "./undo-redo";
 import { SurveyItemTranslations } from "../survey/utils";
+import { SurveyItemKey } from "../survey/item-component-key";
 
 export class SurveyEditor {
   private _survey: Survey;
@@ -102,6 +103,42 @@ export class SurveyEditor {
 
   private markAsModified(): void {
     this._hasUncommittedChanges = true;
+  }
+
+  initNewItem(target: {
+    parentKey: string;
+    index?: number;
+  },
+    itemType: SurveyItemType,
+    itemKey: string,
+  ) {
+
+
+    let newItem: SurveyItem;
+    const newItemKey = new SurveyItemKey(itemKey, target.parentKey);
+    // check if the item key is already in the survey
+    if (this._survey.surveyItems[newItemKey.fullKey]) {
+      throw new Error(`Item with key '${itemKey}' already exists`);
+    }
+
+    switch (itemType) {
+      case SurveyItemType.Group:
+        newItem = new GroupItem(newItemKey.fullKey);
+        break;
+      case SurveyItemType.SingleChoiceQuestion:
+        newItem = new SingleChoiceQuestionItem(newItemKey.fullKey);
+        break;
+      // TODO: add init for other item types
+
+      default:
+        throw new Error(`Unsupported item type: ${itemType}`);
+    }
+
+    this.commitIfNeeded();
+    this.addItem(target, newItem, new SurveyItemTranslations())
+
+
+    this.commit(`Added new item`);
   }
 
   addItem(target: {

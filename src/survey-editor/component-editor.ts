@@ -1,4 +1,4 @@
-import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase } from "../data_types";
+import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase } from "../survey/components";
 import { Content } from "../survey/utils/content";
 import { SurveyItemEditor } from "./survey-item-editors";
 
