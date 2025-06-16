@@ -1,4 +1,4 @@
-import { SurveyEngineCore } from '../engine';
+import { SurveyEngineCore } from '../engine/engine';
 import { Survey } from '../survey/survey';
 import { GroupItem, SurveyItemType } from '../survey/items/survey-item';
 import { ResponseItem, JsonSurveyItemResponse } from '../survey/responses/item-response';
@@ -45,10 +45,22 @@ describe('SurveyEngineCore response handling', () => {
     expect(getMetaArray(resp?.meta, 'responded').length).toBeGreaterThan(0);
   });
 
-  it('prefills are used if provided', () => {
+  it('prefills are not used if wrong type provided', () => {
     const survey = makeSurveyWithQuestions(['q1', 'q2']);
     const prefills: JsonSurveyItemResponse[] = [
       { key: 'test-survey.q1', itemType: SurveyItemType.Display, response: { value: 'prefilled' } }
+    ];
+    const engine = new SurveyEngineCore(survey, undefined, prefills);
+    const resp = engine.getResponseItem('test-survey.q1');
+    expect(resp?.response).toBeUndefined();
+    // q2 should not be prefilled
+    expect(engine.getResponseItem('test-survey.q2')?.response).toBeUndefined();
+  });
+
+  it('prefills are used if provided', () => {
+    const survey = makeSurveyWithQuestions(['q1', 'q2']);
+    const prefills: JsonSurveyItemResponse[] = [
+      { key: 'test-survey.q1', itemType: SurveyItemType.SingleChoiceQuestion, response: { value: 'prefilled' } }
     ];
     const engine = new SurveyEngineCore(survey, undefined, prefills);
     const resp = engine.getResponseItem('test-survey.q1');

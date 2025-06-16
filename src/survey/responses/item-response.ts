@@ -117,6 +117,10 @@ export class ResponseItem {
     };
   }
 
+  clone(): ResponseItem {
+    return new ResponseItem(this._value, this._slotValues);
+  }
+
   static fromJson(json: JsonResponseItem): ResponseItem {
     return new ResponseItem(json.value, json.slotValues);
   }

@@ -1,6 +1,6 @@
 import {
   SurveyContext,
-} from "./data_types";
+} from "../data_types";
 
 import { Locale } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -13,8 +13,8 @@ import {
   QuestionItem,
   GroupItem,
   SurveyEndItem,
-} from "./survey";
-import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "./survey/responses";
+} from "../survey";
+import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "../survey/responses";
 
 
 export type ScreenSize = "small" | "large";
@@ -151,6 +151,10 @@ export class SurveyEngineCore {
     return this._openedAt;
   }
 
+  get survey(): Readonly<Survey> {
+    return this.surveyDef;
+  }
+
   getSurveyPages(size?: ScreenSize): RenderedSurveyItem[][] {
     const renderedSurvey = flattenTree(this.renderedSurveyTree);
     const pages = new Array<RenderedSurveyItem[]>();
@@ -283,9 +287,11 @@ export class SurveyEngineCore {
       ) {
         return;
       } else {
+        const prefill = this.prefills?.[itemKey];
+        const applyPrefill = prefill && prefill.itemType === item.itemType;
         respGroup[itemKey] = new SurveyItemResponse(
           item,
-          this.prefills?.[itemKey]?.response,
+          applyPrefill ? prefill.response : undefined,
         )
       }
     });

@@ -1,4 +1,4 @@
-import { SurveyEngineCore } from '../engine';
+import { SurveyEngineCore } from '../engine/engine';
 import { Survey } from '../survey/survey';
 import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem } from '../survey/items/survey-item';
 import { DisplayComponent } from '../survey/components/survey-item-component';
