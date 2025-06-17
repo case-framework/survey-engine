@@ -239,7 +239,7 @@ export abstract class QuestionItem extends SurveyItem {
       }
     }
 
-    this.footer = json.footer ? DisplayComponent.fromJson(json.footer, undefined, this.key.parentFullKey) as TextComponent : undefined;
+    this.footer = json.footer ? TextComponent.fromJson(json.footer, undefined, this.key.parentFullKey) as TextComponent : undefined;
     this.confidentiality = json.confidentiality;
   }
 
