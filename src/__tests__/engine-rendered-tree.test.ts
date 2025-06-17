@@ -1,8 +1,7 @@
 import { SurveyEngineCore } from '../engine/engine';
 import { Survey } from '../survey/survey';
-import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem } from '../survey/items/survey-item';
-import { DisplayComponent, ItemComponentType } from '../survey/components/survey-item-component';
-import { PageBreakItem } from '../survey/items/survey-item';
+import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem, PageBreakItem } from '../survey/items';
+import { DisplayComponent, ItemComponentType } from '../survey/components';
 
 describe('SurveyEngineCore - ShuffleItems Rendering', () => {
   describe('Sequential Rendering (shuffleItems: false/undefined)', () => {

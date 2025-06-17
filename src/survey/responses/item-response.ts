@@ -1,5 +1,5 @@
 import { SurveyItemKey } from "../item-component-key";
-import { ConfidentialMode, SurveyItemType } from "../items/survey-item";
+import { ConfidentialMode, SurveyItemType } from "../items";
 import { JsonResponseMeta, ResponseMeta } from "./response-meta";
 
 

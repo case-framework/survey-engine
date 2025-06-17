@@ -1,10 +1,10 @@
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey } from "../survey/survey-file-schema";
-import { SingleChoiceQuestionItem, DisplayItem, GroupItem } from "../survey/items/survey-item";
-import { ItemComponentType } from "../survey/components/survey-item-component";
+import { SingleChoiceQuestionItem, DisplayItem, GroupItem } from "../survey/items";
+import { ItemComponentType } from "../survey/components";
 import { ContentType } from "../survey/utils/content";
 import { JsonSurveyCardContent } from "../survey/utils/translations";
 import { Survey } from "../survey/survey";
-import { SurveyItemType } from "../survey/items/survey-item";
+import { SurveyItemType } from "../survey/items";
 import { ExpressionType, FunctionExpression } from "../expressions/expression";
 import { DynamicValueTypes } from "../expressions/dynamic-value";
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItemGroup, JsonSurveyQuestionItem } from "../survey/items";

@@ -1,55 +1,15 @@
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyQuestionItem } from './survey-item-json';
 import { SurveyItemKey } from '../item-component-key';
-import { DisplayComponent, ItemComponent, ScgMcgChoiceResponseConfig } from '../components/survey-item-component';
 import { DynamicValue, dynamicValuesFromJson, dynamicValuesToJson } from '../../expressions/dynamic-value';
-import { Expression, JsonExpression } from '../../expressions';
+import { Expression } from '../../expressions';
+import { DisabledConditions, disabledConditionsFromJson, disabledConditionsToJson, DisplayConditions, displayConditionsFromJson, displayConditionsToJson } from './utils';
+import { DisplayComponent, ItemComponent, TextComponent, ScgMcgChoiceResponseConfig } from '../components';
+import { ConfidentialMode, SurveyItemType } from './types';
 
 
-
-export enum ConfidentialMode {
-  Add = 'add',
-  Replace = 'replace'
-}
-
-
-export enum SurveyItemType {
-  Group = 'group',
-  Display = 'display',
-  PageBreak = 'pageBreak',
-  SurveyEnd = 'surveyEnd',
-
-  SingleChoiceQuestion = 'singleChoiceQuestion',
-  MultipleChoiceQuestion = 'multipleChoiceQuestion',
-}
-
-interface DisplayConditions {
-  root?: Expression;
-  components?: {
-    [componentKey: string]: Expression;
-  }
-}
-
-interface JsonDisplayConditions {
-  root?: JsonExpression;
-  components?: {
-    [componentKey: string]: JsonExpression;
-  }
-}
-
-interface JsonDisabledConditions {
-  components?: {
-    [componentKey: string]: JsonExpression;
-  }
-}
-
-interface DisabledConditions {
-  components?: {
-    [componentKey: string]: Expression;
-  }
-}
-
-
-
+// ========================================
+// SURVEY ITEM BASE CLASS
+// ========================================
 export abstract class SurveyItem {
   key!: SurveyItemKey;
   itemType!: SurveyItemType;
@@ -106,34 +66,10 @@ const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem
   }
 }
 
-const displayConditionsFromJson = (json: JsonDisplayConditions): DisplayConditions => {
-  return {
-    root: json.root ? Expression.fromJson(json.root) : undefined,
-    components: json.components ? Object.fromEntries(Object.entries(json.components).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined
-  }
-}
 
-const displayConditionsToJson = (displayConditions: DisplayConditions): JsonDisplayConditions => {
-  return {
-    root: displayConditions.root ? displayConditions.root.toJson() : undefined,
-    components: displayConditions.components ? Object.fromEntries(Object.entries(displayConditions.components).map(([key, value]) => [key, value.toJson()])) : undefined
-  }
-}
-
-const disabledConditionsFromJson = (json: JsonDisabledConditions): DisabledConditions => {
-  return {
-    components: json.components ? Object.fromEntries(Object.entries(json.components).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined
-  }
-}
-
-const disabledConditionsToJson = (disabledConditions: DisabledConditions): JsonDisabledConditions => {
-  return {
-    components: disabledConditions.components ? Object.fromEntries(Object.entries(disabledConditions.components).map(([key, value]) => [key, value.toJson()])) : undefined
-  }
-}
-
-
-
+// ========================================
+// GROUP ITEM
+// ========================================
 
 export class GroupItem extends SurveyItem {
   itemType: SurveyItemType.Group = SurveyItemType.Group;
@@ -174,6 +110,11 @@ export class GroupItem extends SurveyItem {
   }
 }
 
+
+
+// ========================================
+// NON QUESTION ITEMS
+// ========================================
 export class DisplayItem extends SurveyItem {
   itemType: SurveyItemType.Display = SurveyItemType.Display;
   components?: Array<DisplayComponent>;
@@ -254,17 +195,21 @@ export class SurveyEndItem extends SurveyItem {
   }
 }
 
+
+// ========================================
+// QUESTION ITEMS
+// ========================================
 export abstract class QuestionItem extends SurveyItem {
   header?: {
-    title?: DisplayComponent;
-    subtitle?: DisplayComponent;
-    helpPopover?: DisplayComponent;
+    title?: TextComponent;
+    subtitle?: TextComponent;
+    helpPopover?: TextComponent;
   }
   body?: {
     topContent?: Array<DisplayComponent>;
     bottomContent?: Array<DisplayComponent>;
   }
-  footer?: DisplayComponent;
+  footer?: TextComponent;
   confidentiality?: {
     mode: ConfidentialMode;
     mapToKey?: string;
@@ -281,9 +226,9 @@ export abstract class QuestionItem extends SurveyItem {
 
     if (json.header) {
       this.header = {
-        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) : undefined,
-        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.parentFullKey) : undefined,
-        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.parentFullKey) : undefined,
+        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) as TextComponent : undefined,
+        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.parentFullKey) as TextComponent : undefined,
+        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.parentFullKey) as TextComponent : undefined,
       }
     }
 
@@ -294,7 +239,7 @@ export abstract class QuestionItem extends SurveyItem {
       }
     }
 
-    this.footer = json.footer ? DisplayComponent.fromJson(json.footer, undefined, this.key.parentFullKey) : undefined;
+    this.footer = json.footer ? DisplayComponent.fromJson(json.footer, undefined, this.key.parentFullKey) as TextComponent : undefined;
     this.confidentiality = json.confidentiality;
   }
 
@@ -426,4 +371,3 @@ export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
     return item;
   }
 }
-

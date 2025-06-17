@@ -1,5 +1,5 @@
 import { Survey } from "../survey/survey";
-import { SurveyItem, GroupItem, SurveyItemType, SingleChoiceQuestionItem } from "../survey/items/survey-item";
+import { SurveyItem, GroupItem, SurveyItemType, SingleChoiceQuestionItem } from "../survey/items";
 import { SurveyEditorUndoRedo, type UndoRedoConfig } from "./undo-redo";
 import { SurveyItemTranslations } from "../survey/utils";
 import { SurveyItemKey } from "../survey/item-component-key";

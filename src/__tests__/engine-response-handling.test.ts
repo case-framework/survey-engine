@@ -1,6 +1,6 @@
 import { SurveyEngineCore } from '../engine/engine';
 import { Survey } from '../survey/survey';
-import { GroupItem, SurveyItemType } from '../survey/items/survey-item';
+import { SurveyItemType } from '../survey/items';
 import { ResponseItem, JsonSurveyItemResponse } from '../survey/responses/item-response';
 import { ResponseMeta } from '../survey/responses/response-meta';
 import { SurveyEditor } from '../survey-editor';

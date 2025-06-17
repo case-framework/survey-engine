@@ -1,67 +1,12 @@
 import { Expression } from "../../data_types/expression";
 import { ItemComponentKey } from "../item-component-key";
 import { JsonItemComponent } from "../survey-file-schema";
+import { DisplayComponentTypes, ItemComponentType } from "./types";
 
 
-// ----------------------------------------------------------------------
-
-
-
-export enum ItemComponentType {
-  Text = 'text',
-  Markdown = 'markdown',
-  Info = 'info',
-  Warning = 'warning',
-  Error = 'error',
-
-  Group = 'group',
-
-  SingleChoice = 'scg',
-  MultipleChoice = 'mcg',
-
-  ScgMcgOption = 'scgMcgOption',
-  ScgMcgOptionWithTextInput = 'scgMcgOptionWithTextInput',
-  ScgMcgOptionWithNumberInput = 'scgMcgOptionWithNumberInput',
-  ScgMcgOptionWithDateInput = 'scgMcgOptionWithDateInput',
-  ScgMcgOptionWithTimeInput = 'scgMcgOptionWithTimeInput',
-  ScgMcgOptionWithDropdown = 'scgMcgOptionWithDropdown',
-  ScgMcgOptionWithCloze = 'scgMcgOptionWithCloze',
-
-}
-
-// Union type for all ScgMcg option types
-export type ScgMcgOptionTypes =
-  | ItemComponentType.ScgMcgOption
-  | ItemComponentType.ScgMcgOptionWithTextInput
-  | ItemComponentType.ScgMcgOptionWithNumberInput
-  | ItemComponentType.ScgMcgOptionWithDateInput
-  | ItemComponentType.ScgMcgOptionWithTimeInput
-  | ItemComponentType.ScgMcgOptionWithDropdown
-  | ItemComponentType.ScgMcgOptionWithCloze;
-
-export type DisplayComponentTypes =
-  | ItemComponentType.Text
-  | ItemComponentType.Markdown
-  | ItemComponentType.Info
-  | ItemComponentType.Warning
-  | ItemComponentType.Error
-
-
-/*
-TODO: remove this when not needed anymore:
-key: string; // unique identifier
-  type: string; // type of the component
-  styles?: {
-    classNames?: string | {
-      [key: string]: string;
-    }
-  }
-  properties?: {
-    [key: string]: string | number | ExpressionArg;
-  }
-  items?: Array<JsonItemComponent>;*/
-
-
+// ========================================
+// ITEM COMPONENT BASE CLASS
+// ========================================
 export abstract class ItemComponent {
   key!: ItemComponentKey;
   componentType!: ItemComponentType;
@@ -100,6 +45,7 @@ const initComponentClassBasedOnType = (json: JsonItemComponent, parentFullKey: s
       throw new Error(`Unsupported item type for initialization: ${json.type}`);
   }
 }
+
 
 /**
  * Group component
@@ -147,9 +93,10 @@ export class GroupComponent extends ItemComponent {
   }
 }
 
-/**
- * Display component
- */
+
+// ========================================
+// DISPLAY COMPONENTS
+// ========================================
 export class DisplayComponent extends ItemComponent {
   componentType!: DisplayComponentTypes;
 
@@ -220,11 +167,13 @@ export class ErrorComponent extends DisplayComponent {
   }
 }
 
-
+// ========================================
+// SCG/MCG COMPONENTS
+// ========================================
 export class ScgMcgChoiceResponseConfig extends ItemComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
   options: Array<ScgMcgOptionBase>;
-  order?: Expression;
+  shuffleItems?: boolean;
 
 
   constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
@@ -243,7 +192,7 @@ export class ScgMcgChoiceResponseConfig extends ItemComponent {
     const singleChoice = new ScgMcgChoiceResponseConfig(componentKey, parentFullKey, parentItemKey);
     singleChoice.options = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
     singleChoice.styles = json.styles;
-    // TODO: parse single choice response config properties
+    singleChoice.shuffleItems = json.properties?.shuffleItems as boolean | undefined;
     return singleChoice;
   }
 
@@ -253,6 +202,7 @@ export class ScgMcgChoiceResponseConfig extends ItemComponent {
       type: ItemComponentType.SingleChoice,
       items: this.options.map(option => option.toJson()),
       styles: this.styles,
+      properties: this.shuffleItems !== undefined ? { shuffleItems: this.shuffleItems } : undefined,
     }
   }
 
@@ -297,14 +247,6 @@ export class ScgMcgOption extends ScgMcgOptionBase {
     }
   }
 }
-
-
-
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
 
 
 
