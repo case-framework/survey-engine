@@ -390,15 +390,6 @@ abstract class ScgMcgQuestionItem extends QuestionItem {
     super(itemFullKey, itemType);
     this.responseConfig = new ScgMcgChoiceResponseConfig(itemType === SurveyItemType.SingleChoiceQuestion ? 'scg' : 'mcg', undefined, this.key.fullKey);
   }
-
-  static fromJson(key: string, json: JsonSurveyQuestionItem): SingleChoiceQuestionItem {
-    const item = new SingleChoiceQuestionItem(key);
-
-    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
-
-    item._readGenericAttributes(json);
-    return item;
-  }
 }
 
 export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
@@ -409,9 +400,13 @@ export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
     super(itemFullKey, SurveyItemType.SingleChoiceQuestion);
   }
 
-
+  static fromJson(key: string, json: JsonSurveyQuestionItem): SingleChoiceQuestionItem {
+    const item = new SingleChoiceQuestionItem(key);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item._readGenericAttributes(json);
+    return item;
+  }
 }
-
 
 export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
   itemType: SurveyItemType.MultipleChoiceQuestion = SurveyItemType.MultipleChoiceQuestion;
@@ -419,6 +414,13 @@ export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
 
   constructor(itemFullKey: string) {
     super(itemFullKey, SurveyItemType.MultipleChoiceQuestion);
+  }
+
+  static fromJson(key: string, json: JsonSurveyQuestionItem): MultipleChoiceQuestionItem {
+    const item = new MultipleChoiceQuestionItem(key);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item._readGenericAttributes(json);
+    return item;
   }
 }
 
