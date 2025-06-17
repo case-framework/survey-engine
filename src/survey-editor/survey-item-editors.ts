@@ -1,6 +1,6 @@
 import { SurveyItemKey } from "../survey/item-component-key";
 import { SurveyEditor } from "./survey-editor";
-import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType } from "../survey/items/survey-item";
+import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType } from "../survey/items";
 import { DisplayComponentEditor, ScgMcgOptionBaseEditor } from "./component-editor";
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase, ScgMcgOptionTypes } from "../survey";
 import { Content } from "../survey/utils/content";

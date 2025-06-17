@@ -2,7 +2,7 @@ import { SurveyContextDef } from "../data_types/context";
 import { Expression } from "../data_types/expression";
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey, } from "./survey-file-schema";
 import { SurveyItemTranslations, SurveyTranslations } from "./utils/translations";
-import { GroupItem, SurveyItem } from "./items/survey-item";
+import { GroupItem, SurveyItem } from "./items";
 
 
 

@@ -1,67 +1,12 @@
 import { Expression } from "../../data_types/expression";
 import { ItemComponentKey } from "../item-component-key";
 import { JsonItemComponent } from "../survey-file-schema";
+import { DisplayComponentTypes, ItemComponentType } from "./types";
 
 
-// ----------------------------------------------------------------------
-
-
-
-export enum ItemComponentType {
-  Text = 'text',
-  Markdown = 'markdown',
-  Info = 'info',
-  Warning = 'warning',
-  Error = 'error',
-
-  Group = 'group',
-
-  SingleChoice = 'scg',
-  MultipleChoice = 'mcg',
-
-  ScgMcgOption = 'scgMcgOption',
-  ScgMcgOptionWithTextInput = 'scgMcgOptionWithTextInput',
-  ScgMcgOptionWithNumberInput = 'scgMcgOptionWithNumberInput',
-  ScgMcgOptionWithDateInput = 'scgMcgOptionWithDateInput',
-  ScgMcgOptionWithTimeInput = 'scgMcgOptionWithTimeInput',
-  ScgMcgOptionWithDropdown = 'scgMcgOptionWithDropdown',
-  ScgMcgOptionWithCloze = 'scgMcgOptionWithCloze',
-
-}
-
-// Union type for all ScgMcg option types
-export type ScgMcgOptionTypes =
-  | ItemComponentType.ScgMcgOption
-  | ItemComponentType.ScgMcgOptionWithTextInput
-  | ItemComponentType.ScgMcgOptionWithNumberInput
-  | ItemComponentType.ScgMcgOptionWithDateInput
-  | ItemComponentType.ScgMcgOptionWithTimeInput
-  | ItemComponentType.ScgMcgOptionWithDropdown
-  | ItemComponentType.ScgMcgOptionWithCloze;
-
-export type DisplayComponentTypes =
-  | ItemComponentType.Text
-  | ItemComponentType.Markdown
-  | ItemComponentType.Info
-  | ItemComponentType.Warning
-  | ItemComponentType.Error
-
-
-/*
-TODO: remove this when not needed anymore:
-key: string; // unique identifier
-  type: string; // type of the component
-  styles?: {
-    classNames?: string | {
-      [key: string]: string;
-    }
-  }
-  properties?: {
-    [key: string]: string | number | ExpressionArg;
-  }
-  items?: Array<JsonItemComponent>;*/
-
-
+// ========================================
+// ITEM COMPONENT BASE CLASS
+// ========================================
 export abstract class ItemComponent {
   key!: ItemComponentKey;
   componentType!: ItemComponentType;
@@ -96,10 +41,51 @@ const initComponentClassBasedOnType = (json: JsonItemComponent, parentFullKey: s
   switch (json.type) {
     case ItemComponentType.Group:
       return GroupComponent.fromJson(json as JsonItemComponent, parentFullKey, parentItemKey);
+    case ItemComponentType.Text:
+    case ItemComponentType.Markdown:
+    case ItemComponentType.Info:
+    case ItemComponentType.Warning:
+    case ItemComponentType.Error:
+      return initDisplayComponentBasedOnType(json, parentFullKey, parentItemKey);
     default:
       throw new Error(`Unsupported item type for initialization: ${json.type}`);
   }
 }
+
+const initDisplayComponentBasedOnType = (json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): DisplayComponent => {
+  const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
+
+  switch (json.type) {
+    case ItemComponentType.Text: {
+      const textComp = new TextComponent(componentKey, parentFullKey, parentItemKey);
+      textComp.styles = json.styles;
+      return textComp;
+    }
+    case ItemComponentType.Markdown: {
+      const markdownComp = new MarkdownComponent(componentKey, parentFullKey, parentItemKey);
+      markdownComp.styles = json.styles;
+      return markdownComp;
+    }
+    case ItemComponentType.Info: {
+      const infoComp = new InfoComponent(componentKey, parentFullKey, parentItemKey);
+      infoComp.styles = json.styles;
+      return infoComp;
+    }
+    case ItemComponentType.Warning: {
+      const warningComp = new WarningComponent(componentKey, parentFullKey, parentItemKey);
+      warningComp.styles = json.styles;
+      return warningComp;
+    }
+    case ItemComponentType.Error: {
+      const errorComp = new ErrorComponent(componentKey, parentFullKey, parentItemKey);
+      errorComp.styles = json.styles;
+      return errorComp;
+    }
+    default:
+      throw new Error(`Unsupported display component type for initialization: ${json.type}`);
+  }
+}
+
 
 /**
  * Group component
@@ -147,9 +133,10 @@ export class GroupComponent extends ItemComponent {
   }
 }
 
-/**
- * Display component
- */
+
+// ========================================
+// DISPLAY COMPONENTS
+// ========================================
 export class DisplayComponent extends ItemComponent {
   componentType!: DisplayComponentTypes;
 
@@ -165,10 +152,7 @@ export class DisplayComponent extends ItemComponent {
   }
 
   static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): DisplayComponent {
-    const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
-    const display = new DisplayComponent(json.type as DisplayComponentTypes, componentKey, parentFullKey, parentItemKey);
-    display.styles = json.styles;
-    return display;
+    return initDisplayComponentBasedOnType(json, parentFullKey, parentItemKey);
   }
 
   toJson(): JsonItemComponent {
@@ -220,11 +204,13 @@ export class ErrorComponent extends DisplayComponent {
   }
 }
 
-
+// ========================================
+// SCG/MCG COMPONENTS
+// ========================================
 export class ScgMcgChoiceResponseConfig extends ItemComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
   options: Array<ScgMcgOptionBase>;
-  order?: Expression;
+  shuffleItems?: boolean;
 
 
   constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
@@ -243,7 +229,7 @@ export class ScgMcgChoiceResponseConfig extends ItemComponent {
     const singleChoice = new ScgMcgChoiceResponseConfig(componentKey, parentFullKey, parentItemKey);
     singleChoice.options = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
     singleChoice.styles = json.styles;
-    // TODO: parse single choice response config properties
+    singleChoice.shuffleItems = json.properties?.shuffleItems as boolean | undefined;
     return singleChoice;
   }
 
@@ -253,6 +239,7 @@ export class ScgMcgChoiceResponseConfig extends ItemComponent {
       type: ItemComponentType.SingleChoice,
       items: this.options.map(option => option.toJson()),
       styles: this.styles,
+      properties: this.shuffleItems !== undefined ? { shuffleItems: this.shuffleItems } : undefined,
     }
   }
 
@@ -297,14 +284,6 @@ export class ScgMcgOption extends ScgMcgOptionBase {
     }
   }
 }
-
-
-
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
-// ----------------------------------------------------------------------
 
 
 

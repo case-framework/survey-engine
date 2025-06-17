@@ -1,7 +1,7 @@
-import { ConfidentialMode, SurveyItemType } from "./survey-item";
 import { JsonExpression } from "../../expressions";
 import { JsonItemComponent } from "../survey-file-schema";
 import { JsonDynamicValue } from "../../expressions/dynamic-value";
+import { ConfidentialMode, SurveyItemType } from "./types";
 
 
 export interface JsonSurveyItemBase {

@@ -1,8 +1,7 @@
 import { SurveyEngineCore } from '../engine/engine';
 import { Survey } from '../survey/survey';
-import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem } from '../survey/items/survey-item';
-import { DisplayComponent, ItemComponentType } from '../survey/components/survey-item-component';
-import { PageBreakItem } from '../survey/items/survey-item';
+import { GroupItem, DisplayItem, SurveyEndItem, SurveyItemType, SurveyItem, PageBreakItem, SingleChoiceQuestionItem } from '../survey/items';
+import { DisplayComponent, ItemComponentType, ScgMcgOption } from '../survey/components';
 
 describe('SurveyEngineCore - ShuffleItems Rendering', () => {
   describe('Sequential Rendering (shuffleItems: false/undefined)', () => {
@@ -458,5 +457,148 @@ describe('SurveyEngineCore.getSurveyPages', () => {
     const engine = new SurveyEngineCore(survey);
     const pages = engine.getSurveyPages();
     expect(pages).toHaveLength(0);
+  });
+});
+
+describe('Single Choice Question Option Shuffling', () => {
+  test('should not shuffle options when shuffleItems is false', () => {
+    const survey = new Survey('test-survey');
+
+    // Create a single choice question with options
+    const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+
+    // Add options to the question
+    const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+    const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+    const option3 = new ScgMcgOption('option3', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+
+    questionItem.responseConfig.options = [option1, option2, option3];
+    questionItem.responseConfig.shuffleItems = false;
+
+    survey.surveyItems['test-survey.question1'] = questionItem;
+
+    // Add question to root group
+    const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+    rootItem.items = ['test-survey.question1'];
+
+    const engine = new SurveyEngineCore(survey);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const renderedTree = (engine as any).renderedSurveyTree;
+
+    expect(renderedTree.items).toHaveLength(1);
+
+    const renderedQuestion = renderedTree.items[0];
+    expect(renderedQuestion.key.fullKey).toBe('test-survey.question1');
+    expect(renderedQuestion.responseCompOrder).toBeDefined();
+    expect(renderedQuestion.responseCompOrder).toHaveLength(3);
+
+    // Options should be in original order when shuffling is disabled
+    expect(renderedQuestion.responseCompOrder[0]).toBe(option1.key.fullKey);
+    expect(renderedQuestion.responseCompOrder[1]).toBe(option2.key.fullKey);
+    expect(renderedQuestion.responseCompOrder[2]).toBe(option3.key.fullKey);
+  });
+
+  test('should shuffle options when shuffleItems is true', () => {
+    const survey = new Survey('test-survey');
+
+    // Create a single choice question with options
+    const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+
+    // Add options to the question
+    const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+    const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+    const option3 = new ScgMcgOption('option3', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+    const option4 = new ScgMcgOption('option4', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+
+    questionItem.responseConfig.options = [option1, option2, option3, option4];
+    questionItem.responseConfig.shuffleItems = true;
+
+    survey.surveyItems['test-survey.question1'] = questionItem;
+
+    // Add question to root group
+    const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+    rootItem.items = ['test-survey.question1'];
+
+    // Test multiple times to verify shuffling works
+    const orders: string[][] = [];
+    for (let i = 0; i < 10; i++) {
+      const engine = new SurveyEngineCore(survey);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const renderedTree = (engine as any).renderedSurveyTree;
+
+      expect(renderedTree.items).toHaveLength(1);
+
+      const renderedQuestion = renderedTree.items[0];
+      expect(renderedQuestion.key.fullKey).toBe('test-survey.question1');
+      expect(renderedQuestion.responseCompOrder).toBeDefined();
+      expect(renderedQuestion.responseCompOrder).toHaveLength(4);
+
+      // All original options should be present
+      expect(renderedQuestion.responseCompOrder).toContain(option1.key.fullKey);
+      expect(renderedQuestion.responseCompOrder).toContain(option2.key.fullKey);
+      expect(renderedQuestion.responseCompOrder).toContain(option3.key.fullKey);
+      expect(renderedQuestion.responseCompOrder).toContain(option4.key.fullKey);
+
+      orders.push([...renderedQuestion.responseCompOrder]);
+    }
+
+    // At least some variance should occur in ordering (probabilistic test)
+    const uniqueOrders = new Set(orders.map(order => order.join(',')));
+    expect(uniqueOrders.size).toBeGreaterThan(1);
+  });
+
+  test('should handle empty options array when shuffleItems is true', () => {
+    const survey = new Survey('test-survey');
+
+    // Create a single choice question with no options
+    const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+    questionItem.responseConfig.options = [];
+    questionItem.responseConfig.shuffleItems = true;
+
+    survey.surveyItems['test-survey.question1'] = questionItem;
+
+    // Add question to root group
+    const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+    rootItem.items = ['test-survey.question1'];
+
+    const engine = new SurveyEngineCore(survey);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const renderedTree = (engine as any).renderedSurveyTree;
+
+    expect(renderedTree.items).toHaveLength(1);
+
+    const renderedQuestion = renderedTree.items[0];
+    expect(renderedQuestion.key.fullKey).toBe('test-survey.question1');
+    expect(renderedQuestion.responseCompOrder).toBeDefined();
+    expect(renderedQuestion.responseCompOrder).toHaveLength(0);
+  });
+
+  test('should handle single option when shuffleItems is true', () => {
+    const survey = new Survey('test-survey');
+
+    // Create a single choice question with one option
+    const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+
+    const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+    questionItem.responseConfig.options = [option1];
+    questionItem.responseConfig.shuffleItems = true;
+
+    survey.surveyItems['test-survey.question1'] = questionItem;
+
+    // Add question to root group
+    const rootItem = survey.surveyItems['test-survey'] as GroupItem;
+    rootItem.items = ['test-survey.question1'];
+
+    const engine = new SurveyEngineCore(survey);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const renderedTree = (engine as any).renderedSurveyTree;
+
+    expect(renderedTree.items).toHaveLength(1);
+
+    const renderedQuestion = renderedTree.items[0];
+    expect(renderedQuestion.key.fullKey).toBe('test-survey.question1');
+    expect(renderedQuestion.responseCompOrder).toBeDefined();
+    expect(renderedQuestion.responseCompOrder).toHaveLength(1);
+    expect(renderedQuestion.responseCompOrder[0]).toBe(option1.key.fullKey);
   });
 });

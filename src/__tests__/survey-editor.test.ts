@@ -1,9 +1,9 @@
 import { Survey } from '../survey/survey';
 import { SurveyEditor } from '../survey-editor/survey-editor';
-import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from '../survey/items/survey-item';
+import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from '../survey/items';
 import { SurveyItemTranslations } from '../survey/utils';
 import { Content, ContentType } from '../survey/utils/content';
-import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components/survey-item-component';
+import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components';
 
 // Helper function to create a test survey
 const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {

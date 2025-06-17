@@ -4,6 +4,7 @@ import {
 
 import { Locale } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+import { shuffleIndices } from "../utils";
 
 import {
   Survey,
@@ -13,6 +14,9 @@ import {
   QuestionItem,
   GroupItem,
   SurveyEndItem,
+  SingleChoiceQuestionItem,
+  ItemComponent,
+  MultipleChoiceQuestionItem,
 } from "../survey";
 import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "../survey/responses";
 
@@ -20,10 +24,11 @@ import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse,
 export type ScreenSize = "small" | "large";
 
 
-interface RenderedSurveyItem {
+export interface RenderedSurveyItem {
   key: SurveyItemKey;
   type: SurveyItemType;
   items?: Array<RenderedSurveyItem>
+  responseCompOrder?: Array<string>;
 }
 
 export class SurveyEngineCore {
@@ -299,7 +304,11 @@ export class SurveyEngineCore {
     return respGroup;
   }
 
-  private shouldRenderItem(fullItemKey: string): boolean {
+  private shouldRender(fullItemKey: string, fullComponentKey?: string): boolean {
+    if (fullComponentKey) {
+      const displayConditionResult = this.cache.displayConditions.values[fullItemKey]?.components?.[fullComponentKey];
+      return displayConditionResult !== undefined ? displayConditionResult : true;
+    }
     const displayConditionResult = this.cache.displayConditions.values[fullItemKey]?.root;
     return displayConditionResult !== undefined ? displayConditionResult : true;
   }
@@ -308,7 +317,7 @@ export class SurveyEngineCore {
     const newItems: RenderedSurveyItem[] = [];
 
     for (const fullItemKey of groupDef.items || []) {
-      const shouldRender = this.shouldRenderItem(fullItemKey);
+      const shouldRender = this.shouldRender(fullItemKey);
       if (!shouldRender) {
         continue;
       }
@@ -324,11 +333,7 @@ export class SurveyEngineCore {
         continue;
       }
 
-      const renderedItem = {
-        key: itemDef.key,
-        type: itemDef.itemType,
-      }
-      newItems.push(renderedItem);
+      newItems.push(this.renderItem(itemDef));
     }
 
     return {
@@ -340,17 +345,11 @@ export class SurveyEngineCore {
 
   private randomizedItemRender(groupDef: GroupItem, parent: RenderedSurveyItem): RenderedSurveyItem {
     const newItems: RenderedSurveyItem[] = parent.items?.filter(rItem =>
-      this.shouldRenderItem(rItem.key.fullKey)
+      this.shouldRender(rItem.key.fullKey)
     ) || [];
 
     const itemKeys = groupDef.items || [];
-    const shuffledIndices = Array.from({ length: itemKeys.length }, (_, i) => i);
-
-    // Fisher-Yates shuffle algorithm
-    for (let i = shuffledIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
-    }
+    const shuffledIndices = shuffleIndices(itemKeys.length);
 
     for (const index of shuffledIndices) {
       const fullItemKey = itemKeys[index];
@@ -359,7 +358,7 @@ export class SurveyEngineCore {
         continue;
       }
 
-      const shouldRender = this.shouldRenderItem(fullItemKey);
+      const shouldRender = this.shouldRender(fullItemKey);
       if (!shouldRender) {
         continue;
       }
@@ -375,11 +374,7 @@ export class SurveyEngineCore {
         continue;
       }
 
-      const renderedItem = {
-        key: itemDef.key,
-        type: itemDef.itemType,
-      }
-      newItems.push(renderedItem);
+      newItems.push(this.renderItem(itemDef));
     }
 
     return {
@@ -403,6 +398,51 @@ export class SurveyEngineCore {
     }
 
     return this.sequentialRender(groupDef, parent);
+  }
+
+  private renderItem(itemDef: SurveyItem): RenderedSurveyItem {
+    let responseCompOrder: Array<ItemComponent> | undefined = undefined;
+    let responseCompOrderIndexes: Array<number> | undefined = undefined;
+    switch (itemDef.itemType) {
+      case SurveyItemType.SingleChoiceQuestion:
+        responseCompOrder = [];
+
+        if ((itemDef as SingleChoiceQuestionItem).responseConfig.shuffleItems) {
+          responseCompOrderIndexes = shuffleIndices((itemDef as SingleChoiceQuestionItem).responseConfig.options.length);
+        } else {
+          responseCompOrderIndexes = Array.from({ length: (itemDef as SingleChoiceQuestionItem).responseConfig.options.length }, (_, i) => i);
+        }
+        responseCompOrderIndexes.forEach(index => {
+          const option = (itemDef as SingleChoiceQuestionItem).responseConfig.options[index];
+          if (this.shouldRender(option.key.parentItemKey.fullKey, option.key.fullKey)) {
+            responseCompOrder?.push(option);
+          }
+        });
+        break;
+      case SurveyItemType.MultipleChoiceQuestion:
+        responseCompOrder = [];
+        if ((itemDef as MultipleChoiceQuestionItem).responseConfig.shuffleItems) {
+          responseCompOrderIndexes = shuffleIndices((itemDef as MultipleChoiceQuestionItem).responseConfig.options.length);
+        } else {
+          responseCompOrderIndexes = Array.from({ length: (itemDef as MultipleChoiceQuestionItem).responseConfig.options.length }, (_, i) => i);
+        }
+        responseCompOrderIndexes.forEach(index => {
+          const option = (itemDef as MultipleChoiceQuestionItem).responseConfig.options[index];
+          if (this.shouldRender(option.key.parentItemKey.fullKey, option.key.fullKey)) {
+            responseCompOrder?.push(option);
+          }
+        });
+        break;
+      default:
+        break;
+    }
+
+    const renderedItem = {
+      key: itemDef.key,
+      type: itemDef.itemType,
+      responseCompOrder: responseCompOrder?.map(option => option.key.fullKey),
+    }
+    return renderedItem;
   }
 
   /* TODO: private reRenderGroup(groupKey: string) {
