@@ -98,6 +98,9 @@ const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem
       return SurveyEndItem.fromJson(key, json as JsonSurveyEndItem);
     case SurveyItemType.SingleChoiceQuestion:
       return SingleChoiceQuestionItem.fromJson(key, json as JsonSurveyQuestionItem);
+    case SurveyItemType.MultipleChoiceQuestion:
+      return MultipleChoiceQuestionItem.fromJson(key, json as JsonSurveyQuestionItem);
+    // TODO: add other question types
     default:
       throw new Error(`Unsupported item type for initialization: ${json.itemType}`);
   }
