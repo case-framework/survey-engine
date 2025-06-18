@@ -1,7 +1,9 @@
 import { Expression } from "../../data_types/expression";
 import { ItemComponentKey } from "../item-component-key";
 import { JsonItemComponent } from "../survey-file-schema";
-import { DisplayComponentTypes, ItemComponentType } from "./types";
+import { ExpectedValueType } from "../utils";
+import { ValueReference, ValueReferenceMethod } from "../utils/value-reference";
+import { DisplayComponentTypes, ItemComponentType, ResponseConfigComponentTypes, ScgMcgOptionTypes } from "./types";
 
 
 // ========================================
@@ -205,9 +207,33 @@ export class ErrorComponent extends DisplayComponent {
 }
 
 // ========================================
+// RESPONSE CONFIG COMPONENTS
+// ========================================
+
+export type ValueRefTypeLookup = {
+  [valueRefString: string]: ExpectedValueType;
+}
+
+export abstract class ResponseConfigComponent extends ItemComponent {
+  constructor(
+    type: ResponseConfigComponentTypes,
+    compKey: string,
+    parentFullKey: string | undefined = undefined,
+    parentItemKey: string | undefined = undefined,
+  ) {
+    super(compKey, parentFullKey, type, parentItemKey);
+  }
+
+  abstract toJson(): JsonItemComponent;
+
+  abstract get valueReferences(): ValueRefTypeLookup;
+}
+
+
+// ========================================
 // SCG/MCG COMPONENTS
 // ========================================
-export class ScgMcgChoiceResponseConfig extends ItemComponent {
+export class ScgMcgChoiceResponseConfig extends ResponseConfigComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
   options: Array<ScgMcgOptionBase>;
   shuffleItems?: boolean;
@@ -215,9 +241,9 @@ export class ScgMcgChoiceResponseConfig extends ItemComponent {
 
   constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
     super(
+      ItemComponentType.SingleChoice,
       compKey,
       parentFullKey,
-      ItemComponentType.SingleChoice,
       parentItemKey,
     );
     this.options = [];
@@ -251,17 +277,40 @@ export class ScgMcgChoiceResponseConfig extends ItemComponent {
       }
     });
   }
+
+  get valueReferences(): ValueRefTypeLookup {
+    const subSlots = this.options?.reduce((acc, option) => {
+      const optionValueRefs = option.valueReferences;
+      Object.keys(optionValueRefs).forEach(key => {
+        acc[key] = optionValueRefs[key];
+      });
+      return acc;
+    }, {} as ValueRefTypeLookup) ?? {};
+
+    return {
+      ...subSlots,
+      [ValueReference.fromParts(this.key.parentItemKey, ValueReferenceMethod.get).toString()]: ExpectedValueType.String,
+      [ValueReference.fromParts(this.key.parentItemKey, ValueReferenceMethod.isDefined).toString()]: ExpectedValueType.Boolean,
+    }
+  }
 }
 
 export abstract class ScgMcgOptionBase extends ItemComponent {
+  componentType!: ScgMcgOptionTypes;
+
   static fromJson(item: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOptionBase {
     switch (item.type) {
       case ItemComponentType.ScgMcgOption:
         return ScgMcgOption.fromJson(item, parentFullKey, parentItemKey);
+      case ItemComponentType.ScgMcgOptionWithTextInput:
+        return ScgMcgOptionWithTextInput.fromJson(item, parentFullKey, parentItemKey);
+
       default:
         throw new Error(`Unsupported item type for initialization: ${item.type}`);
     }
   }
+
+  abstract get valueReferences(): ValueRefTypeLookup;
 }
 
 export class ScgMcgOption extends ScgMcgOptionBase {
@@ -274,6 +323,7 @@ export class ScgMcgOption extends ScgMcgOptionBase {
   static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOption {
     const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
     const option = new ScgMcgOption(componentKey, parentFullKey, parentItemKey);
+    option.styles = json.styles;
     return option;
   }
 
@@ -281,10 +331,45 @@ export class ScgMcgOption extends ScgMcgOptionBase {
     return {
       key: this.key.fullKey,
       type: ItemComponentType.ScgMcgOption,
+      styles: this.styles,
     }
+  }
+
+  get valueReferences(): ValueRefTypeLookup {
+    // has no external value references
+    return {};
   }
 }
 
+export class ScgMcgOptionWithTextInput extends ScgMcgOptionBase {
+  componentType: ItemComponentType.ScgMcgOptionWithTextInput = ItemComponentType.ScgMcgOptionWithTextInput;
+
+  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+    super(compKey, parentFullKey, ItemComponentType.ScgMcgOptionWithTextInput, parentItemKey);
+  }
+
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOptionWithTextInput {
+    const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
+    const option = new ScgMcgOptionWithTextInput(componentKey, parentFullKey, parentItemKey);
+    option.styles = json.styles;
+    return option;
+  }
+
+  toJson(): JsonItemComponent {
+    return {
+      key: this.key.fullKey,
+      type: ItemComponentType.ScgMcgOptionWithTextInput,
+      styles: this.styles,
+    }
+  }
+
+  get valueReferences(): ValueRefTypeLookup {
+    return {
+      [ValueReference.fromParts(this.key.parentItemKey, ValueReferenceMethod.get, this.key).toString()]: ExpectedValueType.String,
+      [ValueReference.fromParts(this.key.parentItemKey, ValueReferenceMethod.isDefined, this.key).toString()]: ExpectedValueType.Boolean,
+    };
+  }
+}
 
 
 

@@ -1,9 +1,10 @@
 import { SurveyItemKey } from "../item-component-key";
 import { ConfidentialMode, SurveyItemType } from "../items";
+import { ValueType } from "../utils/types";
 import { JsonResponseMeta, ResponseMeta } from "./response-meta";
 
 
-export type ResponseDataTypes = string | number | boolean | Date | string[] | number[] | Date[];
+
 
 
 export interface JsonSurveyItemResponse {
@@ -16,9 +17,9 @@ export interface JsonSurveyItemResponse {
 }
 
 export interface JsonResponseItem {
-  value?: ResponseDataTypes;
+  value?: ValueType;
   slotValues?: {
-    [key: string]: ResponseDataTypes;
+    [key: string]: ValueType;
   };
 }
 
@@ -81,29 +82,29 @@ export class SurveyItemResponse {
 }
 
 export class ResponseItem {
-  private _value?: ResponseDataTypes;
+  private _value?: ValueType;
   private _slotValues?: {
-    [key: string]: ResponseDataTypes;
+    [key: string]: ValueType;
   };
 
-  constructor(value?: ResponseDataTypes, slotValues?: {
-    [key: string]: ResponseDataTypes;
+  constructor(value?: ValueType, slotValues?: {
+    [key: string]: ValueType;
   }) {
     this._value = value;
     this._slotValues = slotValues;
   }
-  get(slotKey?: string): ResponseDataTypes | undefined {
+  get(slotKey?: string): ValueType | undefined {
     if (slotKey) {
       return this._slotValues?.[slotKey];
     }
     return this._value;
   }
 
-  setValue(value: ResponseDataTypes) {
+  setValue(value: ValueType) {
     this._value = value;
   }
 
-  setSlotValue(slotKey: string, value: ResponseDataTypes) {
+  setSlotValue(slotKey: string, value: ValueType) {
     if (this._slotValues === undefined) {
       this._slotValues = {};
     }

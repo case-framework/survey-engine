@@ -2,7 +2,9 @@ import { SurveyContextDef } from "../data_types/context";
 import { Expression } from "../data_types/expression";
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey, } from "./survey-file-schema";
 import { SurveyItemTranslations, SurveyTranslations } from "./utils/translations";
-import { GroupItem, SurveyItem } from "./items";
+import { GroupItem, QuestionItem, SurveyItem } from "./items";
+import { ExpectedValueType } from "./utils/types";
+import { ResponseConfigComponent, ValueRefTypeLookup } from "./components";
 
 
 
@@ -141,5 +143,27 @@ export class Survey extends SurveyBase {
     }
 
     return this._translations?.getItemTranslations(fullItemKey);
+  }
+
+  getResponseValueReferences(byType?: ExpectedValueType): ValueRefTypeLookup {
+    let valueRefs: ValueRefTypeLookup = {};
+    for (const item of Object.values(this.surveyItems)) {
+      if (item instanceof QuestionItem) {
+        const responseConfig = item.responseConfig as ResponseConfigComponent;
+        if (responseConfig) {
+          const responseValueRefs = responseConfig.valueReferences;
+          if (byType) {
+            Object.keys(responseValueRefs).forEach(key => {
+              if (responseValueRefs[key] === byType) {
+                valueRefs[key] = responseValueRefs[key];
+              }
+            });
+          } else {
+            valueRefs = { ...valueRefs, ...responseValueRefs };
+          }
+        }
+      }
+    }
+    return valueRefs;
   }
 }

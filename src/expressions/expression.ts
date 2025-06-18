@@ -1,6 +1,6 @@
 import { ValueReference } from "../survey/utils/value-reference";
+import { ValueType } from "../survey/utils/types";
 
-export type ExpressionDataTypes = string | number | boolean | Date | string[] | number[] | Date[];
 
 export enum ExpressionType {
   Const = 'const',
@@ -11,7 +11,7 @@ export enum ExpressionType {
 
 export interface JsonConstExpression {
   type: ExpressionType.Const;
-  value?: ExpressionDataTypes;
+  value?: ValueType;
 }
 
 export interface JsonResponseVariableExpression {
@@ -71,9 +71,9 @@ export abstract class Expression {
 
 export class ConstExpression extends Expression {
   type!: ExpressionType.Const;
-  value?: ExpressionDataTypes;
+  value?: ValueType;
 
-  constructor(value?: ExpressionDataTypes) {
+  constructor(value?: ValueType) {
     super(ExpressionType.Const);
     this.value = value;
   }
