@@ -20,7 +20,7 @@ export class ValueReference {
       throw new Error('Invalid value reference: ' + str);
     }
     this._itemKey = SurveyItemKey.fromFullKey(parts[0]);
-    if (!(parts[1] in ValueReferenceMethod)) {
+    if (!Object.values(ValueReferenceMethod).includes(parts[1] as ValueReferenceMethod)) {
       throw new Error(`Invalid value reference method: ${parts[1]}`);
     }
     this._name = parts[1] as ValueReferenceMethod;
