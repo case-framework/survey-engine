@@ -10,7 +10,7 @@ import {
   JsonResponseVariableExpression,
   JsonContextVariableExpression,
   JsonFunctionExpression
-} from '../expressions/expression';
+} from '../expressions';
 import { ValueReference } from '../survey/utils/value-reference';
 
 describe('Expression JSON Parsing', () => {
@@ -93,21 +93,21 @@ describe('Expression JSON Parsing', () => {
     test('should parse response variable expression', () => {
       const json: JsonResponseVariableExpression = {
         type: ExpressionType.ResponseVariable,
-        variableRef: 'TS.I1...R1'
+        variableRef: 'TS.I1...get'
       };
 
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ResponseVariableExpression);
       expect(expression.type).toBe(ExpressionType.ResponseVariable);
-      expect((expression as ResponseVariableExpression).variableRef).toBe('TS.I1...R1');
+      expect((expression as ResponseVariableExpression).variableRef).toBe('TS.I1...get');
     });
 
     test('should throw error for invalid response variable expression type', () => {
       const json = {
         type: ExpressionType.Const,
         variableType: 'string',
-        variableRef: 'TS.I1...R1'
+        variableRef: 'TS.I1...get'
       } as unknown as JsonResponseVariableExpression;
 
       expect(() => ResponseVariableExpression.fromJson(json)).toThrow('Invalid expression type: const');
@@ -161,7 +161,7 @@ describe('Expression JSON Parsing', () => {
         type: ExpressionType.Function,
         functionName: 'eq',
         arguments: [
-          { type: ExpressionType.ResponseVariable, variableRef: 'TS.I1...R1' },
+          { type: ExpressionType.ResponseVariable, variableRef: 'TS.I1...get' },
           { type: ExpressionType.Const, value: 'expected' }
         ]
       };
@@ -185,7 +185,7 @@ describe('Expression JSON Parsing', () => {
             type: ExpressionType.Function,
             functionName: 'gt',
             arguments: [
-              { type: ExpressionType.ResponseVariable, variableRef: 'TS.I1...R1' },
+              { type: ExpressionType.ResponseVariable, variableRef: 'TS.I1...get' },
               { type: ExpressionType.Const, value: 0 }
             ]
           },
@@ -193,7 +193,7 @@ describe('Expression JSON Parsing', () => {
             type: ExpressionType.Function,
             functionName: 'lt',
             arguments: [
-              { type: ExpressionType.ResponseVariable, variableRef: 'TS.I1...R1' },
+              { type: ExpressionType.ResponseVariable, variableRef: 'TS.I1...get' },
               { type: ExpressionType.Const, value: 100 }
             ]
           }
@@ -255,7 +255,7 @@ describe('Expression JSON Parsing', () => {
     test('should parse response variable expression', () => {
       const json: JsonExpression = {
         type: ExpressionType.ResponseVariable,
-        variableRef: 'TS.I1...R1'
+        variableRef: 'TS.I1...get'
       };
 
       const expression = Expression.fromJson(json);
@@ -299,21 +299,21 @@ describe('Response Variable Reference Extraction', () => {
 
   describe('ResponseVariableExpression', () => {
     test('should return single value reference', () => {
-      const expression = new ResponseVariableExpression('TS.I1...R1');
+      const expression = new ResponseVariableExpression('TS.I1...get');
       const refs = expression.responseVariableRefs;
 
       expect(refs).toHaveLength(1);
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.I1...R1');
+      expect(refs[0].toString()).toBe('TS.I1...get');
     });
 
     test('should return value reference with complex path', () => {
-      const expression = new ResponseVariableExpression('TS.P1.I1...R1...SC1');
+      const expression = new ResponseVariableExpression('TS.P1.I1...get...SC1');
       const refs = expression.responseVariableRefs;
 
       expect(refs).toHaveLength(1);
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.P1.I1...R1...SC1');
+      expect(refs[0].toString()).toBe('TS.P1.I1...get...SC1');
     });
   });
 
@@ -336,106 +336,106 @@ describe('Response Variable Reference Extraction', () => {
 
     test('should return single reference for function with one response variable', () => {
       const expression = new FunctionExpression('eq', [
-        new ResponseVariableExpression('TS.I1...R1'),
+        new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression('expected')
       ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(1);
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.I1...R1');
+      expect(refs[0].toString()).toBe('TS.I1...get');
     });
 
     test('should return multiple references for function with multiple response variables', () => {
       const expression = new FunctionExpression('and', [
-        new ResponseVariableExpression('TS.I1...R1'),
-        new ResponseVariableExpression('TS.I2...R1')
+        new ResponseVariableExpression('TS.I1...get'),
+        new ResponseVariableExpression('TS.I2...get')
       ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2);
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.I1...R1');
+      expect(refs[0].toString()).toBe('TS.I1...get');
       expect(refs[1]).toBeInstanceOf(ValueReference);
-      expect(refs[1].toString()).toBe('TS.I2...R1');
+      expect(refs[1].toString()).toBe('TS.I2...get');
     });
 
     test('should return references from nested functions', () => {
       const nestedFunction = new FunctionExpression('gt', [
-        new ResponseVariableExpression('TS.I1...R1'),
+        new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression(0)
       ]);
 
       const expression = new FunctionExpression('and', [
         nestedFunction,
-        new ResponseVariableExpression('TS.I2...R1')
+        new ResponseVariableExpression('TS.I2...get')
       ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2);
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.I1...R1');
+      expect(refs[0].toString()).toBe('TS.I1...get');
       expect(refs[1]).toBeInstanceOf(ValueReference);
-      expect(refs[1].toString()).toBe('TS.I2...R1');
+      expect(refs[1].toString()).toBe('TS.I2...get');
     });
 
     test('should return unique references from complex nested structure', () => {
       const innerFunction1 = new FunctionExpression('gt', [
-        new ResponseVariableExpression('TS.I1...R1'),
+        new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression(0)
       ]);
 
       const innerFunction2 = new FunctionExpression('lt', [
-        new ResponseVariableExpression('TS.I1...R1'), // Same variable as above
+        new ResponseVariableExpression('TS.I1...get'), // Same variable as above
         new ConstExpression(100)
       ]);
 
       const expression = new FunctionExpression('and', [
         innerFunction1,
         innerFunction2,
-        new ResponseVariableExpression('TS.I2...R1')
+        new ResponseVariableExpression('TS.I2...get')
       ]);
 
       const refs = expression.responseVariableRefs;
-      expect(refs).toHaveLength(2); // TS.I1...R1 appears twice but should be counted once
+      expect(refs).toHaveLength(2); // TS.I1...get appears twice but should be counted once
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.I1...R1');
+      expect(refs[0].toString()).toBe('TS.I1...get');
       expect(refs[1]).toBeInstanceOf(ValueReference);
-      expect(refs[1].toString()).toBe('TS.I2...R1');
+      expect(refs[1].toString()).toBe('TS.I2...get');
     });
 
     test('should handle function with mixed argument types', () => {
       const expression = new FunctionExpression('if', [
-        new ResponseVariableExpression('TS.I1...R1'),
+        new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression('true'),
-        new ResponseVariableExpression('TS.I2...R1'),
+        new ResponseVariableExpression('TS.I2...get'),
         new ConstExpression('false')
       ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2);
       expect(refs[0]).toBeInstanceOf(ValueReference);
-      expect(refs[0].toString()).toBe('TS.I1...R1');
+      expect(refs[0].toString()).toBe('TS.I1...get');
       expect(refs[1]).toBeInstanceOf(ValueReference);
-      expect(refs[1].toString()).toBe('TS.I2...R1');
+      expect(refs[1].toString()).toBe('TS.I2...get');
     });
   });
 
   describe('Complex Expression Scenarios', () => {
     test('should extract all response variable references from complex expression', () => {
-      // Create a complex expression: (TS.I1...R1 > 0) AND (TS.I2...R1 == 'yes') OR (TS.I3...R1 < 100)
+      // Create a complex expression: (TS.I1...get > 0) AND (TS.I2...get == 'yes') OR (TS.I3...get < 100)
       const condition1 = new FunctionExpression('gt', [
-        new ResponseVariableExpression('TS.I1...R1'),
+        new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression(0)
       ]);
 
       const condition2 = new FunctionExpression('eq', [
-        new ResponseVariableExpression('TS.I2...R1'),
+        new ResponseVariableExpression('TS.I2...get'),
         new ConstExpression('yes')
       ]);
 
       const condition3 = new FunctionExpression('lt', [
-        new ResponseVariableExpression('TS.I3...R1'),
+        new ResponseVariableExpression('TS.I3...get'),
         new ConstExpression(100)
       ]);
 
@@ -446,23 +446,23 @@ describe('Response Variable Reference Extraction', () => {
 
       expect(refs).toHaveLength(3);
       const refStrings = refs.map(ref => ref.toString()).sort();
-      expect(refStrings).toEqual(['TS.I1...R1', 'TS.I2...R1', 'TS.I3...R1']);
+      expect(refStrings).toEqual(['TS.I1...get', 'TS.I2...get', 'TS.I3...get']);
     });
 
     test('should handle deeply nested expressions', () => {
       // Create a deeply nested expression structure
       const level4 = new FunctionExpression('gt', [
-        new ResponseVariableExpression('TS.I4...R1'),
+        new ResponseVariableExpression('TS.I4...get'),
         new ConstExpression(0)
       ]);
 
       const level3 = new FunctionExpression('and', [
-        new ResponseVariableExpression('TS.I3...R1'),
+        new ResponseVariableExpression('TS.I3...get'),
         level4
       ]);
 
       const level2 = new FunctionExpression('or', [
-        new ResponseVariableExpression('TS.I2...R1'),
+        new ResponseVariableExpression('TS.I2...get'),
         level3
       ]);
 
@@ -474,7 +474,7 @@ describe('Response Variable Reference Extraction', () => {
 
       expect(refs).toHaveLength(3);
       const refStrings = refs.map(ref => ref.toString()).sort();
-      expect(refStrings).toEqual(['TS.I2...R1', 'TS.I3...R1', 'TS.I4...R1']);
+      expect(refStrings).toEqual(['TS.I2...get', 'TS.I3...get', 'TS.I4...get']);
     });
   });
 });
