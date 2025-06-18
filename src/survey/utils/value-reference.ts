@@ -2,9 +2,16 @@ import { ItemComponentKey, SurveyItemKey } from "../item-component-key";
 
 const SEPARATOR = '...';
 
+export enum ValueReferenceMethod {
+  get = 'get',
+  isDefined = 'isDefined',
+}
+
+
+
 export class ValueReference {
   _itemKey: SurveyItemKey;
-  _name: string;
+  _name: ValueReferenceMethod;
   _slotKey?: ItemComponentKey;
 
   constructor(str: string) {
@@ -13,7 +20,10 @@ export class ValueReference {
       throw new Error('Invalid value reference: ' + str);
     }
     this._itemKey = SurveyItemKey.fromFullKey(parts[0]);
-    this._name = parts[1];
+    if (!(parts[1] in ValueReferenceMethod)) {
+      throw new Error(`Invalid value reference method: ${parts[1]}`);
+    }
+    this._name = parts[1] as ValueReferenceMethod;
     if (parts.length > 2) {
       this._slotKey = ItemComponentKey.fromFullKey(parts[2]);
     }
@@ -23,7 +33,7 @@ export class ValueReference {
     return this._itemKey;
   }
 
-  get name(): string {
+  get name(): ValueReferenceMethod {
     return this._name;
   }
 
@@ -33,5 +43,9 @@ export class ValueReference {
 
   toString(): string {
     return `${this._itemKey.fullKey}${SEPARATOR}${this._name}${this._slotKey ? SEPARATOR + this._slotKey.fullKey : ''}`;
+  }
+
+  static fromParts(itemKey: SurveyItemKey, name: ValueReferenceMethod, slotKey?: ItemComponentKey): ValueReference {
+    return new ValueReference(`${itemKey.fullKey}${SEPARATOR}${name}${slotKey ? SEPARATOR + slotKey.fullKey : ''}`);
   }
 }
