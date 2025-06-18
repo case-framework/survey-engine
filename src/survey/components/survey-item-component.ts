@@ -210,7 +210,7 @@ export class ErrorComponent extends DisplayComponent {
 // RESPONSE CONFIG COMPONENTS
 // ========================================
 
-type ValueRefTypeLookup = {
+export type ValueRefTypeLookup = {
   [valueRefString: string]: ExpectedValueType;
 }
 
