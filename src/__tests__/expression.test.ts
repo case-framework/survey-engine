@@ -1,3 +1,64 @@
+import { ConstExpression, ExpressionType, FunctionExpression, FunctionExpressionNames } from "../expressions/expression";
+import { const_string, const_string_array, list_contains } from "../survey-editor/expression-editor-generators";
+
+describe('expression editor to expression', () => {
+
+  describe('simple expressions', () => {
+    it('create simple const string array expression', () => {
+      const editor = const_string_array('test', 'test2');
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(ConstExpression);
+      expect(expression?.type).toBe(ExpressionType.Const);
+      expect((expression as ConstExpression).value).toEqual(['test', 'test2']);
+    });
+
+    it('create empty const string array expression', () => {
+      const editor = const_string_array();
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(ConstExpression);
+      expect(expression?.type).toBe(ExpressionType.Const);
+      expect((expression as ConstExpression).value).toEqual([]);
+    });
+  });
+
+  describe('function expressions', () => {
+    it('create simple list contains expression', () => {
+      const editor = list_contains(const_string_array('test', 'test2'), const_string('test3'));
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(FunctionExpression);
+      expect(expression?.type).toBe(ExpressionType.Function);
+      expect((expression as FunctionExpression).functionName).toBe(FunctionExpressionNames.list_contains);
+      expect((expression as FunctionExpression).arguments).toHaveLength(2);
+      expect((expression as FunctionExpression).arguments[0]).toBeInstanceOf(ConstExpression);
+      expect((expression as FunctionExpression).arguments[0]?.type).toBe(ExpressionType.Const);
+      expect(((expression as FunctionExpression).arguments[0] as ConstExpression)?.value).toEqual(['test', 'test2']);
+      expect(((expression as FunctionExpression).arguments[1] as ConstExpression)?.value).toEqual('test3');
+    });
+  });
+});
+
+/*
+describe('expression editor to expression', () => {
+  let singleChoiceConfig: ScgMcgChoiceResponseConfig;
+
+  beforeEach(() => {
+    singleChoiceConfig = new ScgMcgChoiceResponseConfig('scg', undefined, 'survey.test-item');
+  });
+
+  describe('Basic functionality', () => {
+    it('should create ScgMcgChoiceResponseConfig with correct type', () => {
+      expect(singleChoiceConfig.componentType).toBe(ItemComponentType.SingleChoice);
+      expect(singleChoiceConfig.options).toEqual([]);
+    });
+
+  });
+});
+*/
+
+
 /*
 
 TODO:

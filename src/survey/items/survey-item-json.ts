@@ -14,17 +14,17 @@ export interface JsonSurveyItemBase {
     [dynamicValueKey: string]: JsonDynamicValue;
   };
   validations?: {
-    [validationKey: string]: JsonExpression;
+    [validationKey: string]: JsonExpression | undefined;
   };
   displayConditions?: {
     root?: JsonExpression;
     components?: {
-      [componentKey: string]: JsonExpression;
+      [componentKey: string]: JsonExpression | undefined;
     }
   }
   disabledConditions?: {
     components?: {
-      [componentKey: string]: JsonExpression;
+      [componentKey: string]: JsonExpression | undefined;
     }
   }
 }

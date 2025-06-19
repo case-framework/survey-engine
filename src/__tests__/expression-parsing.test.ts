@@ -25,7 +25,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ConstExpression);
-      expect(expression.type).toBe(ExpressionType.Const);
+      expect(expression?.type).toBe(ExpressionType.Const);
       expect((expression as ConstExpression).value).toBe('test string');
     });
 
@@ -38,7 +38,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ConstExpression);
-      expect(expression.type).toBe(ExpressionType.Const);
+      expect(expression?.type).toBe(ExpressionType.Const);
       expect((expression as ConstExpression).value).toBe(42);
     });
 
@@ -51,7 +51,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ConstExpression);
-      expect(expression.type).toBe(ExpressionType.Const);
+      expect(expression?.type).toBe(ExpressionType.Const);
       expect((expression as ConstExpression).value).toBe(true);
     });
 
@@ -64,7 +64,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ConstExpression);
-      expect(expression.type).toBe(ExpressionType.Const);
+      expect(expression?.type).toBe(ExpressionType.Const);
       expect((expression as ConstExpression).value).toEqual(['a', 'b', 'c']);
     });
 
@@ -76,7 +76,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ConstExpression);
-      expect(expression.type).toBe(ExpressionType.Const);
+      expect(expression?.type).toBe(ExpressionType.Const);
       expect((expression as ConstExpression).value).toBeUndefined();
     });
 
@@ -100,7 +100,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ResponseVariableExpression);
-      expect(expression.type).toBe(ExpressionType.ResponseVariable);
+      expect(expression?.type).toBe(ExpressionType.ResponseVariable);
       expect((expression as ResponseVariableExpression).variableRef).toBe('TS.I1...get');
     });
 
@@ -124,7 +124,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(ContextVariableExpression);
-      expect(expression.type).toBe(ExpressionType.ContextVariable);
+      expect(expression?.type).toBe(ExpressionType.ContextVariable);
     });
 
     test('should throw error for invalid context variable expression type', () => {
@@ -150,7 +150,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(FunctionExpression);
-      expect(expression.type).toBe(ExpressionType.Function);
+      expect(expression?.type).toBe(ExpressionType.Function);
       expect((expression as FunctionExpression).functionName).toBe('gt');
       expect((expression as FunctionExpression).arguments).toHaveLength(2);
       expect((expression as FunctionExpression).arguments[0]).toBeInstanceOf(ConstExpression);
@@ -170,7 +170,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(FunctionExpression);
-      expect(expression.type).toBe(ExpressionType.Function);
+      expect(expression?.type).toBe(ExpressionType.Function);
       expect((expression as FunctionExpression).functionName).toBe('eq');
       expect((expression as FunctionExpression).arguments).toHaveLength(2);
       expect((expression as FunctionExpression).arguments[0]).toBeInstanceOf(ResponseVariableExpression);
@@ -204,7 +204,7 @@ describe('Expression JSON Parsing', () => {
       const expression = Expression.fromJson(json);
 
       expect(expression).toBeInstanceOf(FunctionExpression);
-      expect(expression.type).toBe(ExpressionType.Function);
+      expect(expression?.type).toBe(ExpressionType.Function);
       expect((expression as FunctionExpression).functionName).toBe('and');
       expect((expression as FunctionExpression).arguments).toHaveLength(2);
       expect((expression as FunctionExpression).arguments[0]).toBeInstanceOf(FunctionExpression);

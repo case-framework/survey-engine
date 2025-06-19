@@ -37,7 +37,7 @@ export interface JsonContextVariableExpression {
 export interface JsonFunctionExpression {
   type: ExpressionType.Function;
   functionName: string;
-  arguments: JsonExpression[];
+  arguments: Array<JsonExpression | undefined>;
 
   editorConfig?: ExpressionEditorConfig;
 }
@@ -58,7 +58,11 @@ export abstract class Expression {
     this.editorConfig = editorConfig;
   }
 
-  static fromJson(json: JsonExpression): Expression {
+  static fromJson(json: JsonExpression | undefined): Expression | undefined {
+    if (!json) {
+      return undefined;
+    }
+
     switch (json.type) {
       case ExpressionType.Const:
         return ConstExpression.fromJson(json);
@@ -76,7 +80,7 @@ export abstract class Expression {
    * @returns A list of ValueReference objects.
    */
   abstract get responseVariableRefs(): ValueReference[]
-  abstract toJson(): JsonExpression;
+  abstract toJson(): JsonExpression | undefined;
 }
 
 export class ConstExpression extends Expression {
@@ -194,16 +198,16 @@ export enum FunctionExpressionNames {
 export class FunctionExpression extends Expression {
   type!: ExpressionType.Function;
   functionName: FunctionExpressionNames;
-  arguments: Expression[];
+  arguments: Array<Expression | undefined>;
 
-  constructor(functionName: FunctionExpressionNames, args: Expression[], editorConfig?: ExpressionEditorConfig) {
+  constructor(functionName: FunctionExpressionNames, args: Array<Expression | undefined>, editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.Function);
     this.functionName = functionName;
     this.arguments = args;
     this.editorConfig = editorConfig;
   }
 
-  static fromJson(json: JsonExpression): FunctionExpression {
+  static fromJson(json: JsonExpression): FunctionExpression | undefined {
     if (json.type !== ExpressionType.Function) {
       throw new Error('Invalid expression type: ' + json.type);
     }
@@ -219,16 +223,16 @@ export class FunctionExpression extends Expression {
   }
 
   get responseVariableRefs(): ValueReference[] {
-    const refs = this.arguments.flatMap(arg => arg.responseVariableRefs);
+    const refs = this.arguments.flatMap(arg => arg?.responseVariableRefs).filter(ref => ref !== undefined);
     const refStrings = refs.map(ref => ref.toString());
     return [...new Set(refStrings)].map(ref => new ValueReference(ref));
   }
 
-  toJson(): JsonExpression {
+  toJson(): JsonExpression | undefined {
     return {
       type: this.type,
       functionName: this.functionName,
-      arguments: this.arguments.map(arg => arg.toJson()),
+      arguments: this.arguments.map(arg => arg?.toJson()),
       editorConfig: this.editorConfig
     }
   }

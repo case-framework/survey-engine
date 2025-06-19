@@ -23,7 +23,7 @@ export abstract class SurveyItem {
   }
   protected _disabledConditions?: DisabledConditions;
   protected _validations?: {
-    [validationKey: string]: Expression;
+    [validationKey: string]: Expression | undefined;
   }
 
   constructor(itemFullKey: string, itemType: SurveyItemType) {
@@ -251,7 +251,7 @@ export abstract class QuestionItem extends SurveyItem {
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
       disabledConditions: this._disabledConditions ? disabledConditionsToJson(this._disabledConditions) : undefined,
       dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
-      validations: this._validations ? Object.fromEntries(Object.entries(this._validations).map(([key, value]) => [key, value.toJson()])) : undefined,
+      validations: this._validations ? Object.fromEntries(Object.entries(this._validations).map(([key, value]) => [key, value?.toJson()])) : undefined,
     }
 
     if (this.header) {
@@ -276,14 +276,14 @@ export abstract class QuestionItem extends SurveyItem {
   }
 
   get validations(): {
-    [validationKey: string]: Expression;
+    [validationKey: string]: Expression | undefined;
   } | undefined {
     return this._validations;
   }
 
   get disabledConditions(): {
     components?: {
-      [componentKey: string]: Expression;
+      [componentKey: string]: Expression | undefined;
     }
   } | undefined {
     return this._disabledConditions;
@@ -291,7 +291,7 @@ export abstract class QuestionItem extends SurveyItem {
 
   set disabledConditions(disabledConditions: {
     components?: {
-      [componentKey: string]: Expression;
+      [componentKey: string]: Expression | undefined;
     }
   } | undefined) {
     this._disabledConditions = disabledConditions;
