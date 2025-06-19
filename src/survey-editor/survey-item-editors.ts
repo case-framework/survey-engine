@@ -119,14 +119,12 @@ abstract class ScgMcgEditor extends QuestionEditor {
     return !this._currentItem.responseConfig.options.some(option => option.key.componentKey === optionKey);
   }
 
-  onReorderOptions(activeIndex: number, overIndex: number): void {
+  swapOptions(activeIndex: number, overIndex: number): void {
     const newOrder = [...this._currentItem.responseConfig.options];
     newOrder.splice(activeIndex, 1);
     newOrder.splice(overIndex, 0, this._currentItem.responseConfig.options[activeIndex]);
     this._currentItem.responseConfig.options = newOrder;
   }
-
-
 }
 
 export class SingleChoiceQuestionEditor extends ScgMcgEditor {

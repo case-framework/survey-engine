@@ -9,7 +9,8 @@ import {
   JsonConstExpression,
   JsonResponseVariableExpression,
   JsonContextVariableExpression,
-  JsonFunctionExpression
+  JsonFunctionExpression,
+  FunctionExpressionNames
 } from '../expressions';
 import { ValueReference } from '../survey/utils/value-reference';
 
@@ -139,7 +140,7 @@ describe('Expression JSON Parsing', () => {
     test('should parse function expression with const arguments', () => {
       const json: JsonFunctionExpression = {
         type: ExpressionType.Function,
-        functionName: 'add',
+        functionName: 'gt',
         arguments: [
           { type: ExpressionType.Const, value: 5 },
           { type: ExpressionType.Const, value: 3 }
@@ -150,7 +151,7 @@ describe('Expression JSON Parsing', () => {
 
       expect(expression).toBeInstanceOf(FunctionExpression);
       expect(expression.type).toBe(ExpressionType.Function);
-      expect((expression as FunctionExpression).functionName).toBe('add');
+      expect((expression as FunctionExpression).functionName).toBe('gt');
       expect((expression as FunctionExpression).arguments).toHaveLength(2);
       expect((expression as FunctionExpression).arguments[0]).toBeInstanceOf(ConstExpression);
       expect((expression as FunctionExpression).arguments[1]).toBeInstanceOf(ConstExpression);
@@ -213,8 +214,9 @@ describe('Expression JSON Parsing', () => {
     test('should parse function expression with editor config', () => {
       const json: JsonFunctionExpression = {
         type: ExpressionType.Function,
-        functionName: 'customFunction',
+        functionName: 'str_eq',
         arguments: [
+          { type: ExpressionType.Const, value: 'test' },
           { type: ExpressionType.Const, value: 'test' }
         ],
         editorConfig: {
@@ -233,7 +235,7 @@ describe('Expression JSON Parsing', () => {
     test('should throw error for invalid function expression type', () => {
       const json = {
         type: ExpressionType.Const,
-        functionName: 'add',
+        functionName: 'str_eq',
         arguments: []
       } as unknown as JsonFunctionExpression;
 
@@ -274,7 +276,7 @@ describe('Expression JSON Parsing', () => {
     test('should parse function expression', () => {
       const json: JsonExpression = {
         type: ExpressionType.Function,
-        functionName: 'test',
+        functionName: 'and',
         arguments: []
       };
 
@@ -326,7 +328,7 @@ describe('Response Variable Reference Extraction', () => {
 
   describe('FunctionExpression', () => {
     test('should return empty array for function with only const arguments', () => {
-      const expression = new FunctionExpression('add', [
+      const expression = new FunctionExpression(FunctionExpressionNames.gt, [
         new ConstExpression(5),
         new ConstExpression(3)
       ]);
@@ -335,7 +337,7 @@ describe('Response Variable Reference Extraction', () => {
     });
 
     test('should return single reference for function with one response variable', () => {
-      const expression = new FunctionExpression('eq', [
+      const expression = new FunctionExpression(FunctionExpressionNames.eq, [
         new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression('expected')
       ]);
@@ -347,10 +349,12 @@ describe('Response Variable Reference Extraction', () => {
     });
 
     test('should return multiple references for function with multiple response variables', () => {
-      const expression = new FunctionExpression('and', [
-        new ResponseVariableExpression('TS.I1...get'),
-        new ResponseVariableExpression('TS.I2...get')
-      ]);
+      const expression = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          new ResponseVariableExpression('TS.I1...get'),
+          new ResponseVariableExpression('TS.I2...get')
+        ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2);
@@ -361,15 +365,17 @@ describe('Response Variable Reference Extraction', () => {
     });
 
     test('should return references from nested functions', () => {
-      const nestedFunction = new FunctionExpression('gt', [
+      const nestedFunction = new FunctionExpression(FunctionExpressionNames.gt, [
         new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression(0)
       ]);
 
-      const expression = new FunctionExpression('and', [
-        nestedFunction,
-        new ResponseVariableExpression('TS.I2...get')
-      ]);
+      const expression = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          nestedFunction,
+          new ResponseVariableExpression('TS.I2...get')
+        ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2);
@@ -380,21 +386,23 @@ describe('Response Variable Reference Extraction', () => {
     });
 
     test('should return unique references from complex nested structure', () => {
-      const innerFunction1 = new FunctionExpression('gt', [
+      const innerFunction1 = new FunctionExpression(FunctionExpressionNames.gt, [
         new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression(0)
       ]);
 
-      const innerFunction2 = new FunctionExpression('lt', [
+      const innerFunction2 = new FunctionExpression(FunctionExpressionNames.lt, [
         new ResponseVariableExpression('TS.I1...get'), // Same variable as above
         new ConstExpression(100)
       ]);
 
-      const expression = new FunctionExpression('and', [
-        innerFunction1,
-        innerFunction2,
-        new ResponseVariableExpression('TS.I2...get')
-      ]);
+      const expression = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          innerFunction1,
+          innerFunction2,
+          new ResponseVariableExpression('TS.I2...get')
+        ]);
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2); // TS.I1...get appears twice but should be counted once
@@ -405,12 +413,15 @@ describe('Response Variable Reference Extraction', () => {
     });
 
     test('should handle function with mixed argument types', () => {
-      const expression = new FunctionExpression('if', [
-        new ResponseVariableExpression('TS.I1...get'),
-        new ConstExpression('true'),
-        new ResponseVariableExpression('TS.I2...get'),
-        new ConstExpression('false')
-      ]);
+      const expression = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          new ResponseVariableExpression('TS.I1...get'),
+          new ConstExpression('true'),
+          new ResponseVariableExpression('TS.I2...get'),
+          new ConstExpression('false')
+        ]
+      );
 
       const refs = expression.responseVariableRefs;
       expect(refs).toHaveLength(2);
@@ -424,23 +435,29 @@ describe('Response Variable Reference Extraction', () => {
   describe('Complex Expression Scenarios', () => {
     test('should extract all response variable references from complex expression', () => {
       // Create a complex expression: (TS.I1...get > 0) AND (TS.I2...get == 'yes') OR (TS.I3...get < 100)
-      const condition1 = new FunctionExpression('gt', [
+      const condition1 = new FunctionExpression(FunctionExpressionNames.gt, [
         new ResponseVariableExpression('TS.I1...get'),
         new ConstExpression(0)
       ]);
 
-      const condition2 = new FunctionExpression('eq', [
+      const condition2 = new FunctionExpression(FunctionExpressionNames.eq, [
         new ResponseVariableExpression('TS.I2...get'),
         new ConstExpression('yes')
       ]);
 
-      const condition3 = new FunctionExpression('lt', [
+      const condition3 = new FunctionExpression(FunctionExpressionNames.lt, [
         new ResponseVariableExpression('TS.I3...get'),
         new ConstExpression(100)
       ]);
 
-      const andExpression = new FunctionExpression('and', [condition1, condition2]);
-      const orExpression = new FunctionExpression('or', [andExpression, condition3]);
+      const andExpression = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [condition1, condition2]
+      );
+      const orExpression = new FunctionExpression(
+        FunctionExpressionNames.or,
+        [andExpression, condition3]
+      );
 
       const refs = orExpression.responseVariableRefs;
 
@@ -451,22 +468,26 @@ describe('Response Variable Reference Extraction', () => {
 
     test('should handle deeply nested expressions', () => {
       // Create a deeply nested expression structure
-      const level4 = new FunctionExpression('gt', [
+      const level4 = new FunctionExpression(FunctionExpressionNames.gt, [
         new ResponseVariableExpression('TS.I4...get'),
         new ConstExpression(0)
       ]);
 
-      const level3 = new FunctionExpression('and', [
-        new ResponseVariableExpression('TS.I3...get'),
-        level4
-      ]);
+      const level3 = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          new ResponseVariableExpression('TS.I3...get'),
+          level4
+        ]);
 
-      const level2 = new FunctionExpression('or', [
-        new ResponseVariableExpression('TS.I2...get'),
-        level3
-      ]);
+      const level2 = new FunctionExpression(
+        FunctionExpressionNames.or,
+        [
+          new ResponseVariableExpression('TS.I2...get'),
+          level3
+        ]);
 
-      const level1 = new FunctionExpression('not', [
+      const level1 = new FunctionExpression(FunctionExpressionNames.not, [
         level2
       ]);
 

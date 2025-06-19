@@ -5,7 +5,7 @@ import { ContentType } from "../survey/utils/content";
 import { JsonSurveyCardContent } from "../survey/utils/translations";
 import { Survey } from "../survey/survey";
 import { SurveyItemType } from "../survey/items";
-import { ExpressionType, FunctionExpression } from "../expressions/expression";
+import { ExpressionType, FunctionExpression, ResponseVariableExpression } from "../expressions/expression";
 import { DynamicValueTypes } from "../expressions/dynamic-value";
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItemGroup, JsonSurveyQuestionItem } from "../survey/items";
 
@@ -127,12 +127,7 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
         'dynVal1': {
           type: DynamicValueTypes.String,
           expression: {
-            type: ExpressionType.Function,
-            functionName: 'getAttribute',
-            arguments: [
-              { type: ExpressionType.Function, functionName: 'getContext', arguments: [] },
-              { type: ExpressionType.Const, value: 'userId' }
-            ]
+            type: ExpressionType.ContextVariable,
           }
         }
       }
@@ -158,11 +153,8 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
       },
       validations: {
         'val1': {
-          type: ExpressionType.Function,
-          functionName: 'isDefined',
-          arguments: [
-            { type: ExpressionType.Function, functionName: 'getResponseItem', arguments: [{ type: ExpressionType.Const, value: 'survey.question1' }, { type: ExpressionType.Const, value: 'rg' }] }
-          ]
+          type: ExpressionType.ResponseVariable,
+          variableRef: 'survey.question1...isDefined'
         },
         'val2': {
           type: ExpressionType.Function,
@@ -327,8 +319,7 @@ describe('Data Parsing', () => {
       expect(displayItem.dynamicValues?.['dynVal1']).toBeDefined();
       expect(displayItem.dynamicValues?.['dynVal1']?.type).toBe(DynamicValueTypes.String);
       expect(displayItem.dynamicValues?.['dynVal1']?.expression).toBeDefined();
-      expect(displayItem.dynamicValues?.['dynVal1']?.expression?.type).toBe(ExpressionType.Function);
-      expect((displayItem.dynamicValues?.['dynVal1']?.expression as FunctionExpression)?.functionName).toBe('getAttribute');
+      expect(displayItem.dynamicValues?.['dynVal1']?.expression?.type).toBe(ExpressionType.ContextVariable);
 
       // Test Single Choice Question with validations, display conditions, and disabled conditions
       const questionItem = survey.surveyItems['survey.question1'] as SingleChoiceQuestionItem;
@@ -340,8 +331,8 @@ describe('Data Parsing', () => {
       expect(Object.keys(questionItem.validations || {})).toHaveLength(2);
 
       expect(questionItem.validations?.['val1']).toBeDefined();
-      expect(questionItem.validations?.['val1']?.type).toBe(ExpressionType.Function);
-      expect((questionItem.validations?.['val1'] as FunctionExpression)?.functionName).toBe('isDefined');
+      expect(questionItem.validations?.['val1']?.type).toBe(ExpressionType.ResponseVariable);
+      expect((questionItem.validations?.['val1'] as ResponseVariableExpression)?.variableRef).toBe('survey.question1...isDefined');
 
       expect(questionItem.validations?.['val2']).toBeDefined();
       expect(questionItem.validations?.['val2']?.type).toBe(ExpressionType.Function);
