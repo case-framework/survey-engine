@@ -1,19 +1,18 @@
 
 
 // TODO: constant expression editor
-// TODO: response variable expression editor
 // TODO: context variable expression editor
 // TODO: function expression editor
 
-import { Expression, FunctionExpression, ExpressionEditorConfig, FunctionExpressionNames, ConstExpression } from "../expressions/expression";
-import { ExpectedValueType } from "../survey";
+import { Expression, FunctionExpression, ExpressionEditorConfig, FunctionExpressionNames, ConstExpression, ResponseVariableExpression } from "../expressions/expression";
+import { ExpectedValueType, ValueReference } from "../survey";
 
 
 // ================================
 // EXPRESSION EDITOR CLASSES
 // ================================
 export abstract class ExpressionEditor {
-  readonly returnType!: ExpectedValueType;
+  returnType!: ExpectedValueType;
   protected _editorConfig?: ExpressionEditorConfig;
 
   abstract getExpression(): Expression | undefined
@@ -75,6 +74,42 @@ export class ConstStringEditor extends ExpressionEditor {
 
   getExpression(): Expression | undefined {
     return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+// TODO: add const number editor
+// TODO: add const boolean editor
+// TODO: add const date editor
+// TODO: add const number array editor
+// TODO: add const date array editor
+
+
+// ================================
+// RESPONSE VARIABLE EXPRESSION EDITOR CLASSES
+// ================================
+
+export class ResponseVariableEditor extends ExpressionEditor {
+  private _variableName: string;
+  private _variableRef: ValueReference;
+
+  constructor(variableName: string, variableType: ExpectedValueType, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._variableName = variableName;
+    this._variableRef = new ValueReference(variableName);
+    this._editorConfig = editorConfig;
+    this.returnType = variableType;
+  }
+
+  get variableName(): string {
+    return this._variableName;
+  }
+
+  get variableRef(): ValueReference {
+    return this._variableRef;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ResponseVariableExpression(this._variableName, this._editorConfig);
   }
 }
 

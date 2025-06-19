@@ -1,5 +1,5 @@
-import { ConstExpression, ExpressionType, FunctionExpression, FunctionExpressionNames } from "../expressions/expression";
-import { const_string, const_string_array, list_contains } from "../survey-editor/expression-editor-generators";
+import { ConstExpression, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "../expressions/expression";
+import { const_string, const_string_array, list_contains, response_string } from "../survey-editor/expression-editor-generators";
 
 describe('expression editor to expression', () => {
 
@@ -36,6 +36,19 @@ describe('expression editor to expression', () => {
       expect((expression as FunctionExpression).arguments[0]?.type).toBe(ExpressionType.Const);
       expect(((expression as FunctionExpression).arguments[0] as ConstExpression)?.value).toEqual(['test', 'test2']);
       expect(((expression as FunctionExpression).arguments[1] as ConstExpression)?.value).toEqual('test3');
+    });
+  });
+
+  describe('response variable expressions', () => {
+    it('create simple response string expression', () => {
+      const editor = response_string('survey.test...get');
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(ResponseVariableExpression);
+      expect(expression?.type).toBe(ExpressionType.ResponseVariable);
+      expect((expression as ResponseVariableExpression).variableRef).toEqual('survey.test...get');
+      expect((expression as ResponseVariableExpression).responseVariableRefs).toHaveLength(1);
+      expect((expression as ResponseVariableExpression).responseVariableRefs[0].toString()).toEqual('survey.test...get');
     });
   });
 });
