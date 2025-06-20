@@ -21,8 +21,9 @@ export abstract class ExpressionEditor {
     return this._editorConfig;
   }
 
-  set editorConfig(editorConfig: ExpressionEditorConfig | undefined) {
+  withEditorConfig(editorConfig: ExpressionEditorConfig): ExpressionEditor {
     this._editorConfig = editorConfig;
+    return this;
   }
 }
 
