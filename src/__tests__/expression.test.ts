@@ -1,7 +1,8 @@
-import { ConstExpression, ExpressionEditorConfig, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "../expressions/expression";
-import { ExpectedValueType } from "../survey";
+import { ExpressionEvaluator } from "../expressions";
+import { ConstExpression, Expression, ExpressionEditorConfig, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "../expressions/expression";
+import { ExpectedValueType, ResponseItem, SurveyItemKey, SurveyItemResponse, SurveyItemType } from "../survey";
 import { ConstBooleanEditor, ConstDateArrayEditor, ConstDateEditor, ConstNumberArrayEditor, ConstNumberEditor, ConstStringArrayEditor, ConstStringEditor } from "../survey-editor/expression-editor";
-import { const_string, const_string_array, list_contains, response_string } from "../survey-editor/expression-editor-generators";
+import { const_string, const_string_array, str_list_contains, response_string } from "../survey-editor/expression-editor-generators";
 
 describe('expression editor to expression', () => {
   describe('Expression Editors', () => {
@@ -455,7 +456,7 @@ describe('expression editor to expression', () => {
 
   describe('function expressions', () => {
     it('create simple list contains expression', () => {
-      const editor = list_contains(const_string_array('test', 'test2'), const_string('test3'));
+      const editor = str_list_contains(const_string_array('test', 'test2'), const_string('test3'));
 
       const expression = editor.getExpression();
       expect(expression).toBeInstanceOf(FunctionExpression);
@@ -483,23 +484,43 @@ describe('expression editor to expression', () => {
   });
 });
 
-/*
-describe('expression editor to expression', () => {
-  let singleChoiceConfig: ScgMcgChoiceResponseConfig;
+
+describe('expression evaluator', () => {
+  let expression: Expression;
 
   beforeEach(() => {
-    singleChoiceConfig = new ScgMcgChoiceResponseConfig('scg', undefined, 'survey.test-item');
+    const editor = str_list_contains(
+      const_string_array('option1', 'option2'),
+      response_string('survey.question1...get')
+    );
+    expression = editor.getExpression() as Expression;
   });
 
-  describe('Basic functionality', () => {
-    it('should create ScgMcgChoiceResponseConfig with correct type', () => {
-      expect(singleChoiceConfig.componentType).toBe(ItemComponentType.SingleChoice);
-      expect(singleChoiceConfig.options).toEqual([]);
-    });
+  it('if no response is provided, the expression should be false', () => {
+    const expEval = new ExpressionEvaluator();
+    expect(expEval.eval(expression)).toBeFalsy();
+  });
 
+  it('if the response is provided, but the question is not answered, the expression should be false', () => {
+    const expEval = new ExpressionEvaluator({
+      responses: {}
+    });
+    expect(expEval.eval(expression)).toBeFalsy();
+  });
+
+  it('if the response is provided, and the question is answered, the expression should be true', () => {
+    const expEval = new ExpressionEvaluator({
+      responses: {
+        'survey.question1': new SurveyItemResponse({
+          key: SurveyItemKey.fromFullKey('survey.question1'),
+          itemType: SurveyItemType.SingleChoiceQuestion,
+        }, new ResponseItem('option1'))
+      }
+    });
+    expect(expEval.eval(expression)).toBeTruthy();
   });
 });
-*/
+
 
 
 /*

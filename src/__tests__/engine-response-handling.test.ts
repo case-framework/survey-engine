@@ -48,7 +48,7 @@ describe('SurveyEngineCore response handling', () => {
   it('prefills are not used if wrong type provided', () => {
     const survey = makeSurveyWithQuestions(['q1', 'q2']);
     const prefills: JsonSurveyItemResponse[] = [
-      { key: 'test-survey.q1', itemType: SurveyItemType.Display, response: { value: 'prefilled' } }
+      { key: 'test-survey.q1', itemType: SurveyItemType.SingleChoiceQuestion, response: { value: 'prefilled' } }
     ];
     const engine = new SurveyEngineCore(survey, undefined, prefills);
     const resp = engine.getResponseItem('test-survey.q1');

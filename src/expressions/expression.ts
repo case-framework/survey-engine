@@ -134,6 +134,10 @@ export class ResponseVariableExpression extends Expression {
     return [new ValueReference(this.variableRef)];
   }
 
+  get responseVariableRef(): ValueReference {
+    return new ValueReference(this.variableRef);
+  }
+
   toJson(): JsonExpression {
     return {
       type: this.type,

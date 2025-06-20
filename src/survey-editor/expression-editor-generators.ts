@@ -4,7 +4,7 @@ import {
   ConstStringArrayEditor,
   ConstStringEditor,
   ExpressionEditor,
-  ListContainsExpressionEditor,
+  StrListContainsExpressionEditor,
   OrExpressionEditor,
   ResponseVariableEditor,
   ConstNumberArrayEditor,
@@ -93,6 +93,6 @@ export const or = (...args: ExpressionEditor[]): ExpressionEditor => {
 // LIST EXPRESSIONS
 // ================================
 
-export const list_contains = (list: ExpressionEditor, item: ExpressionEditor): ExpressionEditor => {
-  return new ListContainsExpressionEditor(list, item);
+export const str_list_contains = (list: ExpressionEditor, item: ExpressionEditor): ExpressionEditor => {
+  return new StrListContainsExpressionEditor(list, item);
 }

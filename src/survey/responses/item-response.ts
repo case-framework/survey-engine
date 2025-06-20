@@ -4,9 +4,6 @@ import { ValueType } from "../utils/types";
 import { JsonResponseMeta, ResponseMeta } from "./response-meta";
 
 
-
-
-
 export interface JsonSurveyItemResponse {
   key: string;
   itemType: SurveyItemType;

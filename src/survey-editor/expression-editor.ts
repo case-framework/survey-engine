@@ -313,7 +313,7 @@ export class OrExpressionEditor extends GroupExpressionEditor {
 // LIST EXPRESSION EDITOR CLASSES
 // ================================
 
-export class ListContainsExpressionEditor extends ExpressionEditor {
+export class StrListContainsExpressionEditor extends ExpressionEditor {
   readonly returnType = ExpectedValueType.Boolean;
   private _list: ExpressionEditor | undefined;
   private _item: ExpressionEditor | undefined;
