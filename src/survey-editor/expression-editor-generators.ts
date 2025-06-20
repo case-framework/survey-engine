@@ -7,6 +7,11 @@ import {
   ListContainsExpressionEditor,
   OrExpressionEditor,
   ResponseVariableEditor,
+  ConstNumberArrayEditor,
+  ConstNumberEditor,
+  ConstBooleanEditor,
+  ConstDateEditor,
+  ConstDateArrayEditor,
 } from "./expression-editor";
 
 // ================================
@@ -19,6 +24,27 @@ export const const_string_array = (...values: string[]): ExpressionEditor => {
 export const const_string = (value: string): ExpressionEditor => {
   return new ConstStringEditor(value);
 }
+
+export const const_number_array = (...values: number[]): ExpressionEditor => {
+  return new ConstNumberArrayEditor(values);
+}
+
+export const const_number = (value: number): ExpressionEditor => {
+  return new ConstNumberEditor(value);
+}
+
+export const const_boolean = (value: boolean): ExpressionEditor => {
+  return new ConstBooleanEditor(value);
+}
+
+export const const_date = (value: Date): ExpressionEditor => {
+  return new ConstDateEditor(value);
+}
+
+export const const_date_array = (...values: Date[]): ExpressionEditor => {
+  return new ConstDateArrayEditor(values);
+}
+
 
 // ================================
 // RESPONSE VARIABLE EXPRESSIONS

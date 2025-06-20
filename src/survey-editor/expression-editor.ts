@@ -78,12 +78,125 @@ export class ConstStringEditor extends ExpressionEditor {
   }
 }
 
-// TODO: add const number editor
-// TODO: add const boolean editor
-// TODO: add const date editor
-// TODO: add const number array editor
-// TODO: add const date array editor
+export class ConstNumberEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
 
+  private _value: number;
+
+  constructor(value: number, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): number {
+    return this._value;
+  }
+
+  set value(value: number) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstBooleanEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+
+  private _value: boolean;
+
+  constructor(value: boolean, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): boolean {
+    return this._value;
+  }
+
+  set value(value: boolean) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstDateEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Date;
+
+  private _value: Date;
+
+  constructor(value: Date, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): Date {
+    return this._value;
+  }
+
+  set value(value: Date) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstNumberArrayEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.NumberArray;
+
+  private _values: number[];
+
+  constructor(values: number[], editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._values = values;
+    this._editorConfig = editorConfig;
+  }
+
+  get values(): number[] {
+    return this._values;
+  }
+
+  set values(values: number[]) {
+    this._values = values;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._values, this._editorConfig);
+  }
+}
+
+export class ConstDateArrayEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.DateArray;
+
+  private _values: Date[];
+
+  constructor(values: Date[], editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._values = values;
+    this._editorConfig = editorConfig;
+  }
+
+  get values(): Date[] {
+    return this._values;
+  }
+
+  set values(values: Date[]) {
+    this._values = values;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._values, this._editorConfig);
+  }
+}
 
 // ================================
 // RESPONSE VARIABLE EXPRESSION EDITOR CLASSES
