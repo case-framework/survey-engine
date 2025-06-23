@@ -81,7 +81,7 @@ export class SurveyEngineCore {
       [itemKey: string]: {
         [templateValueKey: string]: {
           value: ValueType;
-          templateDef: TemplateValueDefinition;
+          templateDef: TemplateValueDefinition | undefined;
         };
       };
     };
@@ -282,7 +282,7 @@ export class SurveyEngineCore {
 
   getTemplateValue(itemKey: string, templateValueKey: string): {
     value: ValueType;
-    templateDef: TemplateValueDefinition;
+    templateDef: TemplateValueDefinition | undefined;
   } | undefined {
     return this.cache.templateValues[itemKey]?.[templateValueKey];
   }
@@ -691,7 +691,7 @@ export class SurveyEngineCore {
     Object.keys(this.cache.templateValues).forEach(itemKey => {
       Object.keys(this.cache.templateValues[itemKey]).forEach(templateValueKey => {
         const templateValue = this.cache.templateValues[itemKey][templateValueKey];
-        if (!templateValue.templateDef.expression) {
+        if (!templateValue.templateDef?.expression) {
           console.warn('evalTemplateValues: template value expression not found: ' + itemKey + '.' + templateValueKey);
           return;
         }

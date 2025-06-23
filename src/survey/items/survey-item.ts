@@ -18,11 +18,11 @@ export abstract class SurveyItem {
   }
 
   displayConditions?: DisplayConditions;
-  protected _templateValues?: {
+  templateValues?: {
     [templateValueKey: string]: TemplateValueDefinition;
   }
-  protected _disabledConditions?: DisabledConditions;
-  protected _validations?: {
+  disabledConditions?: DisabledConditions;
+  validations?: {
     [validationKey: string]: Expression | undefined;
   }
 
@@ -39,11 +39,6 @@ export abstract class SurveyItem {
     return initItemClassBasedOnType(key, json);
   }
 
-  get templateValues(): {
-    [templateValueKey: string]: TemplateValueDefinition;
-  } | undefined {
-    return this._templateValues;
-  }
 }
 
 const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem => {
@@ -128,7 +123,7 @@ export class DisplayItem extends SurveyItem {
     item.components = json.components?.map(component => DisplayComponent.fromJson(component, undefined, item.key.fullKey));
     item.metadata = json.metadata;
     item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
-    item._templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
+    item.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
     return item;
   }
 
@@ -138,7 +133,7 @@ export class DisplayItem extends SurveyItem {
       components: this.components?.map(component => component.toJson()) ?? [],
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
-      templateValues: this._templateValues ? templateValuesToJson(this._templateValues) : undefined,
+      templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
     }
   }
 
@@ -181,7 +176,7 @@ export class SurveyEndItem extends SurveyItem {
     const item = new SurveyEndItem(key);
     item.metadata = json.metadata;
     item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
-    item._templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
+    item.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
     return item;
   }
 
@@ -190,7 +185,7 @@ export class SurveyEndItem extends SurveyItem {
       itemType: SurveyItemType.SurveyEnd,
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
-      templateValues: this._templateValues ? templateValuesToJson(this._templateValues) : undefined,
+      templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
     }
   }
 }
@@ -220,9 +215,9 @@ export abstract class QuestionItem extends SurveyItem {
   _readGenericAttributes(json: JsonSurveyQuestionItem) {
     this.metadata = json.metadata;
     this.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
-    this._disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
-    this._templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
-    this._validations = json.validations ? Object.fromEntries(Object.entries(json.validations).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined;
+    this.disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
+    this.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
+    this.validations = json.validations ? Object.fromEntries(Object.entries(json.validations).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined;
 
     if (json.header) {
       this.header = {
@@ -249,9 +244,9 @@ export abstract class QuestionItem extends SurveyItem {
       responseConfig: this.responseConfig.toJson(),
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
-      disabledConditions: this._disabledConditions ? disabledConditionsToJson(this._disabledConditions) : undefined,
-      templateValues: this._templateValues ? templateValuesToJson(this._templateValues) : undefined,
-      validations: this._validations ? Object.fromEntries(Object.entries(this._validations).map(([key, value]) => [key, value?.toJson()])) : undefined,
+      disabledConditions: this.disabledConditions ? disabledConditionsToJson(this.disabledConditions) : undefined,
+      templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
+      validations: this.validations ? Object.fromEntries(Object.entries(this.validations).map(([key, value]) => [key, value?.toJson()])) : undefined,
     }
 
     if (this.header) {
@@ -275,27 +270,6 @@ export abstract class QuestionItem extends SurveyItem {
     return json;
   }
 
-  get validations(): {
-    [validationKey: string]: Expression | undefined;
-  } | undefined {
-    return this._validations;
-  }
-
-  get disabledConditions(): {
-    components?: {
-      [componentKey: string]: Expression | undefined;
-    }
-  } | undefined {
-    return this._disabledConditions;
-  }
-
-  set disabledConditions(disabledConditions: {
-    components?: {
-      [componentKey: string]: Expression | undefined;
-    }
-  } | undefined) {
-    this._disabledConditions = disabledConditions;
-  }
 
   onComponentDeleted(componentKey: string): void {
     if (this.header?.title?.key.fullKey === componentKey) {
@@ -325,8 +299,8 @@ export abstract class QuestionItem extends SurveyItem {
       delete this.displayConditions.components[componentKey];
     }
 
-    if (this._disabledConditions?.components?.[componentKey]) {
-      delete this._disabledConditions.components[componentKey];
+    if (this.disabledConditions?.components?.[componentKey]) {
+      delete this.disabledConditions.components[componentKey];
     }
   }
 }

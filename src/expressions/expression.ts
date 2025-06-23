@@ -81,6 +81,10 @@ export abstract class Expression {
    */
   abstract get responseVariableRefs(): ValueReference[]
   abstract toJson(): JsonExpression | undefined;
+
+  clone(): Expression {
+    return Expression.fromJson(this.toJson())!;
+  }
 }
 
 export class ConstExpression extends Expression {
