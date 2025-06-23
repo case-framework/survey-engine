@@ -109,7 +109,7 @@ export abstract class SurveyItemEditor {
   abstract convertToType(type: SurveyItemType): void;
 }
 
-abstract class QuestionEditor extends SurveyItemEditor {
+export abstract class QuestionEditor extends SurveyItemEditor {
   protected _currentItem: QuestionItem;
 
   constructor(editor: SurveyEditor, itemFullKey: string, type: SurveyItemType.SingleChoiceQuestion | SurveyItemType.MultipleChoiceQuestion) {
@@ -191,7 +191,7 @@ abstract class ScgMcgEditor extends QuestionEditor {
     let option: ScgMcgOptionBase;
     switch (optionType) {
       case ItemComponentType.ScgMcgOption:
-        option = new ScgMcgOption(optionKey, this._currentItem.responseConfig.key.fullKey, this._currentItem.key.parentFullKey);
+        option = new ScgMcgOption(optionKey, this._currentItem.responseConfig.key.fullKey, this._currentItem.key.fullKey);
         break;
       default:
         throw new Error(`Unsupported option type: ${optionType}`);

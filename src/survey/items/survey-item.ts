@@ -221,20 +221,20 @@ export abstract class QuestionItem extends SurveyItem {
 
     if (json.header) {
       this.header = {
-        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) as TextComponent : undefined,
-        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.parentFullKey) as TextComponent : undefined,
-        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.parentFullKey) as TextComponent : undefined,
+        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.fullKey) as TextComponent : undefined,
+        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.fullKey) as TextComponent : undefined,
+        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.fullKey) as TextComponent : undefined,
       }
     }
 
     if (json.body) {
       this.body = {
-        topContent: json.body?.topContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
-        bottomContent: json.body?.bottomContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
+        topContent: json.body?.topContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.fullKey)),
+        bottomContent: json.body?.bottomContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.fullKey)),
       }
     }
 
-    this.footer = json.footer ? TextComponent.fromJson(json.footer, undefined, this.key.parentFullKey) as TextComponent : undefined;
+    this.footer = json.footer ? TextComponent.fromJson(json.footer, undefined, this.key.fullKey) as TextComponent : undefined;
     this.confidentiality = json.confidentiality;
   }
 
@@ -324,7 +324,7 @@ export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
 
   static fromJson(key: string, json: JsonSurveyQuestionItem): SingleChoiceQuestionItem {
     const item = new SingleChoiceQuestionItem(key);
-    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.fullKey);
     item._readGenericAttributes(json);
     return item;
   }
@@ -340,7 +340,7 @@ export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
 
   static fromJson(key: string, json: JsonSurveyQuestionItem): MultipleChoiceQuestionItem {
     const item = new MultipleChoiceQuestionItem(key);
-    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.fullKey);
     item._readGenericAttributes(json);
     return item;
   }

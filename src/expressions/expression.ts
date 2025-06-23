@@ -83,7 +83,9 @@ export abstract class Expression {
   abstract toJson(): JsonExpression | undefined;
 
   clone(): Expression {
-    return Expression.fromJson(this.toJson())!;
+    return Expression.fromJson(this.toJson()) ?? (() => {
+      throw new Error('Failed to clone expression');
+    })();
   }
 }
 
@@ -94,6 +96,7 @@ export class ConstExpression extends Expression {
   constructor(value?: ValueType, editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.Const, editorConfig);
     this.value = value;
+    this.type = ExpressionType.Const;
   }
 
   static fromJson(json: JsonExpression): ConstExpression {
@@ -118,12 +121,13 @@ export class ConstExpression extends Expression {
 }
 
 export class ResponseVariableExpression extends Expression {
-  type!: ExpressionType.ResponseVariable;
+  type: ExpressionType.ResponseVariable;
   variableRef: string;
 
   constructor(variableRef: string, editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.ResponseVariable, editorConfig);
     this.variableRef = variableRef;
+    this.type = ExpressionType.ResponseVariable;
   }
 
   static fromJson(json: JsonExpression): ResponseVariableExpression {
@@ -152,11 +156,12 @@ export class ResponseVariableExpression extends Expression {
 }
 
 export class ContextVariableExpression extends Expression {
-  type!: ExpressionType.ContextVariable;
+  type: ExpressionType.ContextVariable;
   // TODO: implement
 
   constructor(editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.ContextVariable, editorConfig);
+    this.type = ExpressionType.ContextVariable;
   }
 
   static fromJson(json: JsonExpression): ContextVariableExpression {
@@ -204,18 +209,19 @@ export enum FunctionExpressionNames {
 }
 
 export class FunctionExpression extends Expression {
-  type!: ExpressionType.Function;
+  type: ExpressionType.Function;
   functionName: FunctionExpressionNames;
   arguments: Array<Expression | undefined>;
 
   constructor(functionName: FunctionExpressionNames, args: Array<Expression | undefined>, editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.Function);
+    this.type = ExpressionType.Function;
     this.functionName = functionName;
     this.arguments = args;
     this.editorConfig = editorConfig;
   }
 
-  static fromJson(json: JsonExpression): FunctionExpression | undefined {
+  static fromJson(json: JsonExpression): FunctionExpression {
     if (json.type !== ExpressionType.Function) {
       throw new Error('Invalid expression type: ' + json.type);
     }

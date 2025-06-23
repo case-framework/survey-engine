@@ -318,7 +318,7 @@ export class SurveyEngineCore {
         Object.keys(item.validations).forEach(validationKey => {
           const valExp = item.validations![validationKey];
           if (!valExp) {
-            console.warn('initCache: validation expression not found: ' + itemKey + '.' + validationKey);
+            console.warn('initCache: validation expression not found: ' + itemKey + ' ' + validationKey);
             return;
           }
           this.cache.validations[itemKey][validationKey] = {
@@ -342,7 +342,7 @@ export class SurveyEngineCore {
           Object.keys(item.displayConditions.components).forEach(componentKey => {
             const compExp = item.displayConditions?.components?.[componentKey];
             if (!compExp) {
-              console.warn('initCache: display condition component expression not found: ' + itemKey + '.' + componentKey);
+              console.warn('initCache: display condition component expression not found: ' + itemKey + ' ' + componentKey);
               return;
             }
             this.cache.displayConditions[itemKey].components![componentKey] = {
@@ -361,7 +361,7 @@ export class SurveyEngineCore {
         Object.keys(item.disabledConditions.components).forEach(componentKey => {
           const compExp = item.disabledConditions?.components?.[componentKey];
           if (!compExp) {
-            console.warn('initCache: disabled condition component expression not found: ' + itemKey + '.' + componentKey);
+            console.warn('initCache: disabled condition component expression not found: ' + itemKey + ' ' + componentKey);
             return;
           }
           this.cache.disabledConditions[itemKey].components![componentKey] = {
@@ -377,7 +377,7 @@ export class SurveyEngineCore {
         Object.keys(item.templateValues).forEach(templateValueKey => {
           const templateDef = item.templateValues?.[templateValueKey];
           if (!templateDef) {
-            console.warn('initCache: template value not found: ' + itemKey + '.' + templateValueKey);
+            console.warn('initCache: template value not found: ' + itemKey + ' ' + templateValueKey);
             return;
           }
           this.cache.templateValues[itemKey][templateValueKey] = {

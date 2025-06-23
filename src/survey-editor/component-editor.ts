@@ -1,6 +1,7 @@
+import { Expression } from "../expressions";
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase } from "../survey/components";
 import { Content } from "../survey/utils/content";
-import { SurveyItemEditor } from "./survey-item-editors";
+import { QuestionEditor, SurveyItemEditor } from "./survey-item-editors";
 
 
 abstract class ComponentEditor {
@@ -20,7 +21,13 @@ abstract class ComponentEditor {
     this._itemEditor.updateComponentTranslations({ componentFullKey: this._component.key.fullKey, contentKey }, locale, content)
   }
 
-  // TODO: add, update, delete display condition
+  setDisplayCondition(condition: Expression | undefined): void {
+    this._itemEditor.setDisplayCondition(condition, this._component.key.fullKey);
+  }
+
+  getDisplayCondition(): Expression | undefined {
+    return this._itemEditor.getDisplayCondition(this._component.key.fullKey);
+  }
 }
 
 
@@ -30,8 +37,18 @@ export class DisplayComponentEditor extends ComponentEditor {
   }
 }
 
+// ================================
+// Response related components
+// ================================
 
-export abstract class ScgMcgOptionBaseEditor extends ComponentEditor {
+export abstract class ResponseComponentEditor extends ComponentEditor {
+  constructor(itemEditor: SurveyItemEditor, component: ItemComponent) {
+    super(itemEditor, component);
+  }
+}
+
+
+export abstract class ScgMcgOptionBaseEditor extends ResponseComponentEditor {
   constructor(itemEditor: SurveyItemEditor, component: ScgMcgOptionBase) {
     super(itemEditor, component);
   }
@@ -45,9 +62,19 @@ export abstract class ScgMcgOptionBaseEditor extends ComponentEditor {
     }
   }
   // TODO: update option key
+
+
+  setDisableCondition(condition: Expression | undefined): void {
+    (this._itemEditor as QuestionEditor).setDisableCondition(condition, this._component.key.fullKey);
+  }
+  getDisableCondition(): Expression | undefined {
+    return (this._itemEditor as QuestionEditor).getDisableCondition(this._component.key.fullKey);
+  }
+
+  // convienience methods to quickly set validations or template values related to the option
   // TODO: add validation
   // TODO: add template value
-  // TODO: add disabled condition
+
 }
 
 export class ScgMcgOptionEditor extends ScgMcgOptionBaseEditor {
