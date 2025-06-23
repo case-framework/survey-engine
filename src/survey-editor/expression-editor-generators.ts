@@ -12,6 +12,12 @@ import {
   ConstBooleanEditor,
   ConstDateEditor,
   ConstDateArrayEditor,
+  StrEqExpressionEditor,
+  EqExpressionEditor,
+  GtExpressionEditor,
+  GteExpressionEditor,
+  LteExpressionEditor,
+  LtExpressionEditor,
 } from "./expression-editor";
 
 // ================================
@@ -95,4 +101,36 @@ export const or = (...args: ExpressionEditor[]): ExpressionEditor => {
 
 export const str_list_contains = (list: ExpressionEditor, item: ExpressionEditor): ExpressionEditor => {
   return new StrListContainsExpressionEditor(list, item);
+}
+
+// ================================
+// STRING EXPRESSIONS
+// ================================
+
+export const str_eq = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
+  return new StrEqExpressionEditor(a, b);
+}
+
+// ================================
+// NUMBER EXPRESSIONS
+// ================================
+
+export const eq = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
+  return new EqExpressionEditor(a, b);
+}
+
+export const gt = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
+  return new GtExpressionEditor(a, b);
+}
+
+export const gte = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
+  return new GteExpressionEditor(a, b);
+}
+
+export const lt = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
+  return new LtExpressionEditor(a, b);
+}
+
+export const lte = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
+  return new LteExpressionEditor(a, b);
 }

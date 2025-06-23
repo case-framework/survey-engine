@@ -46,7 +46,7 @@ export abstract class ScgMcgOptionBaseEditor extends ComponentEditor {
   }
   // TODO: update option key
   // TODO: add validation
-  // TODO: add dynamic value
+  // TODO: add template value
   // TODO: add disabled condition
 }
 
