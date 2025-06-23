@@ -301,6 +301,7 @@ export class SurveyEngineCore {
   }
 
   // INIT METHODS
+
   private initCache() {
     this.cache = {
       validations: {},
@@ -427,7 +428,7 @@ export class SurveyEngineCore {
     return true;
   }
 
-  private sequentialRender(groupDef: GroupItem, parent: RenderedSurveyItem): RenderedSurveyItem {
+  private sequentialRender(groupDef: GroupItem): RenderedSurveyItem {
     const newItems: RenderedSurveyItem[] = [];
 
     for (const fullItemKey of groupDef.items || []) {
@@ -443,7 +444,7 @@ export class SurveyEngineCore {
       }
 
       if (itemDef.itemType === SurveyItemType.Group) {
-        newItems.push(this.renderGroup(itemDef as GroupItem, parent));
+        newItems.push(this.renderGroup(itemDef as GroupItem));
         continue;
       }
 
@@ -461,6 +462,7 @@ export class SurveyEngineCore {
     const newItems: RenderedSurveyItem[] = parent.items?.filter(rItem =>
       this.shouldRender(rItem.key.fullKey)
     ) || [];
+
 
     const itemKeys = groupDef.items || [];
     const shuffledIndices = shuffleIndices(itemKeys.length);
@@ -511,7 +513,7 @@ export class SurveyEngineCore {
       return this.randomizedItemRender(groupDef, parent);
     }
 
-    return this.sequentialRender(groupDef, parent);
+    return this.sequentialRender(groupDef);
   }
 
   private renderItem(itemDef: SurveyItem): RenderedSurveyItem {
@@ -560,8 +562,7 @@ export class SurveyEngineCore {
   }
 
   private reRenderSurveyTree() {
-    // TODO:
-    //throw new Error('reRenderSurveyTree: not implemented');
+    this.renderedSurveyTree = this.renderGroup(this.surveyDef.rootItem);
   }
 
   /* TODO: private reRenderGroup(groupKey: string) {
