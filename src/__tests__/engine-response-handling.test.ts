@@ -8,7 +8,7 @@ import { JsonSurvey, CURRENT_SURVEY_SCHEMA } from '../survey/survey-file-schema'
 import { ItemComponentType } from '../survey/components';
 import { ExpressionType } from '../expressions';
 import { ExpectedValueType } from '../survey/utils/types';
-import { TemplateDefTypes } from '../expressions/template-value';
+import { TemplateDefTypes, TemplateValueFormatDate } from '../expressions/template-value';
 
 describe('SurveyEngineCore response handling', () => {
   function makeSurveyWithQuestions(keys: string[]): Survey {
@@ -195,6 +195,15 @@ describe('SurveyEngineCore response handling', () => {
                   type: ExpressionType.Const,
                   value: true
                 }
+              },
+              'dynValue4': {
+                type: TemplateDefTypes.Date2String,
+                returnType: ExpectedValueType.String,
+                dateFormat: 'dd/MM/yyyy',
+                expression: {
+                  type: ExpressionType.Const,
+                  value: new Date('2025-01-01')
+                }
               }
             }
           },
@@ -373,11 +382,14 @@ describe('SurveyEngineCore response handling', () => {
       expect(Object.keys(itemWithTemplates.templateValues || {})).toContain('dynValue1');
       expect(Object.keys(itemWithTemplates.templateValues || {})).toContain('dynValue2');
       expect(Object.keys(itemWithTemplates.templateValues || {})).toContain('dynValue3');
+      expect(Object.keys(itemWithTemplates.templateValues || {})).toContain('dynValue4');
 
       // Verify template values have correct return types
       expect(itemWithTemplates.templateValues?.['dynValue1']?.returnType).toBe(ExpectedValueType.String);
       expect(itemWithTemplates.templateValues?.['dynValue2']?.returnType).toBe(ExpectedValueType.Boolean);
       expect(itemWithTemplates.templateValues?.['dynValue3']?.returnType).toBe(ExpectedValueType.Boolean);
+      expect(itemWithTemplates.templateValues?.['dynValue4']?.returnType).toBe(ExpectedValueType.String);
+      expect((itemWithTemplates.templateValues?.['dynValue4'] as TemplateValueFormatDate).dateFormat).toBe('dd/MM/yyyy');
 
       // Verify complex item with template values
       const complexItem = survey.surveyItems['test-survey.complex-item'];
@@ -388,6 +400,7 @@ describe('SurveyEngineCore response handling', () => {
       expect(engine.getTemplateValue('test-survey.item-with-template-values', 'dynValue1')?.value).toBe('test');
       expect(engine.getTemplateValue('test-survey.item-with-template-values', 'dynValue2')?.value).toBeTruthy();
       expect(engine.getTemplateValue('test-survey.item-with-template-values', 'dynValue3')?.value).toBeTruthy();
+      expect(engine.getTemplateValue('test-survey.item-with-template-values', 'dynValue4')?.value).toBe('01/01/2025');
 
       expect(engine.getTemplateValue('test-survey.complex-item', 'complexValue')).toBeTruthy();
     });

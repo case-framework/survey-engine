@@ -2,7 +2,7 @@ import {
   SurveyContext,
 } from "../data_types";
 
-import { Locale } from 'date-fns';
+import { format, Locale } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { shuffleIndices } from "../utils";
 
@@ -23,7 +23,7 @@ import {
 } from "../survey";
 import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "../survey/responses";
 import { ExpressionEvaluator } from "../expressions/expression-evaluator";
-import { Expression, TemplateValueDefinition } from "../expressions";
+import { Expression, TemplateDefTypes, TemplateValueDefinition, TemplateValueFormatDate } from "../expressions";
 
 
 export type ScreenSize = "small" | "large";
@@ -604,10 +604,16 @@ export class SurveyEngineCore {
           return;
         }
 
-        const resolvedValue = evalEngine.eval(templateValue.templateDef.expression);
+        let resolvedValue = evalEngine.eval(templateValue.templateDef.expression);
         if (resolvedValue === undefined) {
           console.warn('evalTemplateValues: template value expression returned undefined: ' + itemKey + '.' + templateValueKey);
           return;
+        }
+
+        switch (templateValue.templateDef.type) {
+          case TemplateDefTypes.Date2String:
+            resolvedValue = format(resolvedValue as Date, (templateValue.templateDef as TemplateValueFormatDate).dateFormat);
+            break;
         }
         this.cache.templateValues[itemKey][templateValueKey].value = resolvedValue;
       });
