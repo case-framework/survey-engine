@@ -16,7 +16,10 @@ export class ExpressionEvaluator {
     this.context = context;
   }
 
-  eval(expression: Expression): ValueType | undefined {
+  eval(expression: Expression | undefined): ValueType | undefined {
+    if (expression === undefined) {
+      return undefined;
+    }
     switch (expression.type) {
       case ExpressionType.Const:
         return this.evaluateConst(expression as ConstExpression);
@@ -102,18 +105,18 @@ export class ExpressionEvaluator {
   // ---------------- FUNCTIONS ----------------
 
   private evaluateAnd(expression: FunctionExpression): boolean {
-    return expression.arguments.every(arg => this.eval(arg!) === true);
+    return expression.arguments.every(arg => this.eval(arg) === true);
   }
 
   private evaluateOr(expression: FunctionExpression): boolean {
-    return expression.arguments.some(arg => this.eval(arg!) === true);
+    return expression.arguments.some(arg => this.eval(arg) === true);
   }
 
   private evaluateNot(expression: FunctionExpression): boolean {
-    if (expression.arguments.length !== 1) {
+    if (expression.arguments.length !== 1 || expression.arguments[0] === undefined) {
       throw new Error(`Not function expects 1 argument, got ${expression.arguments.length}`);
     }
-    const resolvedValue = this.eval(expression.arguments[0]!);
+    const resolvedValue = this.eval(expression.arguments[0]);
     if (resolvedValue === undefined || typeof resolvedValue !== 'boolean') {
       return false;
     }
@@ -124,8 +127,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`List contains function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedList = this.eval(expression.arguments[0]!);
-    const resolvedItem = this.eval(expression.arguments[1]!);
+    const resolvedList = this.eval(expression.arguments[0]);
+    const resolvedItem = this.eval(expression.arguments[1]);
 
     if (resolvedList === undefined || resolvedItem === undefined) {
       return false;
@@ -141,8 +144,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`String equals function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedA = this.eval(expression.arguments[0]!);
-    const resolvedB = this.eval(expression.arguments[1]!);
+    const resolvedA = this.eval(expression.arguments[0]);
+    const resolvedB = this.eval(expression.arguments[1]);
 
     if (resolvedA === undefined || resolvedB === undefined) {
       return false;
@@ -155,8 +158,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`Equals function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedA = this.eval(expression.arguments[0]!);
-    const resolvedB = this.eval(expression.arguments[1]!);
+    const resolvedA = this.eval(expression.arguments[0]);
+    const resolvedB = this.eval(expression.arguments[1]);
 
     if (resolvedA === undefined || resolvedB === undefined) {
       return false;
@@ -169,8 +172,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`Greater than function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedA = this.eval(expression.arguments[0]!);
-    const resolvedB = this.eval(expression.arguments[1]!);
+    const resolvedA = this.eval(expression.arguments[0]);
+    const resolvedB = this.eval(expression.arguments[1]);
 
     if (resolvedA === undefined || resolvedB === undefined) {
       return false;
@@ -183,8 +186,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`Greater than or equal to function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedA = this.eval(expression.arguments[0]!);
-    const resolvedB = this.eval(expression.arguments[1]!);
+    const resolvedA = this.eval(expression.arguments[0]);
+    const resolvedB = this.eval(expression.arguments[1]);
 
     if (resolvedA === undefined || resolvedB === undefined) {
       return false;
@@ -197,8 +200,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`Less than function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedA = this.eval(expression.arguments[0]!);
-    const resolvedB = this.eval(expression.arguments[1]!);
+    const resolvedA = this.eval(expression.arguments[0]);
+    const resolvedB = this.eval(expression.arguments[1]);
 
     if (resolvedA === undefined || resolvedB === undefined) {
       return false;
@@ -211,8 +214,8 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 2) {
       throw new Error(`Less than or equal to function expects 2 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedA = this.eval(expression.arguments[0]!);
-    const resolvedB = this.eval(expression.arguments[1]!);
+    const resolvedA = this.eval(expression.arguments[0]);
+    const resolvedB = this.eval(expression.arguments[1]);
 
     if (resolvedA === undefined || resolvedB === undefined) {
       return false;
@@ -225,10 +228,10 @@ export class ExpressionEvaluator {
     if (expression.arguments.length !== 4) {
       throw new Error(`In range function expects 4 arguments, got ${expression.arguments.length}`);
     }
-    const resolvedValue = this.eval(expression.arguments[0]!);
-    const resolvedMin = this.eval(expression.arguments[1]!);
-    const resolvedMax = this.eval(expression.arguments[2]!);
-    const resolvedInclusive = this.eval(expression.arguments[3]!) === true
+    const resolvedValue = this.eval(expression.arguments[0]);
+    const resolvedMin = this.eval(expression.arguments[1]);
+    const resolvedMax = this.eval(expression.arguments[2]);
+    const resolvedInclusive = this.eval(expression.arguments[3]) === true
 
     if (resolvedValue === undefined || resolvedMin === undefined || resolvedMax === undefined) {
       return false;
@@ -242,7 +245,10 @@ export class ExpressionEvaluator {
       throw new Error(`Sum function expects at least 1 argument, got ${expression.arguments.length}`);
     }
     return expression.arguments.reduce((sum, arg) => {
-      const resolvedValue = this.eval(arg!);
+      if (arg === undefined) {
+        return sum;
+      }
+      const resolvedValue = this.eval(arg);
       if (resolvedValue === undefined) {
         return sum;
       }
@@ -258,7 +264,10 @@ export class ExpressionEvaluator {
       throw new Error(`Min function expects at least 1 argument, got ${expression.arguments.length}`);
     }
     return expression.arguments.reduce((min, arg) => {
-      const resolvedValue = this.eval(arg!);
+      if (arg === undefined) {
+        return min;
+      }
+      const resolvedValue = this.eval(arg);
       if (resolvedValue === undefined) {
         return min;
       }
@@ -274,7 +283,10 @@ export class ExpressionEvaluator {
       throw new Error(`Max function expects at least 1 argument, got ${expression.arguments.length}`);
     }
     return expression.arguments.reduce((max, arg) => {
-      const resolvedValue = this.eval(arg!);
+      if (arg === undefined) {
+        return max;
+      }
+      const resolvedValue = this.eval(arg);
       if (resolvedValue === undefined) {
         return max;
       }
