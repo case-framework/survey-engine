@@ -17,8 +17,13 @@ import {
   SingleChoiceQuestionItem,
   ItemComponent,
   MultipleChoiceQuestionItem,
+  ValueType,
+  ExpectedValueType,
+  initValueForType,
 } from "../survey";
 import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "../survey/responses";
+import { ExpressionEvaluator } from "../expressions/expression-evaluator";
+import { Expression, TemplateValueDefinition } from "../expressions";
 
 
 export type ScreenSize = "small" | "large";
@@ -51,18 +56,44 @@ export class SurveyEngineCore {
 
   private cache!: {
     validations: {
-      itemsWithValidations: string[];
+      [itemKey: string]: {
+        [validationKey: string]: {
+          expression: Expression;
+          result: boolean;
+        };
+      };
     };
     displayConditions: {
-      itemsWithDisplayConditions: string[];
-      values: {
-        [itemKey: string]: {
-          root?: boolean;
-          components?: {
-            [componentKey: string]: boolean;
-          }
+      [itemKey: string]: {
+        root?: {
+          expression: Expression;
+          result: boolean;
         };
-      }
+        components?: {
+          [componentKey: string]: {
+            expression: Expression;
+            result: boolean;
+          };
+        }
+      };
+    };
+    templateValues: {
+      [itemKey: string]: {
+        [templateValueKey: string]: {
+          value: ValueType;
+          templateDef: TemplateValueDefinition | undefined;
+        };
+      };
+    };
+    disabledConditions: {
+      [itemKey: string]: {
+        components?: {
+          [componentKey: string]: {
+            expression: Expression;
+            result: boolean;
+          };
+        }
+      };
     };
   }
 
@@ -74,8 +105,6 @@ export class SurveyEngineCore {
     selectedLocale?: string,
     dateLocales?: Array<{ code: string, locale: Locale }>,
   ) {
-    // console.log('core engine')
-    //this.evalEngine = new ExpressionEval();
     this._openedAt = Date.now();
 
 
@@ -93,13 +122,7 @@ export class SurveyEngineCore {
     this.responses = this.initResponseObject(this.surveyDef.surveyItems);
 
     this.initCache();
-    // TODO: init cache for dynamic values: which translations by language and item key have dynamic values
-    // TODO: init cache for validations: which items have validations at all
-    // TODO: init cache for translations resolved for current langague - to produce resolved template values
-    // TODO: init cache for disable conditions: list which items have disable conditions at all
-    // TODO: init cache for display conditions: list which items have display conditions at all
-
-    // TODO: eval display conditions for all items
+    this.evalExpressions();
 
     // init rendered survey
     this.renderedSurveyTree = this.renderGroup(survey.rootItem);
@@ -135,7 +158,8 @@ export class SurveyEngineCore {
     this.selectedLocale = locale;
 
     // Re-render to update any locale-dependent expressions
-    // TODO: this.reRenderGroup(this.renderedSurvey.key);
+    this.evalExpressions();
+    this.reRenderSurveyTree();
   }
 
 
@@ -148,8 +172,9 @@ export class SurveyEngineCore {
     target.response = response;
     this.setTimestampFor('responded', targetKey);
 
-    // Re-render whole tree
-    // TODO: this.reRenderGroup(this.renderedSurvey.key);
+    this.evalExpressions();
+    // re-render whole tree
+    this.reRenderSurveyTree();
   }
 
   get openedAt(): number {
@@ -244,33 +269,124 @@ export class SurveyEngineCore {
     return responses;
   }
 
+  getDisplayConditionValue(itemKey: string, componentKey?: string): boolean | undefined {
+    if (componentKey) {
+      return this.cache.displayConditions[itemKey]?.components?.[componentKey]?.result;
+    }
+    return this.cache.displayConditions[itemKey]?.root?.result;
+  }
+
+  getDisabledConditionValue(itemKey: string, componentKey: string): boolean | undefined {
+    return this.cache.disabledConditions[itemKey]?.components?.[componentKey]?.result;
+  }
+
+  getTemplateValue(itemKey: string, templateValueKey: string): {
+    value: ValueType;
+    templateDef: TemplateValueDefinition | undefined;
+  } | undefined {
+    return this.cache.templateValues[itemKey]?.[templateValueKey];
+  }
+
+  getValidationValues(itemKey: string): {
+    [validationKey: string]: boolean;
+  } | undefined {
+    const validations = this.cache.validations[itemKey];
+    if (!validations) {
+      return undefined;
+    }
+    return Object.keys(validations).reduce((acc, validationKey) => {
+      acc[validationKey] = validations[validationKey].result;
+      return acc;
+    }, {} as { [validationKey: string]: boolean });
+  }
+
   // INIT METHODS
+
   private initCache() {
-    const itemsWithValidations: string[] = [];
+    this.cache = {
+      validations: {},
+      displayConditions: {},
+      templateValues: {},
+      disabledConditions: {},
+    }
+
     Object.keys(this.surveyDef.surveyItems).forEach(itemKey => {
+      // Init validations
       const item = this.surveyDef.surveyItems[itemKey];
       if (item instanceof QuestionItem && item.validations && Object.keys(item.validations).length > 0) {
-        itemsWithValidations.push(itemKey);
+        this.cache.validations[itemKey] = {};
+        Object.keys(item.validations).forEach(validationKey => {
+          const valExp = item.validations![validationKey];
+          if (!valExp) {
+            console.warn('initCache: validation expression not found: ' + itemKey + ' ' + validationKey);
+            return;
+          }
+          this.cache.validations[itemKey][validationKey] = {
+            expression: valExp,
+            result: false,
+          };
+        });
       }
-    });
 
-    const itemsWithDisplayConditions: string[] = [];
-    Object.keys(this.surveyDef.surveyItems).forEach(itemKey => {
-      const item = this.surveyDef.surveyItems[itemKey];
+      // Init display conditions
       if (item.displayConditions !== undefined && (item.displayConditions.root || item.displayConditions.components)) {
-        itemsWithDisplayConditions.push(itemKey);
+        this.cache.displayConditions[itemKey] = {};
+        if (item.displayConditions.root) {
+          this.cache.displayConditions[itemKey].root = {
+            expression: item.displayConditions.root,
+            result: false,
+          };
+        }
+        if (item.displayConditions.components) {
+          this.cache.displayConditions[itemKey].components = {};
+          Object.keys(item.displayConditions.components).forEach(componentKey => {
+            const compExp = item.displayConditions?.components?.[componentKey];
+            if (!compExp) {
+              console.warn('initCache: display condition component expression not found: ' + itemKey + ' ' + componentKey);
+              return;
+            }
+            this.cache.displayConditions[itemKey].components![componentKey] = {
+              expression: compExp,
+              result: false,
+            };
+          });
+        }
+      }
+
+      // Init disable conditions
+      if (item instanceof QuestionItem && item.disabledConditions !== undefined && item.disabledConditions.components !== undefined) {
+        this.cache.disabledConditions[itemKey] = {
+          components: {}
+        };
+        Object.keys(item.disabledConditions.components).forEach(componentKey => {
+          const compExp = item.disabledConditions?.components?.[componentKey];
+          if (!compExp) {
+            console.warn('initCache: disabled condition component expression not found: ' + itemKey + ' ' + componentKey);
+            return;
+          }
+          this.cache.disabledConditions[itemKey].components![componentKey] = {
+            expression: compExp,
+            result: false,
+          };
+        });
+      }
+
+      // Init template values
+      if (item.templateValues) {
+        this.cache.templateValues[itemKey] = {};
+        Object.keys(item.templateValues).forEach(templateValueKey => {
+          const templateDef = item.templateValues?.[templateValueKey];
+          if (!templateDef) {
+            console.warn('initCache: template value not found: ' + itemKey + ' ' + templateValueKey);
+            return;
+          }
+          this.cache.templateValues[itemKey][templateValueKey] = {
+            value: initValueForType(item.templateValues?.[templateValueKey].returnType || ExpectedValueType.String),
+            templateDef: item.templateValues?.[templateValueKey],
+          };
+        });
       }
     });
-
-    this.cache = {
-      validations: {
-        itemsWithValidations: itemsWithValidations,
-      },
-      displayConditions: {
-        itemsWithDisplayConditions: itemsWithDisplayConditions,
-        values: {},
-      },
-    };
   }
 
 
@@ -305,15 +421,14 @@ export class SurveyEngineCore {
   }
 
   private shouldRender(fullItemKey: string, fullComponentKey?: string): boolean {
-    if (fullComponentKey) {
-      const displayConditionResult = this.cache.displayConditions.values[fullItemKey]?.components?.[fullComponentKey];
-      return displayConditionResult !== undefined ? displayConditionResult : true;
+    const displayConditionResult = this.getDisplayConditionValue(fullItemKey, fullComponentKey);
+    if (displayConditionResult !== undefined) {
+      return displayConditionResult;
     }
-    const displayConditionResult = this.cache.displayConditions.values[fullItemKey]?.root;
-    return displayConditionResult !== undefined ? displayConditionResult : true;
+    return true;
   }
 
-  private sequentialRender(groupDef: GroupItem, parent: RenderedSurveyItem): RenderedSurveyItem {
+  private sequentialRender(groupDef: GroupItem): RenderedSurveyItem {
     const newItems: RenderedSurveyItem[] = [];
 
     for (const fullItemKey of groupDef.items || []) {
@@ -329,7 +444,7 @@ export class SurveyEngineCore {
       }
 
       if (itemDef.itemType === SurveyItemType.Group) {
-        newItems.push(this.renderGroup(itemDef as GroupItem, parent));
+        newItems.push(this.renderGroup(itemDef as GroupItem));
         continue;
       }
 
@@ -347,6 +462,7 @@ export class SurveyEngineCore {
     const newItems: RenderedSurveyItem[] = parent.items?.filter(rItem =>
       this.shouldRender(rItem.key.fullKey)
     ) || [];
+
 
     const itemKeys = groupDef.items || [];
     const shuffledIndices = shuffleIndices(itemKeys.length);
@@ -397,7 +513,7 @@ export class SurveyEngineCore {
       return this.randomizedItemRender(groupDef, parent);
     }
 
-    return this.sequentialRender(groupDef, parent);
+    return this.sequentialRender(groupDef);
   }
 
   private renderItem(itemDef: SurveyItem): RenderedSurveyItem {
@@ -445,97 +561,9 @@ export class SurveyEngineCore {
     return renderedItem;
   }
 
-  /* TODO: private reRenderGroup(groupKey: string) {
-    if (groupKey.split('.').length < 2) {
-      this.reEvaluateDynamicValues();
-    }
-
-    const renderedGroup = this.findRenderedItem(groupKey);
-    if (!renderedGroup || !isSurveyGroupItem(renderedGroup)) {
-      console.warn('reRenderGroup: renderedGroup not found or not a group: ' + groupKey);
-      return;
-    }
-    const groupDef = this.findSurveyDefItem(groupKey);
-    if (!groupDef || !isSurveyGroupItem(groupDef)) {
-      console.warn('reRenderGroup: groupDef not found or not a group: ' + groupKey);
-      return;
-    }
-
-    if (groupDef.selectionMethod && groupDef.selectionMethod.name === 'sequential') {
-      // simplified workflow:
-      this.sequentialRender(groupDef, renderedGroup, true);
-      return
-    }
-
-    // Add items to the front
-    let currentIndex = 0;
-    let nextItem = this.getNextItem(groupDef, renderedGroup, renderedGroup.key, true);
-    while (nextItem !== null) {
-      if (!nextItem) {
-        break;
-      }
-      this.addRenderedItem(nextItem, renderedGroup, currentIndex);
-      if (isSurveyGroupItem(nextItem)) {
-        this.initRenderedGroup(nextItem, nextItem.key);
-      }
-      currentIndex += 1;
-      nextItem = this.getNextItem(groupDef, renderedGroup, nextItem.key, true);
-    }
-
-    renderedGroup.items.forEach(
-      item => {
-        const itemDef = this.findSurveyDefItem(item.key);
-        // Remove item if condition not true
-        if (!itemDef || !this.evalConditions(itemDef.condition)) {
-          renderedGroup.items = removeItemByKey(renderedGroup.items, item.key);
-          // console.log('removed item: ' + item.key);
-          return;
-        }
-
-        // Add direct follow ups
-        currentIndex = renderedGroup.items.findIndex(ci => ci.key === item.key);
-        if (currentIndex < 0) {
-          // console.warn('reRenderGroup: index to insert items not found');
-          return;
-        }
-
-
-        if (isSurveyGroupItem(item)) {
-          // Re-Render groups recursively
-          this.reRenderGroup(item.key);
-        } else {
-          renderedGroup.items[currentIndex] = this.renderSingleSurveyItem(itemDef as SurveySingleItem, true);
-        }
-
-
-        let nextItem = this.getNextItem(groupDef, renderedGroup, item.key, true);
-        while (nextItem !== null) {
-          if (!nextItem) {
-            break;
-          }
-          currentIndex += 1;
-          this.addRenderedItem(nextItem, renderedGroup, currentIndex);
-          if (isSurveyGroupItem(nextItem)) {
-            this.initRenderedGroup(nextItem, nextItem.key);
-          }
-          nextItem = this.getNextItem(groupDef, renderedGroup, nextItem.key, true);
-        }
-      });
-
-    // Add items at the end if any
-    const lastItem = renderedGroup.items[renderedGroup.items.length - 1];
-    nextItem = this.getNextItem(groupDef, renderedGroup, lastItem.key, false);
-    while (nextItem !== null) {
-      if (!nextItem) {
-        break;
-      }
-      this.addRenderedItem(nextItem, renderedGroup);
-      if (isSurveyGroupItem(nextItem)) {
-        this.initRenderedGroup(nextItem, nextItem.key);
-      }
-      nextItem = this.getNextItem(groupDef, renderedGroup, nextItem.key, false);
-    }
-  } */
+  private reRenderSurveyTree() {
+    this.renderedSurveyTree = this.renderGroup(this.surveyDef.rootItem);
+  }
 
   private setTimestampFor(type: TimestampType, itemID: string) {
     const obj = this.getResponseItem(itemID);
@@ -553,75 +581,93 @@ export class SurveyEngineCore {
     return this.responses[itemFullKey];
   }
 
-
-  /* TODO: resolveExpression(exp?: Expression, temporaryItem?: SurveySingleItem): any {
-     return this.evalEngine.eval(
-       exp,
-       this.renderedSurvey,
-       this.context,
-       this.responses,
-       temporaryItem,
-       this.showDebugMsg,
-     );
-   } */
-
-  /* TODO: private getOnlyRenderedResponses(items: SurveyItemResponse[]): SurveyItemResponse[] {
-    const responses: SurveyItemResponse[] = [];
-    items.forEach(item => {
-      let currentItem: SurveyItemResponse = {
-        key: item.key,
-        meta: item.meta,
+  private evalExpressions() {
+    const evalEngine = new ExpressionEvaluator(
+      {
+        responses: this.responses,
+        // TODO: add context
       }
-      if (isSurveyGroupItemResponse(item)) {
-        (currentItem as SurveyGroupItemResponse).items = this.getOnlyRenderedResponses(item.items);
-      } else {
-        currentItem.response = item.response;
-        if (!this.findRenderedItem(item.key)) {
+    );
+    this.evalTemplateValues(evalEngine);
+    this.evalDisplayConditions(evalEngine);
+    this.evalDisableConditions(evalEngine);
+    this.evalValidations(evalEngine);
+  }
+
+
+  private evalTemplateValues(evalEngine: ExpressionEvaluator) {
+    Object.keys(this.cache.templateValues).forEach(itemKey => {
+      Object.keys(this.cache.templateValues[itemKey]).forEach(templateValueKey => {
+        const templateValue = this.cache.templateValues[itemKey][templateValueKey];
+        if (!templateValue.templateDef?.expression) {
+          console.warn('evalTemplateValues: template value expression not found: ' + itemKey + '.' + templateValueKey);
           return;
         }
-      }
-      responses.push(currentItem)
-    })
-    return responses;
-  }
- */
-  /* TODO: evalConditions(condition?: Expression, temporaryItem?: SurveySingleItem, extraResponses?: SurveyItemResponse[]): boolean {
-    const extra = (extraResponses !== undefined) ? [...extraResponses] : [];
-    const responsesForRenderedItems: SurveyGroupItemResponse = {
-      ...this.responses,
-      items: [...this.getOnlyRenderedResponses(this.responses.items), ...extra]
-    }
 
-    return this.evalEngine.eval(
-      condition,
-      this.renderedSurvey,
-      this.context,
-      responsesForRenderedItems,
-      temporaryItem,
-      this.showDebugMsg,
-    );
-  } */
-
-  /* TODO: private reEvaluateDynamicValues() {
-    const resolvedDynamicValues = this.surveyDef.dynamicValues?.map(dv => {
-      const resolvedVal = this.evalEngine.eval(dv.expression, this.renderedSurvey, this.context, this.responses, undefined, this.showDebugMsg);
-      let currentValue = ''
-      if (dv.type === 'date') {
-        const dateValue = new Date(resolvedVal * 1000);
-        currentValue = format(dateValue, dv.dateFormat, { locale: this.getCurrentDateLocale() });
-      } else {
-        currentValue = resolvedVal;
-      }
-
-      return {
-        ...dv,
-        resolvedValue: currentValue,
-      };
+        const resolvedValue = evalEngine.eval(templateValue.templateDef.expression);
+        if (resolvedValue === undefined) {
+          console.warn('evalTemplateValues: template value expression returned undefined: ' + itemKey + '.' + templateValueKey);
+          return;
+        }
+        this.cache.templateValues[itemKey][templateValueKey].value = resolvedValue;
+      });
     });
-    if (resolvedDynamicValues) {
-      this.surveyDef.dynamicValues = resolvedDynamicValues;
-    }
-  } */
+  }
+
+  private evalDisplayConditions(evalEngine: ExpressionEvaluator) {
+    Object.keys(this.cache.displayConditions).forEach(itemKey => {
+      const displayCondition = this.cache.displayConditions[itemKey];
+      if (displayCondition.root) {
+        const resolvedValue = evalEngine.eval(displayCondition.root.expression);
+        if (resolvedValue === undefined || typeof resolvedValue !== 'boolean') {
+          console.warn('evalDisplayConditions: display condition expression returned undefined: ' + itemKey);
+          return;
+        }
+        this.cache.displayConditions[itemKey].root!.result = resolvedValue;
+      }
+      if (displayCondition.components) {
+        Object.keys(displayCondition.components).forEach(componentKey => {
+          const resolvedValue = evalEngine.eval(displayCondition.components![componentKey].expression);
+          if (resolvedValue === undefined || typeof resolvedValue !== 'boolean') {
+            console.warn('evalDisplayConditions: display condition component expression returned undefined: ' + itemKey + '.' + componentKey);
+            return;
+          }
+          this.cache.displayConditions[itemKey].components![componentKey].result = resolvedValue;
+        });
+      }
+    });
+  }
+
+  private evalDisableConditions(evalEngine: ExpressionEvaluator) {
+    Object.keys(this.cache.disabledConditions).forEach(itemKey => {
+      const disableCondition = this.cache.disabledConditions[itemKey];
+      if (disableCondition.components) {
+        Object.keys(disableCondition.components).forEach(componentKey => {
+          const resolvedValue = evalEngine.eval(disableCondition.components![componentKey].expression);
+          if (resolvedValue === undefined || typeof resolvedValue !== 'boolean') {
+            console.warn('evalDisableConditions: disable condition component expression returned undefined: ' + itemKey + '.' + componentKey);
+            return;
+          }
+          this.cache.disabledConditions[itemKey].components![componentKey].result = resolvedValue;
+        });
+      }
+    });
+  }
+
+  private evalValidations(evalEngine: ExpressionEvaluator) {
+    Object.keys(this.cache.validations).forEach(itemKey => {
+      const validation = this.cache.validations[itemKey];
+
+      Object.keys(validation).forEach(validationKey => {
+        const resolvedValue = evalEngine.eval(validation[validationKey].expression);
+        if (resolvedValue === undefined || typeof resolvedValue !== 'boolean') {
+          console.warn('evalValidations: validation expression returned undefined: ' + itemKey + '.' + validationKey);
+          return;
+        }
+        this.cache.validations[itemKey][validationKey].result = resolvedValue;
+      });
+    });
+  }
 }
 
 export const flattenTree = (itemTree: RenderedSurveyItem): RenderedSurveyItem[] => {

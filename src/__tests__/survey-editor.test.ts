@@ -4,6 +4,8 @@ import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from
 import { SurveyItemTranslations } from '../survey/utils';
 import { Content, ContentType } from '../survey/utils/content';
 import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components';
+import { Expression, ConstExpression, ResponseVariableExpression, FunctionExpression, FunctionExpressionNames } from '../expressions';
+import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
 
 // Helper function to create a test survey
 const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
@@ -35,6 +37,20 @@ const createTestTranslations = (): SurveyItemTranslations => {
   return translations;
 };
 
+// Helper function to create test expressions
+const createTestExpression = (): Expression => {
+  return new ConstExpression(true);
+};
+
+const createComplexTestExpression = (): Expression => {
+  return new FunctionExpression(
+    FunctionExpressionNames.eq,
+    [
+      new ResponseVariableExpression('test-survey.page1.question1...get'),
+      new ConstExpression('option1')
+    ]
+  );
+};
 
 describe('SurveyEditor', () => {
   let survey: Survey;
@@ -672,6 +688,215 @@ describe('SurveyEditor', () => {
 
       expect(emptyGroup.items).toBeDefined();
       expect(emptyGroup.items).toContain('test-survey.empty-group.display1');
+    });
+  });
+
+  describe('Display Conditions', () => {
+    test('should set and get root display condition', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Set root display condition
+      itemEditor.setDisplayCondition(testCondition);
+
+      // Get root display condition
+      const retrievedCondition = itemEditor.getDisplayCondition();
+
+      expect(retrievedCondition).toBeDefined();
+      expect(retrievedCondition).toBeInstanceOf(ConstExpression);
+      expect((retrievedCondition as ConstExpression).value).toBe(true);
+      expect(retrievedCondition).not.toBe(testCondition); // Should be a clone
+    });
+
+    test('should set and get component display condition', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createComplexTestExpression();
+      const componentKey = 'test-component';
+
+      // Set component display condition
+      itemEditor.setDisplayCondition(testCondition, componentKey);
+
+      // Get component display condition
+      const retrievedCondition = itemEditor.getDisplayCondition(componentKey);
+
+      expect(retrievedCondition).toBeDefined();
+      expect(retrievedCondition).toBeInstanceOf(FunctionExpression);
+      expect((retrievedCondition as FunctionExpression).functionName).toBe(FunctionExpressionNames.eq);
+      expect(retrievedCondition).not.toBe(testCondition); // Should be a clone
+    });
+
+    test('should remove root display condition by passing undefined', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Set root display condition
+      itemEditor.setDisplayCondition(testCondition);
+      expect(itemEditor.getDisplayCondition()).toBeDefined();
+
+      // Remove root display condition
+      itemEditor.setDisplayCondition(undefined);
+      expect(itemEditor.getDisplayCondition()).toBeUndefined();
+    });
+
+    test('should remove component display condition by passing undefined', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+      const componentKey = 'test-component';
+
+      // Set component display condition
+      itemEditor.setDisplayCondition(testCondition, componentKey);
+      expect(itemEditor.getDisplayCondition(componentKey)).toBeDefined();
+
+      // Remove component display condition
+      itemEditor.setDisplayCondition(undefined, componentKey);
+      expect(itemEditor.getDisplayCondition(componentKey)).toBeUndefined();
+    });
+
+    test('should return undefined for non-existent display conditions', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+
+      // Get non-existent root display condition
+      expect(itemEditor.getDisplayCondition()).toBeUndefined();
+
+      // Get non-existent component display condition
+      expect(itemEditor.getDisplayCondition('non-existent-component')).toBeUndefined();
+    });
+
+    test('should commit changes when setting display conditions', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Make an uncommitted change first
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.question1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Set display condition should commit changes
+      itemEditor.setDisplayCondition(testCondition);
+
+      expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Set display condition for test-survey.page1.question1');
+    });
+
+    test('should handle multiple display conditions on same item', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const rootCondition = createTestExpression();
+      const componentCondition = createComplexTestExpression();
+
+      // Set both root and component display conditions
+      itemEditor.setDisplayCondition(rootCondition);
+      itemEditor.setDisplayCondition(componentCondition, 'test-component');
+
+      // Verify both conditions exist
+      const retrievedRootCondition = itemEditor.getDisplayCondition();
+      const retrievedComponentCondition = itemEditor.getDisplayCondition('test-component');
+
+      expect(retrievedRootCondition).toBeDefined();
+      expect(retrievedComponentCondition).toBeDefined();
+      expect(retrievedRootCondition).toBeInstanceOf(ConstExpression);
+      expect(retrievedComponentCondition).toBeInstanceOf(FunctionExpression);
+    });
+
+    test('should handle display conditions with complex expression structures', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+
+      // Create nested function expression
+      const nestedCondition = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          new FunctionExpression(
+            FunctionExpressionNames.eq,
+            [new ResponseVariableExpression('test-survey.page1.question1...get'), new ConstExpression('option1')]
+          ),
+          new FunctionExpression(
+            FunctionExpressionNames.gt,
+            [new ConstExpression(2), new ConstExpression(5)]
+          )
+        ]
+      );
+
+      // Set complex display condition
+      itemEditor.setDisplayCondition(nestedCondition);
+
+      // Retrieve and verify
+      const retrievedCondition = itemEditor.getDisplayCondition();
+      expect(retrievedCondition).toBeDefined();
+      expect(retrievedCondition).toBeInstanceOf(FunctionExpression);
+      expect((retrievedCondition as FunctionExpression).functionName).toBe(FunctionExpressionNames.and);
+      expect((retrievedCondition as FunctionExpression).arguments).toHaveLength(2);
+    });
+
+    test('should support undo/redo for display condition changes', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Set display condition
+      itemEditor.setDisplayCondition(testCondition);
+      expect(itemEditor.getDisplayCondition()).toBeDefined();
+
+      // Undo - need to create new editor to see the undone state
+      editor.undo();
+      const itemEditorAfterUndo = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      expect(itemEditorAfterUndo.getDisplayCondition()).toBeUndefined();
+
+      // Redo - need to create new editor to see the redone state
+      editor.redo();
+      const itemEditorAfterRedo = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      expect(itemEditorAfterRedo.getDisplayCondition()).toBeDefined();
+      expect(itemEditorAfterRedo.getDisplayCondition()).toBeInstanceOf(ConstExpression);
+    });
+
+    test('should throw error when trying to set display condition on non-existent item', () => {
+      expect(() => {
+        new SingleChoiceQuestionEditor(editor, 'non-existent-item');
+      }).toThrow('Item non-existent-item not found in survey');
     });
   });
 });

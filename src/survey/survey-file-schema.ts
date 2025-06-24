@@ -50,8 +50,8 @@ export interface JsonItemComponent {
   }
   properties?: {
     [key: string]: string | number | boolean | {
-      type: 'dynamicValue',
-      dynamicValueKey: string;
+      type: 'templateValue',
+      templateValueKey: string;
     }
   }
   items?: Array<JsonItemComponent>;

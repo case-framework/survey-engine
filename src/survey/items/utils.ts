@@ -3,26 +3,26 @@ import { Expression, JsonExpression } from "../../expressions";
 export interface DisplayConditions {
   root?: Expression;
   components?: {
-    [componentKey: string]: Expression;
+    [componentKey: string]: Expression | undefined;
   }
 }
 
 export interface JsonDisplayConditions {
   root?: JsonExpression;
   components?: {
-    [componentKey: string]: JsonExpression;
+    [componentKey: string]: JsonExpression | undefined;
   }
 }
 
 export interface JsonDisabledConditions {
   components?: {
-    [componentKey: string]: JsonExpression;
+    [componentKey: string]: JsonExpression | undefined;
   }
 }
 
 export interface DisabledConditions {
   components?: {
-    [componentKey: string]: Expression;
+    [componentKey: string]: Expression | undefined;
   }
 }
 
@@ -36,7 +36,7 @@ export const displayConditionsFromJson = (json: JsonDisplayConditions): DisplayC
 export const displayConditionsToJson = (displayConditions: DisplayConditions): JsonDisplayConditions => {
   return {
     root: displayConditions.root ? displayConditions.root.toJson() : undefined,
-    components: displayConditions.components ? Object.fromEntries(Object.entries(displayConditions.components).map(([key, value]) => [key, value.toJson()])) : undefined
+    components: displayConditions.components ? Object.fromEntries(Object.entries(displayConditions.components).map(([key, value]) => [key, value?.toJson()])) : undefined
   }
 }
 
@@ -48,6 +48,6 @@ export const disabledConditionsFromJson = (json: JsonDisabledConditions): Disabl
 
 export const disabledConditionsToJson = (disabledConditions: DisabledConditions): JsonDisabledConditions => {
   return {
-    components: disabledConditions.components ? Object.fromEntries(Object.entries(disabledConditions.components).map(([key, value]) => [key, value.toJson()])) : undefined
+    components: disabledConditions.components ? Object.fromEntries(Object.entries(disabledConditions.components).map(([key, value]) => [key, value?.toJson()])) : undefined
   }
 }

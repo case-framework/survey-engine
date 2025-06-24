@@ -1,3 +1,755 @@
+import { ExpressionEvaluator } from "../expressions";
+import { ConstExpression, Expression, ExpressionEditorConfig, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "../expressions/expression";
+import { ExpectedValueType, ResponseItem, SurveyItemKey, SurveyItemResponse, SurveyItemType } from "../survey";
+import { ConstBooleanEditor, ConstDateArrayEditor, ConstDateEditor, ConstNumberArrayEditor, ConstNumberEditor, ConstStringArrayEditor, ConstStringEditor } from "../survey-editor/expression-editor";
+import { const_string, const_string_array, str_list_contains, response_string, const_number, const_boolean, in_range, sum, min, max } from "../survey-editor/expression-editor-generators";
+
+describe('expression editor to expression', () => {
+  describe('Expression Editors', () => {
+
+    describe('ConstStringArrayEditor', () => {
+      test('should create instance with empty array', () => {
+        const editor = new ConstStringArrayEditor([]);
+
+        expect(editor.returnType).toBe(ExpectedValueType.StringArray);
+        expect(editor.values).toEqual([]);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with string array values', () => {
+        const values = ['test1', 'test2', 'test3'];
+        const editor = new ConstStringArrayEditor(values);
+
+        expect(editor.returnType).toBe(ExpectedValueType.StringArray);
+        expect(editor.values).toEqual(values);
+        expect(editor.values).toBe(values); // References the same array
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstStringArrayEditor(['test'], config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting values', () => {
+        const editor = new ConstStringArrayEditor([]);
+        const newValues = ['new1', 'new2'];
+
+        editor.values = newValues;
+
+        expect(editor.values).toEqual(newValues);
+      });
+
+      test('should generate correct ConstExpression', () => {
+        const values = ['test1', 'test2'];
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstStringArrayEditor(values, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toEqual(values);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should support withEditorConfig method', () => {
+        const editor = new ConstStringArrayEditor(['test']);
+        const config: ExpressionEditorConfig = { usedTemplate: 'new-template' };
+
+        const result = editor.withEditorConfig(config);
+
+        expect(result).toBe(editor); // Should return same instance
+        expect(editor.editorConfig).toEqual(config);
+      });
+    });
+
+    describe('ConstStringEditor', () => {
+      test('should create instance with string value', () => {
+        const value = 'test string';
+        const editor = new ConstStringEditor(value);
+
+        expect(editor.returnType).toBe(ExpectedValueType.String);
+        expect(editor.value).toBe(value);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'string-template' };
+        const editor = new ConstStringEditor('test', config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting value', () => {
+        const editor = new ConstStringEditor('initial');
+        const newValue = 'updated value';
+
+        editor.value = newValue;
+
+        expect(editor.value).toBe(newValue);
+      });
+
+      test('should generate correct ConstExpression', () => {
+        const value = 'test string';
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstStringEditor(value, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toBe(value);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should handle empty string', () => {
+        const editor = new ConstStringEditor('');
+
+        expect(editor.value).toBe('');
+
+        const expression = editor.getExpression();
+        expect((expression as ConstExpression).value).toBe('');
+      });
+    });
+
+    describe('ConstNumberEditor', () => {
+      test('should create instance with number value', () => {
+        const value = 42.5;
+        const editor = new ConstNumberEditor(value);
+
+        expect(editor.returnType).toBe(ExpectedValueType.Number);
+        expect(editor.value).toBe(value);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'number-template' };
+        const editor = new ConstNumberEditor(123, config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting value', () => {
+        const editor = new ConstNumberEditor(0);
+        const newValue = 999.99;
+
+        editor.value = newValue;
+
+        expect(editor.value).toBe(newValue);
+      });
+
+      test('should generate correct ConstExpression', () => {
+        const value = -15.7;
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstNumberEditor(value, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toBe(value);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should handle zero value', () => {
+        const editor = new ConstNumberEditor(0);
+
+        expect(editor.value).toBe(0);
+
+        const expression = editor.getExpression();
+        expect((expression as ConstExpression).value).toBe(0);
+      });
+
+      test('should handle negative values', () => {
+        const editor = new ConstNumberEditor(-100);
+
+        expect(editor.value).toBe(-100);
+
+        const expression = editor.getExpression();
+        expect((expression as ConstExpression).value).toBe(-100);
+      });
+    });
+
+    describe('ConstBooleanEditor', () => {
+      test('should create instance with true value', () => {
+        const editor = new ConstBooleanEditor(true);
+
+        expect(editor.returnType).toBe(ExpectedValueType.Boolean);
+        expect(editor.value).toBe(true);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with false value', () => {
+        const editor = new ConstBooleanEditor(false);
+
+        expect(editor.returnType).toBe(ExpectedValueType.Boolean);
+        expect(editor.value).toBe(false);
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'boolean-template' };
+        const editor = new ConstBooleanEditor(true, config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting value', () => {
+        const editor = new ConstBooleanEditor(true);
+
+        editor.value = false;
+        expect(editor.value).toBe(false);
+
+        editor.value = true;
+        expect(editor.value).toBe(true);
+      });
+
+      test('should generate correct ConstExpression for true', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstBooleanEditor(true, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toBe(true);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should generate correct ConstExpression for false', () => {
+        const editor = new ConstBooleanEditor(false);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toBe(false);
+      });
+    });
+
+    describe('ConstDateEditor', () => {
+      test('should create instance with Date value', () => {
+        const date = new Date('2024-01-15T10:30:00Z');
+        const editor = new ConstDateEditor(date);
+
+        expect(editor.returnType).toBe(ExpectedValueType.Date);
+        expect(editor.value).toBe(date);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'date-template' };
+        const date = new Date();
+        const editor = new ConstDateEditor(date, config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting value', () => {
+        const initialDate = new Date('2024-01-01');
+        const newDate = new Date('2024-12-31');
+        const editor = new ConstDateEditor(initialDate);
+
+        editor.value = newDate;
+
+        expect(editor.value).toBe(newDate);
+      });
+
+      test('should generate correct ConstExpression', () => {
+        const date = new Date('2024-06-15T14:30:00Z');
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstDateEditor(date, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toBe(date);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should handle current date', () => {
+        const now = new Date();
+        const editor = new ConstDateEditor(now);
+
+        expect(editor.value).toBe(now);
+
+        const expression = editor.getExpression();
+        expect((expression as ConstExpression).value).toBe(now);
+      });
+    });
+
+    describe('ConstNumberArrayEditor', () => {
+      test('should create instance with empty array', () => {
+        const editor = new ConstNumberArrayEditor([]);
+
+        expect(editor.returnType).toBe(ExpectedValueType.NumberArray);
+        expect(editor.values).toEqual([]);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with number array values', () => {
+        const values = [1, 2.5, -3, 0, 999.99];
+        const editor = new ConstNumberArrayEditor(values);
+
+        expect(editor.returnType).toBe(ExpectedValueType.NumberArray);
+        expect(editor.values).toEqual(values);
+        expect(editor.values).toBe(values); // References the same array
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'number-array-template' };
+        const editor = new ConstNumberArrayEditor([1, 2, 3], config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting values', () => {
+        const editor = new ConstNumberArrayEditor([]);
+        const newValues = [10, 20, 30];
+
+        editor.values = newValues;
+
+        expect(editor.values).toEqual(newValues);
+      });
+
+      test('should generate correct ConstExpression', () => {
+        const values = [1.1, 2.2, 3.3];
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstNumberArrayEditor(values, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toEqual(values);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should handle array with mixed positive and negative numbers', () => {
+        const values = [-100, 0, 100, -1.5, 1.5];
+        const editor = new ConstNumberArrayEditor(values);
+
+        expect(editor.values).toEqual(values);
+
+        const expression = editor.getExpression();
+        expect((expression as ConstExpression).value).toEqual(values);
+      });
+    });
+
+    describe('ConstDateArrayEditor', () => {
+      test('should create instance with empty array', () => {
+        const editor = new ConstDateArrayEditor([]);
+
+        expect(editor.returnType).toBe(ExpectedValueType.DateArray);
+        expect(editor.values).toEqual([]);
+        expect(editor.editorConfig).toBeUndefined();
+      });
+
+      test('should create instance with date array values', () => {
+        const values = [
+          new Date('2024-01-01'),
+          new Date('2024-06-15'),
+          new Date('2024-12-31')
+        ];
+        const editor = new ConstDateArrayEditor(values);
+
+        expect(editor.returnType).toBe(ExpectedValueType.DateArray);
+        expect(editor.values).toEqual(values);
+        expect(editor.values).toBe(values); // References the same array
+      });
+
+      test('should create instance with editor config', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'date-array-template' };
+        const dates = [new Date()];
+        const editor = new ConstDateArrayEditor(dates, config);
+
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should allow setting values', () => {
+        const editor = new ConstDateArrayEditor([]);
+        const newValues = [
+          new Date('2023-01-01'),
+          new Date('2023-12-31')
+        ];
+
+        editor.values = newValues;
+
+        expect(editor.values).toEqual(newValues);
+      });
+
+      test('should generate correct ConstExpression', () => {
+        const values = [
+          new Date('2024-03-15T09:00:00Z'),
+          new Date('2024-03-16T10:00:00Z')
+        ];
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+        const editor = new ConstDateArrayEditor(values, config);
+
+        const expression = editor.getExpression();
+
+        expect(expression).toBeInstanceOf(ConstExpression);
+        expect((expression as ConstExpression).value).toEqual(values);
+        expect(expression?.editorConfig).toEqual(config);
+      });
+
+      test('should handle array with single date', () => {
+        const date = new Date('2024-07-04T12:00:00Z');
+        const editor = new ConstDateArrayEditor([date]);
+
+        expect(editor.values).toEqual([date]);
+
+        const expression = editor.getExpression();
+        expect((expression as ConstExpression).value).toEqual([date]);
+      });
+    });
+
+    describe('ExpressionEditor base class functionality', () => {
+      test('should support withEditorConfig method', () => {
+        const editor = new ConstStringEditor('test');
+        const config: ExpressionEditorConfig = { usedTemplate: 'test-template' };
+
+        const result = editor.withEditorConfig(config);
+
+        expect(result).toBe(editor); // Should return same instance for chaining
+        expect(editor.editorConfig).toEqual(config);
+      });
+
+      test('should support method chaining with withEditorConfig', () => {
+        const config: ExpressionEditorConfig = { usedTemplate: 'chained-template' };
+
+        const editor = new ConstNumberEditor(42)
+          .withEditorConfig(config);
+
+        expect(editor.editorConfig).toEqual(config);
+        expect((editor as ConstNumberEditor).value).toBe(42);
+      });
+
+      test('should allow updating editor config', () => {
+        const editor = new ConstBooleanEditor(true);
+        const config1: ExpressionEditorConfig = { usedTemplate: 'config-1' };
+        const config2: ExpressionEditorConfig = { usedTemplate: 'config-2' };
+
+        editor.withEditorConfig(config1);
+        expect(editor.editorConfig).toEqual(config1);
+
+        editor.withEditorConfig(config2);
+        expect(editor.editorConfig).toEqual(config2);
+      });
+    });
+  });
+
+  describe('simple expressions', () => {
+    it('create simple const string array expression', () => {
+      const editor = const_string_array('test', 'test2');
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(ConstExpression);
+      expect(expression?.type).toBe(ExpressionType.Const);
+      expect((expression as ConstExpression).value).toEqual(['test', 'test2']);
+    });
+
+    it('create empty const string array expression', () => {
+      const editor = const_string_array();
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(ConstExpression);
+      expect(expression?.type).toBe(ExpressionType.Const);
+      expect((expression as ConstExpression).value).toEqual([]);
+    });
+  });
+
+  describe('function expressions', () => {
+    it('create simple list contains expression', () => {
+      const editor = str_list_contains(const_string_array('test', 'test2'), const_string('test3'));
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(FunctionExpression);
+      expect(expression?.type).toBe(ExpressionType.Function);
+      expect((expression as FunctionExpression).functionName).toBe(FunctionExpressionNames.list_contains);
+      expect((expression as FunctionExpression).arguments).toHaveLength(2);
+      expect((expression as FunctionExpression).arguments[0]).toBeInstanceOf(ConstExpression);
+      expect((expression as FunctionExpression).arguments[0]?.type).toBe(ExpressionType.Const);
+      expect(((expression as FunctionExpression).arguments[0] as ConstExpression)?.value).toEqual(['test', 'test2']);
+      expect(((expression as FunctionExpression).arguments[1] as ConstExpression)?.value).toEqual('test3');
+    });
+  });
+
+  describe('response variable expressions', () => {
+    it('create simple response string expression', () => {
+      const editor = response_string('survey.test...get');
+
+      const expression = editor.getExpression();
+      expect(expression).toBeInstanceOf(ResponseVariableExpression);
+      expect(expression?.type).toBe(ExpressionType.ResponseVariable);
+      expect((expression as ResponseVariableExpression).variableRef).toEqual('survey.test...get');
+      expect((expression as ResponseVariableExpression).responseVariableRefs).toHaveLength(1);
+      expect((expression as ResponseVariableExpression).responseVariableRefs[0].toString()).toEqual('survey.test...get');
+    });
+  });
+});
+
+
+describe('expression evaluator', () => {
+  let expression: Expression;
+
+  beforeEach(() => {
+    const editor = str_list_contains(
+      const_string_array('option1', 'option2'),
+      response_string('survey.question1...get')
+    );
+    expression = editor.getExpression() as Expression;
+  });
+
+  it('if no response is provided, the expression should be false', () => {
+    const expEval = new ExpressionEvaluator();
+    expect(expEval.eval(expression)).toBeFalsy();
+  });
+
+  it('if the response is provided, but the question is not answered, the expression should be false', () => {
+    const expEval = new ExpressionEvaluator({
+      responses: {}
+    });
+    expect(expEval.eval(expression)).toBeFalsy();
+  });
+
+  it('if the response is provided, and the question is answered, the expression should be true', () => {
+    const expEval = new ExpressionEvaluator({
+      responses: {
+        'survey.question1': new SurveyItemResponse({
+          key: SurveyItemKey.fromFullKey('survey.question1'),
+          itemType: SurveyItemType.SingleChoiceQuestion,
+        }, new ResponseItem('option1'))
+      }
+    });
+    expect(expEval.eval(expression)).toBeTruthy();
+  });
+
+  describe('in_range function evaluation', () => {
+    it('should return true for value in range (inclusive)', () => {
+      const editor = in_range(const_number(5), const_number(1), const_number(10), const_boolean(true));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeTruthy();
+    });
+
+    it('should return true for value at boundary (inclusive)', () => {
+      const editor1 = in_range(const_number(1), const_number(1), const_number(10), const_boolean(true));
+      const editor2 = in_range(const_number(10), const_number(1), const_number(10), const_boolean(true));
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(editor1.getExpression() as Expression)).toBeTruthy();
+      expect(expEval.eval(editor2.getExpression() as Expression)).toBeTruthy();
+    });
+
+    it('should return false for value at boundary (exclusive)', () => {
+      const editor1 = in_range(const_number(1), const_number(1), const_number(10), const_boolean(false));
+      const editor2 = in_range(const_number(10), const_number(1), const_number(10), const_boolean(false));
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(editor1.getExpression() as Expression)).toBeFalsy();
+      expect(expEval.eval(editor2.getExpression() as Expression)).toBeFalsy();
+    });
+
+    it('should return true for value in range (exclusive)', () => {
+      const editor = in_range(const_number(5), const_number(1), const_number(10), const_boolean(false));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeTruthy();
+    });
+
+    it('should return false for value outside range', () => {
+      const editor1 = in_range(const_number(0), const_number(1), const_number(10), const_boolean(true));
+      const editor2 = in_range(const_number(11), const_number(1), const_number(10), const_boolean(true));
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(editor1.getExpression() as Expression)).toBeFalsy();
+      expect(expEval.eval(editor2.getExpression() as Expression)).toBeFalsy();
+    });
+
+    it('should return false for undefined values', () => {
+      const editor = in_range(response_string('survey.nonexistent...get'), const_number(1), const_number(10), const_boolean(true));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeFalsy();
+    });
+
+    it('should throw error for wrong argument count', () => {
+      const expEval = new ExpressionEvaluator();
+      const functionExpr = new FunctionExpression(FunctionExpressionNames.in_range, [
+        new ConstExpression(5),
+        new ConstExpression(1)
+      ]);
+
+      expect(() => expEval.eval(functionExpr)).toThrow('In range function expects 4 arguments, got 2');
+    });
+  });
+
+  describe('sum function evaluation', () => {
+    it('should return sum of positive numbers', () => {
+      const editor = sum(const_number(1), const_number(2), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(6);
+    });
+
+    it('should return sum including negative numbers', () => {
+      const editor = sum(const_number(10), const_number(-3), const_number(2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(9);
+    });
+
+    it('should return sum including decimal numbers', () => {
+      const editor = sum(const_number(1.5), const_number(2.3), const_number(0.2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeCloseTo(4.0);
+    });
+
+    it('should handle single argument', () => {
+      const editor = sum(const_number(42));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(42);
+    });
+
+    it('should skip undefined values', () => {
+      const editor = sum(const_number(1), response_string('survey.nonexistent...get'), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(4);
+    });
+
+    it('should throw error for non-numeric values', () => {
+      const editor = sum(const_number(1), const_string('invalid'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(() => expEval.eval(expression)).toThrow('Sum function expects all arguments to be numbers, got string');
+    });
+  });
+
+  describe('min function evaluation', () => {
+    it('should return minimum of positive numbers', () => {
+      const editor = min(const_number(5), const_number(2), const_number(8));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(2);
+    });
+
+    it('should return minimum including negative numbers', () => {
+      const editor = min(const_number(10), const_number(-3), const_number(2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(-3);
+    });
+
+    it('should return minimum including decimal numbers', () => {
+      const editor = min(const_number(1.5), const_number(2.3), const_number(0.2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(0.2);
+    });
+
+    it('should handle single argument', () => {
+      const editor = min(const_number(42));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(42);
+    });
+
+    it('should skip undefined values', () => {
+      const editor = min(const_number(5), response_string('survey.nonexistent...get'), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(3);
+    });
+
+    it('should throw error for non-numeric values', () => {
+      const editor = min(const_number(1), const_string('invalid'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(() => expEval.eval(expression)).toThrow('Min function expects all arguments to be numbers, got string');
+    });
+
+    it('should throw error for no arguments', () => {
+      const expEval = new ExpressionEvaluator();
+      const functionExpr = new FunctionExpression(FunctionExpressionNames.min, []);
+
+      expect(() => expEval.eval(functionExpr)).toThrow('Min function expects at least 1 argument, got 0');
+    });
+  });
+
+  describe('max function evaluation', () => {
+    it('should return maximum of positive numbers', () => {
+      const editor = max(const_number(5), const_number(2), const_number(8));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(8);
+    });
+
+    it('should return maximum including negative numbers', () => {
+      const editor = max(const_number(-10), const_number(-3), const_number(-5));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(-3);
+    });
+
+    it('should return maximum including decimal numbers', () => {
+      const editor = max(const_number(1.5), const_number(2.3), const_number(0.2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(2.3);
+    });
+
+    it('should handle single argument', () => {
+      const editor = max(const_number(42));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(42);
+    });
+
+    it('should skip undefined values', () => {
+      const editor = max(const_number(5), response_string('survey.nonexistent...get'), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(5);
+    });
+
+    it('should throw error for non-numeric values', () => {
+      const editor = max(const_number(1), const_string('invalid'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(() => expEval.eval(expression)).toThrow('Max function expects all arguments to be numbers, got string');
+    });
+
+    it('should throw error for no arguments', () => {
+      const expEval = new ExpressionEvaluator();
+      const functionExpr = new FunctionExpression(FunctionExpressionNames.max, []);
+
+      expect(() => expEval.eval(functionExpr)).toThrow('Max function expects at least 1 argument, got 0');
+    });
+  });
+});
+
+
+
 /*
 
 TODO:

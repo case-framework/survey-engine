@@ -1,6 +1,6 @@
 import { JsonExpression } from "../../expressions";
 import { JsonItemComponent } from "../survey-file-schema";
-import { JsonDynamicValue } from "../../expressions/dynamic-value";
+import { JsonTemplateValue } from "../../expressions/template-value";
 import { ConfidentialMode, SurveyItemType } from "./types";
 
 
@@ -10,21 +10,21 @@ export interface JsonSurveyItemBase {
     [key: string]: string;
   }
 
-  dynamicValues?: {
-    [dynamicValueKey: string]: JsonDynamicValue;
+  templateValues?: {
+    [templateValueKey: string]: JsonTemplateValue;
   };
   validations?: {
-    [validationKey: string]: JsonExpression;
+    [validationKey: string]: JsonExpression | undefined;
   };
   displayConditions?: {
     root?: JsonExpression;
     components?: {
-      [componentKey: string]: JsonExpression;
+      [componentKey: string]: JsonExpression | undefined;
     }
   }
   disabledConditions?: {
     components?: {
-      [componentKey: string]: JsonExpression;
+      [componentKey: string]: JsonExpression | undefined;
     }
   }
 }

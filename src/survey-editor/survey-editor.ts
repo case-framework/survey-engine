@@ -299,8 +299,6 @@ export class SurveyEditor {
     return true;
   }
 
-  // TODO: Update item
-
   // TODO: add also to update component translations (updating part of the item)
   // Update item translations
   updateItemTranslations(itemKey: string, updatedContent?: SurveyItemTranslations): boolean {

@@ -1,6 +1,6 @@
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItem, JsonSurveyItemGroup, JsonSurveyPageBreakItem, JsonSurveyQuestionItem } from './survey-item-json';
 import { SurveyItemKey } from '../item-component-key';
-import { DynamicValue, dynamicValuesFromJson, dynamicValuesToJson } from '../../expressions/dynamic-value';
+import { TemplateValueDefinition, templateValuesFromJson, templateValuesToJson } from '../../expressions/template-value';
 import { Expression } from '../../expressions';
 import { DisabledConditions, disabledConditionsFromJson, disabledConditionsToJson, DisplayConditions, displayConditionsFromJson, displayConditionsToJson } from './utils';
 import { DisplayComponent, ItemComponent, TextComponent, ScgMcgChoiceResponseConfig } from '../components';
@@ -18,12 +18,12 @@ export abstract class SurveyItem {
   }
 
   displayConditions?: DisplayConditions;
-  protected _dynamicValues?: {
-    [dynamicValueKey: string]: DynamicValue;
+  templateValues?: {
+    [templateValueKey: string]: TemplateValueDefinition;
   }
-  protected _disabledConditions?: DisabledConditions;
-  protected _validations?: {
-    [validationKey: string]: Expression;
+  disabledConditions?: DisabledConditions;
+  validations?: {
+    [validationKey: string]: Expression | undefined;
   }
 
   constructor(itemFullKey: string, itemType: SurveyItemType) {
@@ -39,11 +39,6 @@ export abstract class SurveyItem {
     return initItemClassBasedOnType(key, json);
   }
 
-  get dynamicValues(): {
-    [dynamicValueKey: string]: DynamicValue;
-  } | undefined {
-    return this._dynamicValues;
-  }
 }
 
 const initItemClassBasedOnType = (key: string, json: JsonSurveyItem): SurveyItem => {
@@ -128,7 +123,7 @@ export class DisplayItem extends SurveyItem {
     item.components = json.components?.map(component => DisplayComponent.fromJson(component, undefined, item.key.fullKey));
     item.metadata = json.metadata;
     item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
-    item._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
+    item.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
     return item;
   }
 
@@ -138,7 +133,7 @@ export class DisplayItem extends SurveyItem {
       components: this.components?.map(component => component.toJson()) ?? [],
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
-      dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
+      templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
     }
   }
 
@@ -181,7 +176,7 @@ export class SurveyEndItem extends SurveyItem {
     const item = new SurveyEndItem(key);
     item.metadata = json.metadata;
     item.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
-    item._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
+    item.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
     return item;
   }
 
@@ -190,7 +185,7 @@ export class SurveyEndItem extends SurveyItem {
       itemType: SurveyItemType.SurveyEnd,
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
-      dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
+      templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
     }
   }
 }
@@ -220,26 +215,26 @@ export abstract class QuestionItem extends SurveyItem {
   _readGenericAttributes(json: JsonSurveyQuestionItem) {
     this.metadata = json.metadata;
     this.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
-    this._disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
-    this._dynamicValues = json.dynamicValues ? dynamicValuesFromJson(json.dynamicValues) : undefined;
-    this._validations = json.validations ? Object.fromEntries(Object.entries(json.validations).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined;
+    this.disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
+    this.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
+    this.validations = json.validations ? Object.fromEntries(Object.entries(json.validations).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined;
 
     if (json.header) {
       this.header = {
-        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.parentFullKey) as TextComponent : undefined,
-        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.parentFullKey) as TextComponent : undefined,
-        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.parentFullKey) as TextComponent : undefined,
+        title: json.header?.title ? DisplayComponent.fromJson(json.header?.title, undefined, this.key.fullKey) as TextComponent : undefined,
+        subtitle: json.header?.subtitle ? DisplayComponent.fromJson(json.header?.subtitle, undefined, this.key.fullKey) as TextComponent : undefined,
+        helpPopover: json.header?.helpPopover ? DisplayComponent.fromJson(json.header?.helpPopover, undefined, this.key.fullKey) as TextComponent : undefined,
       }
     }
 
     if (json.body) {
       this.body = {
-        topContent: json.body?.topContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
-        bottomContent: json.body?.bottomContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.parentFullKey)),
+        topContent: json.body?.topContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.fullKey)),
+        bottomContent: json.body?.bottomContent?.map(component => DisplayComponent.fromJson(component, undefined, this.key.fullKey)),
       }
     }
 
-    this.footer = json.footer ? TextComponent.fromJson(json.footer, undefined, this.key.parentFullKey) as TextComponent : undefined;
+    this.footer = json.footer ? TextComponent.fromJson(json.footer, undefined, this.key.fullKey) as TextComponent : undefined;
     this.confidentiality = json.confidentiality;
   }
 
@@ -249,9 +244,9 @@ export abstract class QuestionItem extends SurveyItem {
       responseConfig: this.responseConfig.toJson(),
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
-      disabledConditions: this._disabledConditions ? disabledConditionsToJson(this._disabledConditions) : undefined,
-      dynamicValues: this._dynamicValues ? dynamicValuesToJson(this._dynamicValues) : undefined,
-      validations: this._validations ? Object.fromEntries(Object.entries(this._validations).map(([key, value]) => [key, value.toJson()])) : undefined,
+      disabledConditions: this.disabledConditions ? disabledConditionsToJson(this.disabledConditions) : undefined,
+      templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
+      validations: this.validations ? Object.fromEntries(Object.entries(this.validations).map(([key, value]) => [key, value?.toJson()])) : undefined,
     }
 
     if (this.header) {
@@ -275,27 +270,6 @@ export abstract class QuestionItem extends SurveyItem {
     return json;
   }
 
-  get validations(): {
-    [validationKey: string]: Expression;
-  } | undefined {
-    return this._validations;
-  }
-
-  get disabledConditions(): {
-    components?: {
-      [componentKey: string]: Expression;
-    }
-  } | undefined {
-    return this._disabledConditions;
-  }
-
-  set disabledConditions(disabledConditions: {
-    components?: {
-      [componentKey: string]: Expression;
-    }
-  } | undefined) {
-    this._disabledConditions = disabledConditions;
-  }
 
   onComponentDeleted(componentKey: string): void {
     if (this.header?.title?.key.fullKey === componentKey) {
@@ -325,8 +299,8 @@ export abstract class QuestionItem extends SurveyItem {
       delete this.displayConditions.components[componentKey];
     }
 
-    if (this._disabledConditions?.components?.[componentKey]) {
-      delete this._disabledConditions.components[componentKey];
+    if (this.disabledConditions?.components?.[componentKey]) {
+      delete this.disabledConditions.components[componentKey];
     }
   }
 }
@@ -350,7 +324,7 @@ export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
 
   static fromJson(key: string, json: JsonSurveyQuestionItem): SingleChoiceQuestionItem {
     const item = new SingleChoiceQuestionItem(key);
-    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.fullKey);
     item._readGenericAttributes(json);
     return item;
   }
@@ -366,7 +340,7 @@ export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
 
   static fromJson(key: string, json: JsonSurveyQuestionItem): MultipleChoiceQuestionItem {
     const item = new MultipleChoiceQuestionItem(key);
-    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.parentFullKey);
+    item.responseConfig = ScgMcgChoiceResponseConfig.fromJson(json.responseConfig, undefined, item.key.fullKey);
     item._readGenericAttributes(json);
     return item;
   }

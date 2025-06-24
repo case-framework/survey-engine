@@ -5,6 +5,7 @@ import { DisplayComponentEditor, ScgMcgOptionBaseEditor } from "./component-edit
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase, ScgMcgOptionTypes } from "../survey";
 import { Content } from "../survey/utils/content";
 import { SurveyItemTranslations } from "../survey/utils";
+import { Expression, TemplateValueDefinition } from "../expressions";
 
 
 
@@ -50,10 +51,65 @@ export abstract class SurveyItemEditor {
     this.editor.updateItemTranslations(this._currentItem.key.fullKey, currentTranslations);
   }
 
+  setDisplayCondition(condition: Expression | undefined, componentFullKey?: string): void {
+    this.editor.commitIfNeeded();
+    if (!condition) {
+      // remove condition
+      if (componentFullKey) {
+        delete this._currentItem.displayConditions?.components?.[componentFullKey];
+      } else {
+        delete this._currentItem.displayConditions?.root;
+      }
+    } else {
+      // add condition
+      if (!this._currentItem.displayConditions) {
+        this._currentItem.displayConditions = {};
+      }
+      if (componentFullKey) {
+        if (!this._currentItem.displayConditions?.components) {
+          this._currentItem.displayConditions.components = {};
+        }
+        this._currentItem.displayConditions.components[componentFullKey] = condition;
+      } else {
+        if (!this._currentItem.displayConditions) {
+          this._currentItem.displayConditions = {};
+        }
+        this._currentItem.displayConditions.root = condition;
+      }
+    }
+    this._editor.commit(`Set display condition for ${this._currentItem.key.fullKey}`);
+  }
+
+  getDisplayCondition(componentFullKey?: string): Expression | undefined {
+    if (componentFullKey) {
+      return this._currentItem.displayConditions?.components?.[componentFullKey]?.clone();
+    } else {
+      return this._currentItem.displayConditions?.root?.clone();
+    }
+  }
+
+
+  setTemplateValue(templateValueKey: string, expression: TemplateValueDefinition | undefined): void {
+    this._editor.commitIfNeeded();
+    if (!expression) {
+      delete this._currentItem.templateValues?.[templateValueKey];
+    } else {
+      if (!this._currentItem.templateValues) {
+        this._currentItem.templateValues = {};
+      }
+      this._currentItem.templateValues[templateValueKey] = expression;
+    }
+    this._editor.commit(`Set template value for ${this._currentItem.key.fullKey}`);
+  }
+
+  getTemplateValue(templateValueKey: string): Expression | undefined {
+    return this._currentItem.templateValues?.[templateValueKey]?.expression?.clone();
+  }
+
   abstract convertToType(type: SurveyItemType): void;
 }
 
-abstract class QuestionEditor extends SurveyItemEditor {
+export abstract class QuestionEditor extends SurveyItemEditor {
   protected _currentItem: QuestionItem;
 
   constructor(editor: SurveyEditor, itemFullKey: string, type: SurveyItemType.SingleChoiceQuestion | SurveyItemType.MultipleChoiceQuestion) {
@@ -75,6 +131,42 @@ abstract class QuestionEditor extends SurveyItemEditor {
     return new DisplayComponentEditor(this, this._currentItem.header.subtitle);
   }
 
+  setDisableCondition(condition: Expression | undefined, componentFullKey: string): void {
+    this._editor.commitIfNeeded();
+    if (!condition) {
+      delete this._currentItem.disabledConditions?.components?.[componentFullKey];
+    } else {
+      if (!this._currentItem.disabledConditions) {
+        this._currentItem.disabledConditions = {};
+      }
+      if (!this._currentItem.disabledConditions?.components) {
+        this._currentItem.disabledConditions.components = {};
+      }
+      this._currentItem.disabledConditions.components[componentFullKey] = condition;
+    }
+    this._editor.commit(`Set disable condition for ${this._currentItem.key.fullKey} ${componentFullKey}`);
+  }
+
+  setValidation(validationKey: string, expression: Expression | undefined): void {
+    this._editor.commitIfNeeded();
+    if (!expression) {
+      delete this._currentItem.validations?.[validationKey];
+    } else {
+      if (!this._currentItem.validations) {
+        this._currentItem.validations = {};
+      }
+      this._currentItem.validations[validationKey] = expression;
+    }
+    this._editor.commit(`Set validation for ${this._currentItem.key.fullKey} ${validationKey}`);
+  }
+
+  getValidation(validationKey: string): Expression | undefined {
+    return this._currentItem.validations?.[validationKey]?.clone();
+  }
+
+  getDisableCondition(componentFullKey: string): Expression | undefined {
+    return this._currentItem.disabledConditions?.components?.[componentFullKey]?.clone();
+  }
 }
 
 /**
@@ -99,7 +191,7 @@ abstract class ScgMcgEditor extends QuestionEditor {
     let option: ScgMcgOptionBase;
     switch (optionType) {
       case ItemComponentType.ScgMcgOption:
-        option = new ScgMcgOption(optionKey, this._currentItem.responseConfig.key.fullKey, this._currentItem.key.parentFullKey);
+        option = new ScgMcgOption(optionKey, this._currentItem.responseConfig.key.fullKey, this._currentItem.key.fullKey);
         break;
       default:
         throw new Error(`Unsupported option type: ${optionType}`);
@@ -119,14 +211,12 @@ abstract class ScgMcgEditor extends QuestionEditor {
     return !this._currentItem.responseConfig.options.some(option => option.key.componentKey === optionKey);
   }
 
-  onReorderOptions(activeIndex: number, overIndex: number): void {
+  swapOptions(activeIndex: number, overIndex: number): void {
     const newOrder = [...this._currentItem.responseConfig.options];
     newOrder.splice(activeIndex, 1);
     newOrder.splice(overIndex, 0, this._currentItem.responseConfig.options[activeIndex]);
     this._currentItem.responseConfig.options = newOrder;
   }
-
-
 }
 
 export class SingleChoiceQuestionEditor extends ScgMcgEditor {
