@@ -74,6 +74,14 @@ export class ExpressionEvaluator {
         return this.evaluateLt(expression);
       case FunctionExpressionNames.lte:
         return this.evaluateLte(expression);
+      case FunctionExpressionNames.in_range:
+        return this.evaluateInRange(expression);
+      case FunctionExpressionNames.sum:
+        return this.evaluateSum(expression);
+      case FunctionExpressionNames.min:
+        return this.evaluateMin(expression);
+      case FunctionExpressionNames.max:
+        return this.evaluateMax(expression);
       // list methods:
       case FunctionExpressionNames.list_contains:
         return this.evaluateListContains(expression);
@@ -211,6 +219,70 @@ export class ExpressionEvaluator {
     }
 
     return resolvedA <= resolvedB;
+  }
+
+  private evaluateInRange(expression: FunctionExpression): boolean {
+    if (expression.arguments.length !== 4) {
+      throw new Error(`In range function expects 4 arguments, got ${expression.arguments.length}`);
+    }
+    const resolvedValue = this.eval(expression.arguments[0]!);
+    const resolvedMin = this.eval(expression.arguments[1]!);
+    const resolvedMax = this.eval(expression.arguments[2]!);
+    const resolvedInclusive = this.eval(expression.arguments[3]!) === true
+
+    if (resolvedValue === undefined || resolvedMin === undefined || resolvedMax === undefined) {
+      return false;
+    }
+
+    return resolvedInclusive ? resolvedValue >= resolvedMin && resolvedValue <= resolvedMax : resolvedValue > resolvedMin && resolvedValue < resolvedMax;
+  }
+
+  private evaluateSum(expression: FunctionExpression): number {
+    if (expression.arguments.length < 1) {
+      throw new Error(`Sum function expects at least 1 argument, got ${expression.arguments.length}`);
+    }
+    return expression.arguments.reduce((sum, arg) => {
+      const resolvedValue = this.eval(arg!);
+      if (resolvedValue === undefined) {
+        return sum;
+      }
+      if (typeof resolvedValue === 'number') {
+        return sum + resolvedValue;
+      }
+      throw new Error(`Sum function expects all arguments to be numbers, got ${typeof resolvedValue}`);
+    }, 0);
+  }
+
+  private evaluateMin(expression: FunctionExpression): number {
+    if (expression.arguments.length < 1) {
+      throw new Error(`Min function expects at least 1 argument, got ${expression.arguments.length}`);
+    }
+    return expression.arguments.reduce((min, arg) => {
+      const resolvedValue = this.eval(arg!);
+      if (resolvedValue === undefined) {
+        return min;
+      }
+      if (typeof resolvedValue === 'number') {
+        return Math.min(min, resolvedValue);
+      }
+      throw new Error(`Min function expects all arguments to be numbers, got ${typeof resolvedValue}`);
+    }, Infinity);
+  }
+
+  private evaluateMax(expression: FunctionExpression): number {
+    if (expression.arguments.length < 1) {
+      throw new Error(`Max function expects at least 1 argument, got ${expression.arguments.length}`);
+    }
+    return expression.arguments.reduce((max, arg) => {
+      const resolvedValue = this.eval(arg!);
+      if (resolvedValue === undefined) {
+        return max;
+      }
+      if (typeof resolvedValue === 'number') {
+        return Math.max(max, resolvedValue);
+      }
+      throw new Error(`Max function expects all arguments to be numbers, got ${typeof resolvedValue}`);
+    }, -Infinity);
   }
 
 }

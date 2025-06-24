@@ -2,7 +2,7 @@ import { ExpressionEvaluator } from "../expressions";
 import { ConstExpression, Expression, ExpressionEditorConfig, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "../expressions/expression";
 import { ExpectedValueType, ResponseItem, SurveyItemKey, SurveyItemResponse, SurveyItemType } from "../survey";
 import { ConstBooleanEditor, ConstDateArrayEditor, ConstDateEditor, ConstNumberArrayEditor, ConstNumberEditor, ConstStringArrayEditor, ConstStringEditor } from "../survey-editor/expression-editor";
-import { const_string, const_string_array, str_list_contains, response_string } from "../survey-editor/expression-editor-generators";
+import { const_string, const_string_array, str_list_contains, response_string, const_number, const_boolean, in_range, sum, min, max } from "../survey-editor/expression-editor-generators";
 
 describe('expression editor to expression', () => {
   describe('Expression Editors', () => {
@@ -518,6 +518,233 @@ describe('expression evaluator', () => {
       }
     });
     expect(expEval.eval(expression)).toBeTruthy();
+  });
+
+  describe('in_range function evaluation', () => {
+    it('should return true for value in range (inclusive)', () => {
+      const editor = in_range(const_number(5), const_number(1), const_number(10), const_boolean(true));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeTruthy();
+    });
+
+    it('should return true for value at boundary (inclusive)', () => {
+      const editor1 = in_range(const_number(1), const_number(1), const_number(10), const_boolean(true));
+      const editor2 = in_range(const_number(10), const_number(1), const_number(10), const_boolean(true));
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(editor1.getExpression() as Expression)).toBeTruthy();
+      expect(expEval.eval(editor2.getExpression() as Expression)).toBeTruthy();
+    });
+
+    it('should return false for value at boundary (exclusive)', () => {
+      const editor1 = in_range(const_number(1), const_number(1), const_number(10), const_boolean(false));
+      const editor2 = in_range(const_number(10), const_number(1), const_number(10), const_boolean(false));
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(editor1.getExpression() as Expression)).toBeFalsy();
+      expect(expEval.eval(editor2.getExpression() as Expression)).toBeFalsy();
+    });
+
+    it('should return true for value in range (exclusive)', () => {
+      const editor = in_range(const_number(5), const_number(1), const_number(10), const_boolean(false));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeTruthy();
+    });
+
+    it('should return false for value outside range', () => {
+      const editor1 = in_range(const_number(0), const_number(1), const_number(10), const_boolean(true));
+      const editor2 = in_range(const_number(11), const_number(1), const_number(10), const_boolean(true));
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(editor1.getExpression() as Expression)).toBeFalsy();
+      expect(expEval.eval(editor2.getExpression() as Expression)).toBeFalsy();
+    });
+
+    it('should return false for undefined values', () => {
+      const editor = in_range(response_string('survey.nonexistent...get'), const_number(1), const_number(10), const_boolean(true));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeFalsy();
+    });
+
+    it('should throw error for wrong argument count', () => {
+      const expEval = new ExpressionEvaluator();
+      const functionExpr = new FunctionExpression(FunctionExpressionNames.in_range, [
+        new ConstExpression(5),
+        new ConstExpression(1)
+      ]);
+
+      expect(() => expEval.eval(functionExpr)).toThrow('In range function expects 4 arguments, got 2');
+    });
+  });
+
+  describe('sum function evaluation', () => {
+    it('should return sum of positive numbers', () => {
+      const editor = sum(const_number(1), const_number(2), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(6);
+    });
+
+    it('should return sum including negative numbers', () => {
+      const editor = sum(const_number(10), const_number(-3), const_number(2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(9);
+    });
+
+    it('should return sum including decimal numbers', () => {
+      const editor = sum(const_number(1.5), const_number(2.3), const_number(0.2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeCloseTo(4.0);
+    });
+
+    it('should handle single argument', () => {
+      const editor = sum(const_number(42));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(42);
+    });
+
+    it('should skip undefined values', () => {
+      const editor = sum(const_number(1), response_string('survey.nonexistent...get'), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(4);
+    });
+
+    it('should throw error for non-numeric values', () => {
+      const editor = sum(const_number(1), const_string('invalid'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(() => expEval.eval(expression)).toThrow('Sum function expects all arguments to be numbers, got string');
+    });
+  });
+
+  describe('min function evaluation', () => {
+    it('should return minimum of positive numbers', () => {
+      const editor = min(const_number(5), const_number(2), const_number(8));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(2);
+    });
+
+    it('should return minimum including negative numbers', () => {
+      const editor = min(const_number(10), const_number(-3), const_number(2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(-3);
+    });
+
+    it('should return minimum including decimal numbers', () => {
+      const editor = min(const_number(1.5), const_number(2.3), const_number(0.2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(0.2);
+    });
+
+    it('should handle single argument', () => {
+      const editor = min(const_number(42));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(42);
+    });
+
+    it('should skip undefined values', () => {
+      const editor = min(const_number(5), response_string('survey.nonexistent...get'), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(3);
+    });
+
+    it('should throw error for non-numeric values', () => {
+      const editor = min(const_number(1), const_string('invalid'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(() => expEval.eval(expression)).toThrow('Min function expects all arguments to be numbers, got string');
+    });
+
+    it('should throw error for no arguments', () => {
+      const expEval = new ExpressionEvaluator();
+      const functionExpr = new FunctionExpression(FunctionExpressionNames.min, []);
+
+      expect(() => expEval.eval(functionExpr)).toThrow('Min function expects at least 1 argument, got 0');
+    });
+  });
+
+  describe('max function evaluation', () => {
+    it('should return maximum of positive numbers', () => {
+      const editor = max(const_number(5), const_number(2), const_number(8));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(8);
+    });
+
+    it('should return maximum including negative numbers', () => {
+      const editor = max(const_number(-10), const_number(-3), const_number(-5));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(-3);
+    });
+
+    it('should return maximum including decimal numbers', () => {
+      const editor = max(const_number(1.5), const_number(2.3), const_number(0.2));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(2.3);
+    });
+
+    it('should handle single argument', () => {
+      const editor = max(const_number(42));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(42);
+    });
+
+    it('should skip undefined values', () => {
+      const editor = max(const_number(5), response_string('survey.nonexistent...get'), const_number(3));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBe(5);
+    });
+
+    it('should throw error for non-numeric values', () => {
+      const editor = max(const_number(1), const_string('invalid'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(() => expEval.eval(expression)).toThrow('Max function expects all arguments to be numbers, got string');
+    });
+
+    it('should throw error for no arguments', () => {
+      const expEval = new ExpressionEvaluator();
+      const functionExpr = new FunctionExpression(FunctionExpressionNames.max, []);
+
+      expect(() => expEval.eval(functionExpr)).toThrow('Max function expects at least 1 argument, got 0');
+    });
   });
 });
 

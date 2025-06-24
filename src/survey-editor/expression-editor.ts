@@ -585,3 +585,76 @@ export class LteExpressionEditor extends ExpressionEditor {
     );
   }
 }
+
+export class InRangeExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  value: ExpressionEditor | undefined;
+  min: ExpressionEditor | undefined;
+  max: ExpressionEditor | undefined;
+  inclusive: ExpressionEditor | undefined;
+
+  constructor(value: ExpressionEditor, min: ExpressionEditor, max: ExpressionEditor, inclusive: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this.value = value;
+    this.min = min;
+    this.max = max;
+    this.inclusive = inclusive;
+    this._editorConfig = editorConfig;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.in_range,
+      [this.value?.getExpression(), this.min?.getExpression(), this.max?.getExpression(), this.inclusive?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class SumExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.sum,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    );
+  }
+}
+
+export class MinExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.min,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    );
+  }
+}
+
+export class MaxExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.max,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    );
+  }
+}

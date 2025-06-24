@@ -18,6 +18,10 @@ import {
   GteExpressionEditor,
   LteExpressionEditor,
   LtExpressionEditor,
+  InRangeExpressionEditor,
+  SumExpressionEditor,
+  MinExpressionEditor,
+  MaxExpressionEditor,
 } from "./expression-editor";
 
 // ================================
@@ -133,4 +137,20 @@ export const lt = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor =
 
 export const lte = (a: ExpressionEditor, b: ExpressionEditor): ExpressionEditor => {
   return new LteExpressionEditor(a, b);
+}
+
+export const in_range = (value: ExpressionEditor, min: ExpressionEditor, max: ExpressionEditor, inclusive: ExpressionEditor): ExpressionEditor => {
+  return new InRangeExpressionEditor(value, min, max, inclusive);
+}
+
+export const sum = (...args: ExpressionEditor[]): ExpressionEditor => {
+  return new SumExpressionEditor(args);
+}
+
+export const min = (...args: ExpressionEditor[]): ExpressionEditor => {
+  return new MinExpressionEditor(args);
+}
+
+export const max = (...args: ExpressionEditor[]): ExpressionEditor => {
+  return new MaxExpressionEditor(args);
 }

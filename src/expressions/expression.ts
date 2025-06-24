@@ -199,6 +199,13 @@ export enum FunctionExpressionNames {
   gte = 'gte',
   lt = 'lt',
   lte = 'lte',
+  in_range = 'in_range',
+
+  sum = 'sum',
+  min = 'min',
+  max = 'max',
+
+
 
 
   // string functions
