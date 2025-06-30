@@ -5,5 +5,5 @@ export interface SurveyContext {
   participantFlags?: { [key: string]: string };
   locale: string;
   customValues?: { [key: string]: ValueType };
-  customExpressions?: { [key: string]: (args?: Expression[]) => ValueType };
+  customExpressions?: { [key: string]: (args?: Array<Expression | undefined>) => ValueType };
 }

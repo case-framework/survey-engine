@@ -1,5 +1,5 @@
 import { ValueReference } from "../survey/utils/value-reference";
-import { ValueType } from "../survey/utils/types";
+import { ExpectedValueType, ValueType } from "../survey/utils/types";
 
 
 export enum ExpressionType {
@@ -14,11 +14,6 @@ export enum ContextVariableType {
   ParticipantFlag = 'participantFlag',
   CustomValue = 'customValue',
   CustomExpression = 'customExpression'
-}
-
-export enum ContextVariableMethod {
-  IsDefined = 'isDefined',
-  Get = 'get',
 }
 
 export interface ExpressionEditorConfig {
@@ -43,9 +38,9 @@ export interface JsonContextVariableExpression {
   type: ExpressionType.ContextVariable;
 
   contextType: ContextVariableType;
-  key?: string;
-  method?: ContextVariableMethod;
+  key?: JsonExpression;
   arguments?: Array<JsonExpression | undefined>;
+  asType?: ExpectedValueType;
 
   editorConfig?: ExpressionEditorConfig;
 }
@@ -175,17 +170,17 @@ export class ContextVariableExpression extends Expression {
   type: ExpressionType.ContextVariable;
 
   contextType: ContextVariableType;
-  key?: string;
-  method?: ContextVariableMethod;
+  key?: Expression;
   arguments?: Array<Expression | undefined>;
+  asType?: ExpectedValueType;
 
-  constructor(contextType: ContextVariableType, key?: string, method?: ContextVariableMethod, args?: Array<Expression | undefined>, editorConfig?: ExpressionEditorConfig) {
+  constructor(contextType: ContextVariableType, key?: Expression, args?: Array<Expression | undefined>, asType?: ExpectedValueType, editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.ContextVariable, editorConfig);
     this.type = ExpressionType.ContextVariable;
     this.contextType = contextType;
     this.key = key;
-    this.method = method;
     this.arguments = args;
+    this.asType = asType;
   }
 
   static fromJson(json: JsonExpression): ContextVariableExpression {
@@ -193,7 +188,7 @@ export class ContextVariableExpression extends Expression {
       throw new Error('Invalid expression type: ' + json.type);
     }
 
-    return new ContextVariableExpression(json.contextType, json.key, json.method, json.arguments?.map(arg => Expression.fromJson(arg)), json.editorConfig);
+    return new ContextVariableExpression(json.contextType, Expression.fromJson(json.key), json.arguments?.map(arg => Expression.fromJson(arg)), json.asType, json.editorConfig);
   }
 
   get responseVariableRefs(): ValueReference[] {
@@ -204,9 +199,9 @@ export class ContextVariableExpression extends Expression {
     return {
       type: this.type,
       contextType: this.contextType,
-      key: this.key,
-      method: this.method,
+      key: this.key?.toJson(),
       arguments: this.arguments?.map(arg => arg?.toJson()),
+      asType: this.asType,
       editorConfig: this.editorConfig
     }
   }

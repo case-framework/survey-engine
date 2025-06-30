@@ -1,6 +1,19 @@
-import { SurveyItemResponse, ValueReferenceMethod, ValueType } from "../survey";
+import {
+  SurveyItemResponse,
+  ValueReferenceMethod,
+  ValueType, ExpectedValueType
+} from "../survey";
 import { SurveyContext } from "../survey/utils/context";
-import { ConstExpression, ContextVariableExpression, Expression, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "./expression";
+import {
+  ConstExpression,
+  ContextVariableExpression,
+  ContextVariableType,
+  Expression,
+  ExpressionType,
+  FunctionExpression,
+  FunctionExpressionNames,
+  ResponseVariableExpression,
+} from "./expression";
 
 export interface ExpressionContext {
   surveyContext: SurveyContext;
@@ -97,9 +110,136 @@ export class ExpressionEvaluator {
   }
 
   private evaluateContextVariable(expression: ContextVariableExpression): ValueType | undefined {
-    // TODO: implement context variable evaluation
-    console.log('todo: evaluateContextVariable', expression);
-    return undefined;
+    if (!this.context?.surveyContext) {
+      return undefined;
+    }
+
+    const surveyContext = this.context.surveyContext;
+
+    switch (expression.contextType) {
+      case ContextVariableType.Locale:
+        return surveyContext.locale;
+
+      case ContextVariableType.ParticipantFlag: {
+        if (!expression.key) {
+          return undefined;
+        }
+
+        const flagKey = this.eval(expression.key);
+        if (typeof flagKey !== 'string') {
+          return undefined;
+        }
+
+        const flagValue = surveyContext.participantFlags?.[flagKey];
+
+        // Handle different return types for participant flags
+        switch (expression.asType) {
+          case ExpectedValueType.Boolean:
+            // exists?
+            return flagValue !== undefined;
+          case ExpectedValueType.String:
+            return flagValue;
+          case ExpectedValueType.Number: {
+            if (flagValue === undefined) {
+              return undefined;
+            }
+            const numValue = parseFloat(flagValue);
+            return isNaN(numValue) ? undefined : numValue;
+          }
+          case ExpectedValueType.Date: {
+            if (flagValue === undefined) {
+              return undefined;
+            }
+            const timestamp = parseFloat(flagValue);
+            return isNaN(timestamp) ? undefined : new Date(timestamp * 1000);
+          }
+          default:
+            return flagValue;
+        }
+      }
+
+      case ContextVariableType.CustomValue: {
+        if (!expression.key) {
+          return undefined;
+        }
+
+        const customKey = this.eval(expression.key);
+        if (typeof customKey !== 'string') {
+          return undefined;
+        }
+
+        const customValue = surveyContext.customValues?.[customKey];
+        if (customValue === undefined) {
+          return undefined;
+        }
+
+        // Type checking for custom values
+        switch (expression.asType) {
+          case ExpectedValueType.String:
+            return typeof customValue === 'string' ? customValue : undefined;
+          case ExpectedValueType.Number:
+            return typeof customValue === 'number' ? customValue : undefined;
+          case ExpectedValueType.Boolean:
+            return typeof customValue === 'boolean' ? customValue : undefined;
+          case ExpectedValueType.Date:
+            return customValue instanceof Date ? customValue : undefined;
+          case ExpectedValueType.StringArray:
+            return Array.isArray(customValue) && customValue.every(v => typeof v === 'string') ? customValue : undefined;
+          case ExpectedValueType.NumberArray:
+            return Array.isArray(customValue) && customValue.every(v => typeof v === 'number') ? customValue : undefined;
+          case ExpectedValueType.DateArray:
+            return Array.isArray(customValue) && customValue.every(v => v instanceof Date) ? customValue : undefined;
+          default:
+            return customValue;
+        }
+      }
+
+      case ContextVariableType.CustomExpression: {
+        if (!expression.key) {
+          return undefined;
+        }
+
+        const expressionKey = this.eval(expression.key);
+        if (typeof expressionKey !== 'string') {
+          return undefined;
+        }
+
+        const customExpression = surveyContext.customExpressions?.[expressionKey];
+        if (typeof customExpression !== 'function') {
+          return undefined;
+        }
+
+        try {
+          const args = expression.arguments;
+          const result = customExpression(args);
+
+          // Type checking for custom expression results
+          switch (expression.asType) {
+            case ExpectedValueType.String:
+              return typeof result === 'string' ? result : undefined;
+            case ExpectedValueType.Number:
+              return typeof result === 'number' ? result : undefined;
+            case ExpectedValueType.Boolean:
+              return typeof result === 'boolean' ? result : undefined;
+            case ExpectedValueType.Date:
+              return result instanceof Date ? result : undefined;
+            case ExpectedValueType.StringArray:
+              return Array.isArray(result) && result.every(v => typeof v === 'string') ? result : undefined;
+            case ExpectedValueType.NumberArray:
+              return Array.isArray(result) && result.every(v => typeof v === 'number') ? result : undefined;
+            case ExpectedValueType.DateArray:
+              return Array.isArray(result) && result.every(v => v instanceof Date) ? result : undefined;
+            default:
+              return result;
+          }
+        } catch (_error) {
+          return undefined;
+        }
+      }
+
+      default:
+        return undefined;
+    }
   }
 
   // ---------------- FUNCTIONS ----------------

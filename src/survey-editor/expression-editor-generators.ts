@@ -22,6 +22,13 @@ import {
   SumExpressionEditor,
   MinExpressionEditor,
   MaxExpressionEditor,
+  CtxLocaleEditor,
+  CtxPFlagIsDefinedEditor,
+  CtxPFlagStringEditor,
+  CtxPFlagNumEditor,
+  CtxPFlagDateEditor,
+  CtxCustomValueEditor,
+  CtxCustomExpressionEditor,
 } from "./expression-editor";
 
 // ================================
@@ -85,6 +92,37 @@ export const response_number_array = (valueRef: string): ExpressionEditor => {
 
 export const response_date_array = (valueRef: string): ExpressionEditor => {
   return new ResponseVariableEditor(valueRef, ExpectedValueType.DateArray);
+}
+
+// ================================
+// CONTEXT VARIABLE EXPRESSIONS
+// ================================
+export const ctx_locale = (): ExpressionEditor => {
+  return new CtxLocaleEditor();
+}
+
+export const ctx_pflag_is_defined = (key: ExpressionEditor): ExpressionEditor => {
+  return new CtxPFlagIsDefinedEditor(key);
+}
+
+export const ctx_pflag_string = (key: ExpressionEditor): ExpressionEditor => {
+  return new CtxPFlagStringEditor(key);
+}
+
+export const ctx_pflag_num = (key: ExpressionEditor): ExpressionEditor => {
+  return new CtxPFlagNumEditor(key);
+}
+
+export const ctx_pflag_date = (key: ExpressionEditor): ExpressionEditor => {
+  return new CtxPFlagDateEditor(key);
+}
+
+export const ctx_custom_value = (key: ExpressionEditor, dType: ExpectedValueType): ExpressionEditor => {
+  return new CtxCustomValueEditor(key, dType);
+}
+
+export const ctx_custom_expression = (key: ExpressionEditor, args: ExpressionEditor[], returnType: ExpectedValueType): ExpressionEditor => {
+  return new CtxCustomExpressionEditor(key, args, returnType);
 }
 
 // ================================
