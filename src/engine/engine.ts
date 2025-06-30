@@ -1,7 +1,3 @@
-import {
-  SurveyContext,
-} from "../data_types";
-
 import { format, Locale } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 import { shuffleIndices } from "../utils";
@@ -24,6 +20,7 @@ import {
 import { JsonSurveyItemResponse, ResponseItem, ResponseMeta, SurveyItemResponse, TimestampType } from "../survey/responses";
 import { ExpressionEvaluator } from "../expressions/expression-evaluator";
 import { Expression, TemplateDefTypes, TemplateValueDefinition, TemplateValueFormatDate } from "../expressions";
+import { SurveyContext } from '../survey/utils/context';
 
 
 export type ScreenSize = "small" | "large";
@@ -40,6 +37,7 @@ export class SurveyEngineCore {
   private surveyDef: Survey;
   private renderedSurveyTree: RenderedSurveyItem;
   private context: SurveyContext;
+  private locale: string;
 
   private responses: {
     [itemKey: string]: SurveyItemResponse;
@@ -48,11 +46,7 @@ export class SurveyEngineCore {
     [itemKey: string]: SurveyItemResponse;
   };
   private _openedAt: number;
-  private selectedLocale: string;
   private dateLocales: Array<{ code: string, locale: Locale }>;
-
-  //private evalEngine: ExpressionEval;
-  private showDebugMsg: boolean;
 
   private cache!: {
     validations: {
@@ -102,7 +96,6 @@ export class SurveyEngineCore {
     context?: SurveyContext,
     prefills?: JsonSurveyItemResponse[],
     showDebugMsg?: boolean,
-    selectedLocale?: string,
     dateLocales?: Array<{ code: string, locale: Locale }>,
   ) {
     this._openedAt = Date.now();
@@ -110,14 +103,15 @@ export class SurveyEngineCore {
 
     this.surveyDef = survey;
 
-    this.context = context ? context : {};
+    this.context = context ? context : {
+      locale: 'en',
+    };
+    this.locale = this.context.locale;
     this.prefills = prefills ? prefills.reduce((acc, p) => {
       acc[p.key] = SurveyItemResponse.fromJson(p);
       return acc;
     }, {} as { [itemKey: string]: SurveyItemResponse }) : undefined;
 
-    this.showDebugMsg = showDebugMsg !== undefined ? showDebugMsg : false;
-    this.selectedLocale = selectedLocale || 'en';
     this.dateLocales = dateLocales || [{ code: 'en', locale: enUS }];
     this.responses = this.initResponseObject(this.surveyDef.surveyItems);
 
@@ -134,18 +128,14 @@ export class SurveyEngineCore {
     this.context = context;
   }
 
-  getSelectedLocale(): string {
-    return this.selectedLocale;
-  }
-
   getDateLocales(): Array<{ code: string, locale: Locale }> {
     return this.dateLocales.slice();
   }
 
   getCurrentDateLocale(): Locale | undefined {
-    const found = this.dateLocales.find(dl => dl.code === this.selectedLocale);
+    const found = this.dateLocales.find(dl => dl.code === this.locale);
     if (!found) {
-      console.warn(`Locale '${this.selectedLocale}' is not available. Using default locale.`);
+      console.warn(`Locale '${this.locale}' is not available. Using default locale.`);
       if (this.dateLocales.length > 0) {
         return this.dateLocales[0].locale;
       }
@@ -154,14 +144,13 @@ export class SurveyEngineCore {
     return found?.locale;
   }
 
-  setSelectedLocale(locale: string) {
-    this.selectedLocale = locale;
+  updateContext(context: SurveyContext) {
+    this.context = context;
 
     // Re-render to update any locale-dependent expressions
     this.evalExpressions();
     this.reRenderSurveyTree();
   }
-
 
   setResponse(targetKey: string, response?: ResponseItem) {
     const target = this.getResponseItem(targetKey);
@@ -585,7 +574,7 @@ export class SurveyEngineCore {
     const evalEngine = new ExpressionEvaluator(
       {
         responses: this.responses,
-        // TODO: add context
+        surveyContext: this.context,
       }
     );
     this.evalTemplateValues(evalEngine);

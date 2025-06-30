@@ -1,5 +1,5 @@
 import { Expression } from "./expression";
-import { SurveyContextDef } from "./context";
+import { SurveyContextDef } from "../survey/utils/context";
 import { ExpressionArg } from "./expression";
 
 // ----------------------------------------------------------------------
