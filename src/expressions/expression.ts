@@ -8,10 +8,22 @@ export enum ExpressionType {
   ContextVariable = 'contextVariable',
   Function = 'function',
 }
+
+export enum ContextVariableType {
+  Locale = 'locale',
+  ParticipantFlag = 'participantFlag',
+  CustomValue = 'customValue',
+  CustomExpression = 'customExpression'
+}
+
+export enum ContextVariableMethod {
+  IsDefined = 'isDefined',
+  Get = 'get',
+}
+
 export interface ExpressionEditorConfig {
   usedTemplate?: string;
 }
-
 
 export interface JsonConstExpression {
   type: ExpressionType.Const;
@@ -29,7 +41,11 @@ export interface JsonResponseVariableExpression {
 
 export interface JsonContextVariableExpression {
   type: ExpressionType.ContextVariable;
-  // TODO: implement context variable expression, access to pflags, external expressions,linking code and study code functionality
+
+  contextType: ContextVariableType;
+  key?: string;
+  method?: ContextVariableMethod;
+  arguments?: Array<JsonExpression | undefined>;
 
   editorConfig?: ExpressionEditorConfig;
 }
@@ -157,30 +173,41 @@ export class ResponseVariableExpression extends Expression {
 
 export class ContextVariableExpression extends Expression {
   type: ExpressionType.ContextVariable;
-  // TODO: implement
 
-  constructor(editorConfig?: ExpressionEditorConfig) {
+  contextType: ContextVariableType;
+  key?: string;
+  method?: ContextVariableMethod;
+  arguments?: Array<Expression | undefined>;
+
+  constructor(contextType: ContextVariableType, key?: string, method?: ContextVariableMethod, args?: Array<Expression | undefined>, editorConfig?: ExpressionEditorConfig) {
     super(ExpressionType.ContextVariable, editorConfig);
     this.type = ExpressionType.ContextVariable;
+    this.contextType = contextType;
+    this.key = key;
+    this.method = method;
+    this.arguments = args;
   }
 
   static fromJson(json: JsonExpression): ContextVariableExpression {
     if (json.type !== ExpressionType.ContextVariable) {
       throw new Error('Invalid expression type: ' + json.type);
     }
-    // TODO:
-    return new ContextVariableExpression(json.editorConfig);
+
+    return new ContextVariableExpression(json.contextType, json.key, json.method, json.arguments?.map(arg => Expression.fromJson(arg)), json.editorConfig);
   }
 
   get responseVariableRefs(): ValueReference[] {
-    return [];
+    return this.arguments?.flatMap(arg => arg?.responseVariableRefs).filter(ref => ref !== undefined) ?? [];
   }
 
   toJson(): JsonExpression {
     return {
       type: this.type,
+      contextType: this.contextType,
+      key: this.key,
+      method: this.method,
+      arguments: this.arguments?.map(arg => arg?.toJson()),
       editorConfig: this.editorConfig
-      // TODO:
     }
   }
 }

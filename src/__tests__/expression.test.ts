@@ -503,7 +503,10 @@ describe('expression evaluator', () => {
 
   it('if the response is provided, but the question is not answered, the expression should be false', () => {
     const expEval = new ExpressionEvaluator({
-      responses: {}
+      responses: {},
+      surveyContext: {
+        locale: 'en'
+      }
     });
     expect(expEval.eval(expression)).toBeFalsy();
   });
@@ -515,6 +518,9 @@ describe('expression evaluator', () => {
           key: SurveyItemKey.fromFullKey('survey.question1'),
           itemType: SurveyItemType.SingleChoiceQuestion,
         }, new ResponseItem('option1'))
+      },
+      surveyContext: {
+        locale: 'en'
       }
     });
     expect(expEval.eval(expression)).toBeTruthy();

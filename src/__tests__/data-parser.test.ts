@@ -5,7 +5,7 @@ import { ContentType } from "../survey/utils/content";
 import { JsonSurveyCardContent } from "../survey/utils/translations";
 import { Survey } from "../survey/survey";
 import { SurveyItemType } from "../survey/items";
-import { ExpressionType, FunctionExpression, ResponseVariableExpression } from "../expressions/expression";
+import { ContextVariableType, ExpressionType, FunctionExpression, ResponseVariableExpression } from "../expressions/expression";
 import { TemplateDefTypes } from "../expressions/template-value";
 import { JsonSurveyDisplayItem, JsonSurveyEndItem, JsonSurveyItemGroup, JsonSurveyQuestionItem } from "../survey/items";
 import { ExpectedValueType } from "../survey";
@@ -130,6 +130,7 @@ const surveyJsonWithConditionsAndValidations: JsonSurvey = {
           returnType: ExpectedValueType.String,
           expression: {
             type: ExpressionType.ContextVariable,
+            contextType: ContextVariableType.Locale
           }
         }
       }
