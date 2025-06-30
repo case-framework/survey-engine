@@ -1,9 +1,9 @@
 import { SurveyItemResponse, ValueReferenceMethod, ValueType } from "../survey";
+import { SurveyContext } from "../survey/utils/context";
 import { ConstExpression, ContextVariableExpression, Expression, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "./expression";
 
 export interface ExpressionContext {
-  // TODO: implement context
-  // context: any;
+  surveyContext: SurveyContext;
   responses: {
     [key: string]: SurveyItemResponse;
   }
