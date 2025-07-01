@@ -105,6 +105,42 @@ export class SurveyEditor {
     this._hasUncommittedChanges = true;
   }
 
+  private updateItemKeyReferencesInSurvey(oldFullKey: string, newFullKey: string): void {
+    // Update references in all survey items
+    for (const item of Object.values(this._survey.surveyItems)) {
+      // Update display conditions
+      if (item.displayConditions?.root) {
+        item.displayConditions.root.updateItemKeyReferences(oldFullKey, newFullKey);
+      }
+      if (item.displayConditions?.components) {
+        for (const expression of Object.values(item.displayConditions.components)) {
+          expression?.updateItemKeyReferences(oldFullKey, newFullKey);
+        }
+      }
+
+      // Update template values
+      if (item.templateValues) {
+        for (const templateValue of Object.values(item.templateValues)) {
+          templateValue.expression?.updateItemKeyReferences(oldFullKey, newFullKey);
+        }
+      }
+
+      // Update disabled conditions
+      if (item.disabledConditions?.components) {
+        for (const expression of Object.values(item.disabledConditions.components)) {
+          expression?.updateItemKeyReferences(oldFullKey, newFullKey);
+        }
+      }
+
+      // Update validations
+      if (item.validations) {
+        for (const expression of Object.values(item.validations)) {
+          expression?.updateItemKeyReferences(oldFullKey, newFullKey);
+        }
+      }
+    }
+  }
+
   initNewItem(target: {
     parentKey: string;
     index?: number;
@@ -211,8 +247,10 @@ export class SurveyEditor {
   }
 
   // Remove an item from the survey
-  removeItem(itemKey: string): boolean {
-    this.commitIfNeeded();
+  removeItem(itemKey: string, ignoreCommit: boolean = false): boolean {
+    if (!ignoreCommit) {
+      this.commitIfNeeded();
+    }
 
     const item = this._survey.surveyItems[itemKey];
     if (!item) {
@@ -242,10 +280,15 @@ export class SurveyEditor {
     // Remove translations
     this._survey.translations?.onItemDeleted(itemKey);
 
+    if (item.itemType === SurveyItemType.Group) {
+      for (const childKey of (item as GroupItem).items || []) {
+        this.removeItem(childKey, true);
+      }
+    }
 
-    // TODO: remove references to the item from other items (e.g., expressions)
-
-    this.commit(`Removed ${itemKey}`);
+    if (!ignoreCommit) {
+      this.commit(`Removed ${itemKey}`);
+    }
     return true;
   }
 
@@ -297,6 +340,86 @@ export class SurveyEditor {
 
     this.commit(`Moved ${itemKey} to ${newTarget.parentKey}`);
     return true;
+  }
+
+  onItemKeyChanged(oldFullKey: string, newFullKey: string, skipCommit: boolean = false): void {
+    if (!skipCommit) {
+      this.commitIfNeeded();
+    }
+
+    // if new key already exists, throw an error
+    if (this._survey.surveyItems[newFullKey]) {
+      throw new Error(`Item with key '${newFullKey}' already exists. Cannot rename ${oldFullKey} to ${newFullKey}`);
+    }
+
+    const item = this._survey.surveyItems[oldFullKey];
+    if (!item) {
+      throw new Error(`Item with key '${oldFullKey}' not found`);
+    }
+
+    // update parent's items array
+    const parentKey = item.key.parentFullKey;
+    if (parentKey) {
+      // Try to find parent in the current survey items (it might have been renamed already)
+      let parentItem = this._survey.surveyItems[parentKey] as GroupItem;
+
+      // If parent is not found at the original key, it might have been renamed
+      // Check if this is a recursive call by looking for a renamed parent
+      if (!parentItem) {
+        for (const [_key, surveyItem] of Object.entries(this._survey.surveyItems)) {
+          if (surveyItem.itemType === SurveyItemType.Group) {
+            const groupItem = surveyItem as GroupItem;
+            if (groupItem.items?.includes(oldFullKey)) {
+              parentItem = groupItem;
+              break;
+            }
+          }
+        }
+      }
+
+      if (parentItem?.items) {
+        const index = parentItem.items.indexOf(oldFullKey);
+        if (index > -1) {
+          parentItem.items[index] = newFullKey;
+        }
+      }
+    }
+
+    // Update the item's key
+    item.onItemKeyChanged(newFullKey);
+
+    // Move the item in the surveyItems dictionary
+    this._survey.surveyItems[newFullKey] = item;
+    delete this._survey.surveyItems[oldFullKey];
+
+    this._survey.translations.onItemKeyChanged(oldFullKey, newFullKey);
+    if (item.itemType === SurveyItemType.Group) {
+      for (const childKey of (item as GroupItem).items || []) {
+        const oldChildKey = SurveyItemKey.fromFullKey(childKey);
+        const newChildKey = new SurveyItemKey(oldChildKey.itemKey, newFullKey);
+
+        this.onItemKeyChanged(childKey, newChildKey.fullKey, true);
+      }
+    }
+
+    // Update references to the item in other items (e.g., expressions)
+    this.updateItemKeyReferencesInSurvey(oldFullKey, newFullKey);
+
+
+    if (!skipCommit) {
+      this.commit(`Renamed ${oldFullKey} to ${newFullKey}`);
+    } else {
+      this.markAsModified();
+    }
+  }
+
+  onComponentKeyChanged(itemKey: string, oldKey: string, newKey: string): void {
+    this.commitIfNeeded();
+    // TODO: update references to the component in other items (e.g., expressions)
+    // TODO: recursively, if the item is a group, update all its component references in other items
+    this._survey.translations.onComponentKeyChanged(itemKey, oldKey, newKey);
+
+    this.commit(`Renamed component ${oldKey} to ${newKey} in ${itemKey}`);
   }
 
   // TODO: add also to update component translations (updating part of the item)

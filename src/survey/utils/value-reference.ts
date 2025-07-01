@@ -41,6 +41,10 @@ export class ValueReference {
     return this._slotKey;
   }
 
+  set itemKey(itemKey: SurveyItemKey) {
+    this._itemKey = itemKey;
+  }
+
   toString(): string {
     return `${this._itemKey.fullKey}${SEPARATOR}${this._name}${this._slotKey ? SEPARATOR + this._slotKey.fullKey : ''}`;
   }

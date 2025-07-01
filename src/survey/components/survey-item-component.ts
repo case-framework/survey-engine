@@ -37,6 +37,9 @@ export abstract class ItemComponent {
   abstract toJson(): JsonItemComponent
 
   onSubComponentDeleted?(componentKey: string): void;
+  onItemKeyChanged(newFullKey: string): void {
+    this.key.setParentItemKey(newFullKey);
+  }
 }
 
 const initComponentClassBasedOnType = (json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ItemComponent => {
@@ -131,6 +134,13 @@ export class GroupComponent extends ItemComponent {
       if (componentKey.startsWith(item.key.fullKey)) {
         item.onSubComponentDeleted?.(componentKey);
       }
+    });
+  }
+
+  onItemKeyChanged(newFullKey: string): void {
+    super.onItemKeyChanged(newFullKey);
+    this.items?.forEach(item => {
+      item.onItemKeyChanged(newFullKey);
     });
   }
 }
@@ -275,6 +285,13 @@ export class ScgMcgChoiceResponseConfig extends ResponseConfigComponent {
       if (componentKey.startsWith(option.key.fullKey)) {
         option.onSubComponentDeleted?.(componentKey);
       }
+    });
+  }
+
+  onItemKeyChanged(newFullKey: string): void {
+    super.onItemKeyChanged(newFullKey);
+    this.options?.forEach(option => {
+      option.onItemKeyChanged(newFullKey);
     });
   }
 

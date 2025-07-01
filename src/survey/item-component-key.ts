@@ -41,6 +41,11 @@ abstract class Key {
   get parentKey(): string | undefined {
     return this._parentKey;
   }
+
+  setParentFullKey(newFullKey: string): void {
+    this._parentFullKey = newFullKey;
+    this._parentKey = newFullKey.split('.').pop();
+  }
 }
 
 
@@ -98,6 +103,10 @@ export class ItemComponentKey extends Key {
 
   get parentItemKey(): SurveyItemKey {
     return this._parentItemKey;
+  }
+
+  setParentItemKey(newFullKey: string): void {
+    this._parentItemKey = SurveyItemKey.fromFullKey(newFullKey);
   }
 
   static fromFullKey(fullKey: string): ItemComponentKey {

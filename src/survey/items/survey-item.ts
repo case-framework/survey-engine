@@ -35,6 +35,9 @@ export abstract class SurveyItem {
   abstract toJson(): JsonSurveyItem
 
   onComponentDeleted?(componentKey: string): void;
+  onItemKeyChanged(newFullKey: string): void {
+    this.key = SurveyItemKey.fromFullKey(newFullKey);
+  }
 
   static fromJson(key: string, json: JsonSurveyItem): SurveyItem {
     return initItemClassBasedOnType(key, json);
@@ -172,6 +175,7 @@ export class GroupItem extends SurveyItem {
   onComponentDeleted(_componentKey: string): void {
     // can be ignored for group item
   }
+
 }
 
 
@@ -208,6 +212,15 @@ export class DisplayItem extends SurveyItem {
 
   onComponentDeleted(componentKey: string): void {
     this.components = this.components?.filter(c => c.key.fullKey !== componentKey);
+  }
+
+  onItemKeyChanged(newFullKey: string): void {
+    this.key = SurveyItemKey.fromFullKey(newFullKey);
+    if (this.components) {
+      for (const component of this.components) {
+        component.onItemKeyChanged(newFullKey);
+      }
+    }
   }
 }
 
@@ -370,6 +383,33 @@ export abstract class QuestionItem extends SurveyItem {
 
     if (this.disabledConditions?.components?.[componentKey]) {
       delete this.disabledConditions.components[componentKey];
+    }
+  }
+
+  onItemKeyChanged(newFullKey: string): void {
+    super.onItemKeyChanged(newFullKey);
+    this.responseConfig.onItemKeyChanged(newFullKey);
+    if (this.header?.title) {
+      this.header.title.onItemKeyChanged(newFullKey);
+    }
+    if (this.header?.subtitle) {
+      this.header.subtitle.onItemKeyChanged(newFullKey);
+    }
+    if (this.header?.helpPopover) {
+      this.header.helpPopover.onItemKeyChanged(newFullKey);
+    }
+    if (this.body?.topContent) {
+      for (const component of this.body.topContent) {
+        component.onItemKeyChanged(newFullKey);
+      }
+    }
+    if (this.body?.bottomContent) {
+      for (const component of this.body.bottomContent) {
+        component.onItemKeyChanged(newFullKey);
+      }
+    }
+    if (this.footer) {
+      this.footer.onItemKeyChanged(newFullKey);
     }
   }
 }

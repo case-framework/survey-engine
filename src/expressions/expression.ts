@@ -1,5 +1,6 @@
 import { ValueReference } from "../survey/utils/value-reference";
 import { ExpectedValueType, ValueType } from "../survey/utils/types";
+import { SurveyItemKey } from "../survey/item-component-key";
 
 
 export enum ExpressionType {
@@ -98,6 +99,14 @@ export abstract class Expression {
       throw new Error('Failed to clone expression');
     })();
   }
+
+  /**
+   * Updates references to the item key in the expression.
+   * @param oldItemKey The old item key to replace
+   * @param newItemKey The new item key to replace with
+   * @returns True if any references were updated, false otherwise
+   */
+  abstract updateItemKeyReferences(oldItemKey: string, newItemKey: string): boolean;
 }
 
 export class ConstExpression extends Expression {
@@ -128,6 +137,11 @@ export class ConstExpression extends Expression {
       value: this.value,
       editorConfig: this.editorConfig
     }
+  }
+
+  updateItemKeyReferences(_oldItemKey: string, _newItemKey: string): boolean {
+    // Const expressions don't have item references
+    return false;
   }
 }
 
@@ -163,6 +177,16 @@ export class ResponseVariableExpression extends Expression {
       variableRef: this.variableRef,
       editorConfig: this.editorConfig
     }
+  }
+
+  updateItemKeyReferences(oldItemKey: string, newItemKey: string): boolean {
+    const valueRef = new ValueReference(this.variableRef);
+    if (valueRef.itemKey.fullKey === oldItemKey) {
+      valueRef.itemKey = SurveyItemKey.fromFullKey(newItemKey);
+      this.variableRef = valueRef.toString();
+      return true;
+    }
+    return false;
   }
 }
 
@@ -204,6 +228,21 @@ export class ContextVariableExpression extends Expression {
       asType: this.asType,
       editorConfig: this.editorConfig
     }
+  }
+
+  updateItemKeyReferences(oldItemKey: string, newItemKey: string): boolean {
+    let updated = false;
+    if (this.key) {
+      updated = this.key.updateItemKeyReferences(oldItemKey, newItemKey) || updated;
+    }
+    if (this.arguments) {
+      for (const arg of this.arguments) {
+        if (arg) {
+          updated = arg.updateItemKeyReferences(oldItemKey, newItemKey) || updated;
+        }
+      }
+    }
+    return updated;
   }
 }
 
@@ -278,5 +317,15 @@ export class FunctionExpression extends Expression {
       arguments: this.arguments.map(arg => arg?.toJson()),
       editorConfig: this.editorConfig
     }
+  }
+
+  updateItemKeyReferences(oldItemKey: string, newItemKey: string): boolean {
+    let updated = false;
+    for (const arg of this.arguments) {
+      if (arg) {
+        updated = arg.updateItemKeyReferences(oldItemKey, newItemKey) || updated;
+      }
+    }
+    return updated;
   }
 }
