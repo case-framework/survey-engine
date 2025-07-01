@@ -146,6 +146,7 @@ export class SurveyEngineCore {
 
   updateContext(context: SurveyContext) {
     this.context = context;
+    this.locale = context.locale;
 
     // Re-render to update any locale-dependent expressions
     this.evalExpressions();
