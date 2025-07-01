@@ -196,8 +196,10 @@ export class SurveyTranslations {
    */
   onItemDeleted(fullItemKey: string): void {
     for (const locale of this.locales) {
-      if (this._translations?.[locale]?.[fullItemKey]) {
-        delete this._translations![locale][fullItemKey];
+      for (const key of Object.keys(this._translations?.[locale] || {})) {
+        if (key.startsWith(fullItemKey + '.') || key === fullItemKey) {
+          delete this._translations![locale][key];
+        }
       }
     }
   }

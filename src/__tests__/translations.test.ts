@@ -409,6 +409,76 @@ describe('SurveyTranslations', () => {
       expect(result!.en.item1).toBeUndefined();
     });
 
+    test('should delete all child item translations when group is deleted', () => {
+      // Create a new survey for this test with more complex structure
+      const testSurvey = new SurveyTranslations();
+      testSurvey.setSurveyCardContent(enLocale, mockSurveyCardContent);
+      testSurvey.setSurveyCardContent(deLocale, mockSurveyCardContent);
+
+      // Set up translations for a group and its nested items
+      const groupTranslations = new SurveyItemTranslations();
+      groupTranslations.setContent(enLocale, 'title', mockContent);
+      groupTranslations.setContent(deLocale, 'title', mockCQMContent);
+
+      const childItem1Translations = new SurveyItemTranslations();
+      childItem1Translations.setContent(enLocale, 'comp1.title', mockContent);
+      childItem1Translations.setContent(deLocale, 'comp1.title', mockCQMContent);
+
+      const childItem2Translations = new SurveyItemTranslations();
+      childItem2Translations.setContent(enLocale, 'comp2.description', mockContent);
+      childItem2Translations.setContent(deLocale, 'comp2.description', mockCQMContent);
+
+      const nestedGroupTranslations = new SurveyItemTranslations();
+      nestedGroupTranslations.setContent(enLocale, 'nested.title', mockContent);
+
+      const nestedChildTranslations = new SurveyItemTranslations();
+      nestedChildTranslations.setContent(enLocale, 'deep.comp.text', mockContent);
+
+      // Set up unrelated item that should not be affected
+      const unrelatedTranslations = new SurveyItemTranslations();
+      unrelatedTranslations.setContent(enLocale, 'unrelated.title', mockContent);
+      unrelatedTranslations.setContent(deLocale, 'unrelated.title', mockCQMContent);
+
+      // Add all translations to the survey
+      testSurvey.setItemTranslations('survey.group1', groupTranslations);
+      testSurvey.setItemTranslations('survey.group1.item1', childItem1Translations);
+      testSurvey.setItemTranslations('survey.group1.item2', childItem2Translations);
+      testSurvey.setItemTranslations('survey.group1.nestedGroup', nestedGroupTranslations);
+      testSurvey.setItemTranslations('survey.group1.nestedGroup.deepItem', nestedChildTranslations);
+      testSurvey.setItemTranslations('survey.group1unrelatedItem', unrelatedTranslations);
+
+      // Verify all translations exist before deletion
+      const beforeDeletion = testSurvey.toJson();
+      expect(beforeDeletion!.en['survey.group1']).toBeDefined();
+      expect(beforeDeletion!.en['survey.group1.item1']).toBeDefined();
+      expect(beforeDeletion!.en['survey.group1.item2']).toBeDefined();
+      expect(beforeDeletion!.en['survey.group1.nestedGroup']).toBeDefined();
+      expect(beforeDeletion!.en['survey.group1.nestedGroup.deepItem']).toBeDefined();
+      expect(beforeDeletion!.en['survey.group1unrelatedItem']).toBeDefined();
+
+      // Delete the group
+      testSurvey.onItemDeleted('survey.group1');
+
+      // Verify all group and child item translations are removed
+      const afterDeletion = testSurvey.toJson();
+      expect(afterDeletion!.en['survey.group1']).toBeUndefined();
+      expect(afterDeletion!.en['survey.group1.item1']).toBeUndefined();
+      expect(afterDeletion!.en['survey.group1.item2']).toBeUndefined();
+      expect(afterDeletion!.en['survey.group1.nestedGroup']).toBeUndefined();
+      expect(afterDeletion!.en['survey.group1.nestedGroup.deepItem']).toBeUndefined();
+
+      // Verify all locales are cleaned up
+      expect(afterDeletion!.de['survey.group1']).toBeUndefined();
+      expect(afterDeletion!.de['survey.group1.item1']).toBeUndefined();
+      expect(afterDeletion!.de['survey.group1.item2']).toBeUndefined();
+
+      // Verify unrelated item translations remain intact
+      expect(afterDeletion!.en['survey.group1unrelatedItem']).toBeDefined();
+      expect(afterDeletion!.de['survey.group1unrelatedItem']).toBeDefined();
+      expect(afterDeletion!.en['survey.group1unrelatedItem']).toEqual({ 'unrelated.title': mockContent });
+      expect(afterDeletion!.de['survey.group1unrelatedItem']).toEqual({ 'unrelated.title': mockCQMContent });
+    });
+
     test('should handle deletion of non-existent item', () => {
       surveyTranslations.onItemDeleted('nonexistent');
 
