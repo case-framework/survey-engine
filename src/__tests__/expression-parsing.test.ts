@@ -10,7 +10,8 @@ import {
   JsonResponseVariableExpression,
   JsonContextVariableExpression,
   JsonFunctionExpression,
-  FunctionExpressionNames
+  FunctionExpressionNames,
+  ContextVariableType
 } from '../expressions';
 import { ValueReference } from '../survey/utils/value-reference';
 
@@ -118,7 +119,8 @@ describe('Expression JSON Parsing', () => {
   describe('ContextVariableExpression', () => {
     test('should parse context variable expression', () => {
       const json: JsonContextVariableExpression = {
-        type: ExpressionType.ContextVariable
+        type: ExpressionType.ContextVariable,
+        contextType: ContextVariableType.Locale
       };
 
       const expression = Expression.fromJson(json);
@@ -266,7 +268,8 @@ describe('Expression JSON Parsing', () => {
 
     test('should parse context variable expression', () => {
       const json: JsonExpression = {
-        type: ExpressionType.ContextVariable
+        type: ExpressionType.ContextVariable,
+        contextType: ContextVariableType.Locale
       };
 
       const expression = Expression.fromJson(json);
@@ -321,7 +324,7 @@ describe('Response Variable Reference Extraction', () => {
 
   describe('ContextVariableExpression', () => {
     test('should return empty array for context variable expression', () => {
-      const expression = new ContextVariableExpression();
+      const expression = new ContextVariableExpression(ContextVariableType.Locale);
       expect(expression.responseVariableRefs).toEqual([]);
     });
   });

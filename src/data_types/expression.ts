@@ -2,6 +2,7 @@ export type SelectionMethodNames = 'sequential' | 'uniform' | 'highestPriority' 
 export type SurveyContextRuleNames = 'LAST_RESPONSES_BY_KEY' | 'ALL_RESPONSES_SINCE' | 'RESPONSES_SINCE_BY_KEY';
 export type SurveyPrefillRuleNames = 'GET_LAST_SURVEY_ITEM';
 
+// TODO: move to expression evaluator
 
 export type ClientSideSurveyExpName =
   // logic expression:

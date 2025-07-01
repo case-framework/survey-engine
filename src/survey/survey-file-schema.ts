@@ -1,10 +1,9 @@
-import { SurveyContextDef } from "../data_types/context";
 import { Expression } from "../data_types/expression";
 import { JsonSurveyItem } from "./items";
 import { JsonSurveyTranslations } from "./utils/translations";
 
 export const CURRENT_SURVEY_SCHEMA = 'https://github.com/case-framework/survey-engine/schemas/survey-schema.json';
-
+// TODO: generate schema from survey-engine.ts
 
 export interface SurveyVersion {
   id?: string;
@@ -20,7 +19,6 @@ type ItemKey = string;
 export type JsonSurvey = {
   $schema: string;
   prefillRules?: Expression[];
-  contextRules?: SurveyContextDef;
   maxItemsPerPage?: { large: number, small: number };
   availableFor?: string;
   requireLoginBeforeSubmission?: boolean;

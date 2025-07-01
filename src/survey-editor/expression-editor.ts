@@ -4,7 +4,7 @@
 // TODO: context variable expression editor
 // TODO: function expression editor
 
-import { Expression, FunctionExpression, ExpressionEditorConfig, FunctionExpressionNames, ConstExpression, ResponseVariableExpression } from "../expressions/expression";
+import { Expression, FunctionExpression, ExpressionEditorConfig, FunctionExpressionNames, ConstExpression, ResponseVariableExpression, ContextVariableType, ContextVariableExpression } from "../expressions/expression";
 import { ExpectedValueType, ValueReference } from "../survey";
 
 
@@ -224,6 +224,91 @@ export class ResponseVariableEditor extends ExpressionEditor {
 
   getExpression(): Expression | undefined {
     return new ResponseVariableExpression(this._variableName, this._editorConfig);
+  }
+}
+
+// ================================
+// CONTEXT VARIABLE EXPRESSION EDITOR CLASSES
+// ================================
+
+abstract class ContextVariableEditor extends ExpressionEditor {
+  private _contextType: ContextVariableType;
+  private _key?: ExpressionEditor;
+  private _args?: ExpressionEditor[];
+  private _asType?: ExpectedValueType;
+
+  constructor(contextType: ContextVariableType, key?: ExpressionEditor, args?: ExpressionEditor[], asType?: ExpectedValueType, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._contextType = contextType;
+    this._key = key;
+    this._args = args;
+    this._asType = asType;
+    this._editorConfig = editorConfig;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ContextVariableExpression(this._contextType, this._key?.getExpression(), this._args?.map(arg => arg.getExpression()), this._asType, this._editorConfig);
+  }
+}
+
+export class CtxLocaleEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.String;
+
+  constructor(editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.Locale, undefined, undefined, ExpectedValueType.String, editorConfig);
+  }
+}
+
+export class CtxPFlagIsDefinedEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.Boolean, editorConfig);
+  }
+}
+
+export class CtxPFlagStringEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.String;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.String, editorConfig);
+  }
+}
+
+export class CtxPFlagNumEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.Number, editorConfig);
+  }
+}
+
+export class CtxPFlagDateEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.Date;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.Date, editorConfig);
+  }
+}
+
+
+export class CtxCustomValueEditor extends ContextVariableEditor {
+
+  constructor(key: ExpressionEditor,
+    asType: ExpectedValueType,
+    editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.CustomValue, key, undefined, asType, editorConfig);
+    this.returnType = asType;
+  }
+}
+
+export class CtxCustomExpressionEditor extends ContextVariableEditor {
+  constructor(key: ExpressionEditor,
+    args: ExpressionEditor[],
+    asType: ExpectedValueType,
+    editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.CustomExpression, key, args, asType, editorConfig);
+    this.returnType = asType;
   }
 }
 

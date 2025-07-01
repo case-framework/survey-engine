@@ -1,8 +1,8 @@
 import { ExpressionEvaluator } from "../expressions";
 import { ConstExpression, Expression, ExpressionEditorConfig, ExpressionType, FunctionExpression, FunctionExpressionNames, ResponseVariableExpression } from "../expressions/expression";
-import { ExpectedValueType, ResponseItem, SurveyItemKey, SurveyItemResponse, SurveyItemType } from "../survey";
+import { ExpectedValueType, ResponseItem, SurveyItemKey, SurveyItemResponse, SurveyItemType, ValueType } from "../survey";
 import { ConstBooleanEditor, ConstDateArrayEditor, ConstDateEditor, ConstNumberArrayEditor, ConstNumberEditor, ConstStringArrayEditor, ConstStringEditor } from "../survey-editor/expression-editor";
-import { const_string, const_string_array, str_list_contains, response_string, const_number, const_boolean, in_range, sum, min, max } from "../survey-editor/expression-editor-generators";
+import { const_string, const_string_array, str_list_contains, response_string, const_number, const_boolean, in_range, sum, min, max, ctx_locale, ctx_pflag_is_defined, ctx_pflag_string, ctx_pflag_num, ctx_pflag_date, ctx_custom_value, ctx_custom_expression } from "../survey-editor/expression-editor-generators";
 
 describe('expression editor to expression', () => {
   describe('Expression Editors', () => {
@@ -503,7 +503,10 @@ describe('expression evaluator', () => {
 
   it('if the response is provided, but the question is not answered, the expression should be false', () => {
     const expEval = new ExpressionEvaluator({
-      responses: {}
+      responses: {},
+      surveyContext: {
+        locale: 'en'
+      }
     });
     expect(expEval.eval(expression)).toBeFalsy();
   });
@@ -515,6 +518,9 @@ describe('expression evaluator', () => {
           key: SurveyItemKey.fromFullKey('survey.question1'),
           itemType: SurveyItemType.SingleChoiceQuestion,
         }, new ResponseItem('option1'))
+      },
+      surveyContext: {
+        locale: 'en'
       }
     });
     expect(expEval.eval(expression)).toBeTruthy();
@@ -749,1679 +755,762 @@ describe('expression evaluator', () => {
 });
 
 
-
-/*
-
-TODO:
-import { add, getUnixTime } from 'date-fns';
-import { Expression, SurveyItemResponse, SurveySingleItem, SurveyContext, ExpressionArg, ExpressionArgDType, SurveyGroupItemResponse } from '../data_types';
-import { ExpressionEval } from '../expression-eval';
-
-test('testing undefined expression', () => {
-  const expEval = new ExpressionEval();
-  expect(expEval.eval(undefined)).toBeTruthy();
-  expect(expEval.eval({ name: undefined } as any)).toBeTruthy();
-})
-
-// ---------- LOGIC OPERATORS ----------------
-test('testing OR expression', () => {
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'or', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 0 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'or', data: [{ dtype: 'num', num: 0 }, { dtype: 'num', num: 1 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'or', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 1 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'or', data: [{ dtype: 'num', num: 0 }, { dtype: 'num', num: 0 }] })).toBeFalsy();
-});
-
-test('testing AND expression', () => {
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'and', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 0 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'and', data: [{ dtype: 'num', num: 0 }, { dtype: 'num', num: 1 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'and', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 1 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'and', data: [{ dtype: 'num', num: 0 }, { dtype: 'num', num: 0 }] })).toBeFalsy();
-});
-
-test('testing NOT expression', () => {
-  const trueExp: Expression = { name: 'and', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 1 }] }
-  const falseExp: Expression = { name: 'and', data: [{ dtype: 'num', num: 0 }, { dtype: 'num', num: 1 }] }
-
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'not', data: [{ dtype: 'exp', exp: trueExp }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'not', data: [{ dtype: 'exp', exp: falseExp }] })).toBeTruthy();
-});
-
-
-// ---------- COMPARISONS ----------------
-test('testing EQ expression', () => {
-  const expEval = new ExpressionEval();
-  // numbers
-  expect(expEval.eval({ name: 'eq', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 0 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'eq', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 1 }] })).toBeTruthy();
-
-  // strings
-  expect(expEval.eval({ name: 'eq', data: [{ dtype: 'str', str: "test1" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'eq', data: [{ str: "test1" }, { str: "test1" }] })).toBeTruthy();
-})
-
-test('testing LT expression', () => {
-  const expEval = new ExpressionEval();
-  // numbers
-  expect(expEval.eval({ name: 'lt', data: [{ dtype: 'num', num: 3 }, { dtype: 'num', num: 2 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'lt', data: [{ dtype: 'num', num: 2 }, { dtype: 'num', num: 2 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'lt', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 2 }] })).toBeTruthy();
-
-  // strings
-  expect(expEval.eval({ name: 'lt', data: [{ dtype: 'str', str: "test3" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'lt', data: [{ dtype: 'str', str: "test2" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'lt', data: [{ dtype: 'str', str: "test1" }, { dtype: 'str', str: "test2" }] })).toBeTruthy();
-})
-
-test('testing LTE expression', () => {
-  const expEval = new ExpressionEval();
-  // numbers
-  expect(expEval.eval({ name: 'lte', data: [{ dtype: 'num', num: 3 }, { dtype: 'num', num: 2 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'lte', data: [{ dtype: 'num', num: 2 }, { dtype: 'num', num: 2 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'lte', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 2 }] })).toBeTruthy();
-
-  // strings
-  expect(expEval.eval({ name: 'lte', data: [{ dtype: 'str', str: "test3" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'lte', data: [{ dtype: 'str', str: "test2" }, { dtype: 'str', str: "test2" }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'lte', data: [{ dtype: 'str', str: "test1" }, { dtype: 'str', str: "test2" }] })).toBeTruthy();
-})
-
-test('testing GT expression', () => {
-  const expEval = new ExpressionEval();
-  // numbers
-  expect(expEval.eval({ name: 'gt', data: [{ dtype: 'num', num: 3 }, { dtype: 'num', num: 2 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'gt', data: [{ dtype: 'num', num: 2 }, { dtype: 'num', num: 2 }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'gt', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 2 }] })).toBeFalsy();
-
-  // strings
-  expect(expEval.eval({ name: 'gt', data: [{ dtype: 'str', str: "test3" }, { dtype: 'str', str: "test2" }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'gt', data: [{ dtype: 'str', str: "test2" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-  expect(expEval.eval({ name: 'gt', data: [{ dtype: 'str', str: "test1" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-})
-
-test('testing GTE expression', () => {
-  const expEval = new ExpressionEval();
-  // numbers
-  expect(expEval.eval({ name: 'gte', data: [{ dtype: 'num', num: 3 }, { dtype: 'num', num: 2 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'gte', data: [{ dtype: 'num', num: 2 }, { dtype: 'num', num: 2 }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'gte', data: [{ dtype: 'num', num: 1 }, { dtype: 'num', num: 2 }] })).toBeFalsy();
-
-  // strings
-  expect(expEval.eval({ name: 'gte', data: [{ dtype: 'str', str: "test3" }, { dtype: 'str', str: "test2" }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'gte', data: [{ dtype: 'str', str: "test2" }, { dtype: 'str', str: "test2" }] })).toBeTruthy();
-  expect(expEval.eval({ name: 'gte', data: [{ dtype: 'str', str: "test1" }, { dtype: 'str', str: "test2" }] })).toBeFalsy();
-})
-
-test('testing expression: isDefined', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
+describe('Context Expression Evaluation', () => {
+  describe('ctx_locale', () => {
+    it('should return correct locale value', () => {
+      const editor = ctx_locale();
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en-US'
         }
-      }
-    ]
-  }
+      });
 
+      expect(expEval.eval(expression)).toBe('en-US');
+    });
 
-  expect(expEval.eval({
-    name: 'isDefined', data: [
-      {
-        dtype: 'exp', exp: {
-          name: 'getObjByHierarchicalKey',
-          data: [
-            { dtype: 'exp', exp: { name: 'getResponses' } },
-            { dtype: 'str', str: 'TS.I1' }
-          ]
+    it('should return correct locale for different locale', () => {
+      const editor = ctx_locale();
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'de-DE'
         }
-      }
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeTruthy();
+      });
 
-  expect(expEval.eval({
-    name: 'isDefined', data: [
-      {
-        dtype: 'exp', exp: {
-          name: 'getObjByHierarchicalKey',
-          data: [
-            { dtype: 'exp', exp: { name: 'getResponses' } },
-            { dtype: 'str', str: 'TS.IWRONG' }
-          ]
+      expect(expEval.eval(expression)).toBe('de-DE');
+    });
+
+    it('should return undefined when no survey context', () => {
+      const editor = ctx_locale();
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator();
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+  });
+
+  describe('ctx_pflag_is_defined', () => {
+    it('should return false when no flags are defined', () => {
+      const editor = ctx_pflag_is_defined(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en'
         }
-      }
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeFalsy();
-})
+      });
 
+      expect(expEval.eval(expression)).toBe(false);
+    });
 
-test('testing expression: parseValueAsNum', () => {
-  const expEval = new ExpressionEval();
-
-  expect(expEval.eval({
-    name: 'parseValueAsNum', data: [
-      {
-        dtype: 'exp', exp: {
-          name: "getAttribute",
-          data: [
-            {
-              dtype: 'exp', exp: {
-                name: "getAttribute",
-                data: [
-                  { dtype: 'exp', exp: { name: 'getContext' } },
-                  { dtype: 'str', str: 'participantFlags' }
-                ],
-              }
-            },
-            { dtype: 'str', str: 'test' }
-          ]
+    it('should return false when participantFlags is undefined', () => {
+      const editor = ctx_pflag_is_defined(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: undefined
         }
-      },
-    ]
-  }, undefined, {
-    participantFlags: {
-      test: '2'
-    }
-  }, undefined)).toEqual(2);
+      });
 
-  expect(expEval.eval({
-    name: 'parseValueAsNum', data: [
-      {
-        dtype: 'exp', exp: {
-          name: "getAttribute",
-          data: [
-            {
-              dtype: 'exp', exp: {
-                name: "getAttribute",
-                data: [
-                  { dtype: 'exp', exp: { name: 'getContext' } },
-                  { dtype: 'str', str: 'participantFlags' }
-                ],
-              }
-            },
-            { dtype: 'str', str: 'wrong' }
-          ]
-        }
-      },
-    ]
-  }, undefined, {
-    participantFlags: {
-      test: '2'
-    }
-  }, undefined)).toBeUndefined();
+      expect(expEval.eval(expression)).toBe(false);
+    });
 
-});
-
-test('testing expression: getResponseValueAsNum', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          items: [
-            { key: 'V1', value: 'not a number' },
-            { key: 'V2', value: '123.23' },
-            { key: 'V3' }
-          ]
-        }
-      }
-    ]
-  }
-
-
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsNum', data: [
-      { dtype: 'str', str: 'TS.wrong' },
-      { dtype: 'str', str: 'R1.V2' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsNum', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.Vwrong' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsNum', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.V3' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsNum', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.V1' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeNaN();
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsNum', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.V2' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toEqual(123.23);
-});
-
-test('testing expression: getResponseValueAsStr', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          items: [
-            { key: 'V1' },
-            { key: 'V2', value: 'something' }
-          ]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsStr', data: [
-      { dtype: 'str', str: 'TS.wrong' },
-      { dtype: 'str', str: 'R1.V2' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsStr', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.Vwrong' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsStr', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.V1' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-
-  expect(expEval.eval({
-    name: 'getResponseValueAsStr', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1.V2' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toEqual("something");
-});
-
-
-test('testing expression: regexp', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.I1',
-        response: {
-          key: 'R1',
-        }
-      },
-      {
-        key: 'TS.I2',
-        response: {
-          key: 'R1',
-          value: 'test'
-        }
-      }
-    ]
-  }
-
-  const regex1Exp: Expression = {
-    name: 'checkResponseValueWithRegex', data: [
-      { dtype: 'str', str: 'TS.I1' },
-      { dtype: 'str', str: 'R1' },
-      { dtype: 'str', str: '.*\\S.*' },
-    ]
-  };
-
-  const regex2Exp: Expression = {
-    name: 'checkResponseValueWithRegex', data: [
-      { dtype: 'str', str: 'TS.I2' },
-      { dtype: 'str', str: 'R1' },
-      { dtype: 'str', str: '.*\\S.*' },
-    ]
-  };
-
-  const regex3Exp: Expression = {
-    name: 'checkResponseValueWithRegex', data: [
-      { dtype: 'str', str: 'TS.I2' },
-      { dtype: 'str', str: 'R1' },
-      { dtype: 'str', str: '\\d' },
-    ]
-  };
-
-
-  expect(expEval.eval(regex1Exp, undefined, undefined, testSurveyResponses)).toBeFalsy();
-  expect(expEval.eval(regex2Exp, undefined, undefined, testSurveyResponses)).toBeTruthy();
-  expect(expEval.eval(regex3Exp, undefined, undefined, testSurveyResponses)).toBeFalsy();
-})
-
-test('testing expression: timestampWithOffset', () => {
-  const expEval = new ExpressionEval();
-
-  const withWrongType: Expression = {
-    name: 'timestampWithOffset', data: [
-      { dtype: 'str', str: 'TS.I2' },
-      { dtype: 'str', str: 'R1' },
-    ]
-  };
-
-  const withMissingArgs: Expression = {
-    name: 'timestampWithOffset',
-  };
-
-  const withTooManyArgs: Expression = {
-    name: 'timestampWithOffset',
-    data: [
-      { dtype: 'num', num: 22432 },
-      { dtype: 'num', num: 342345342 },
-      { dtype: 'num', num: 342345342 },
-    ]
-  };
-
-  const withNowAsReference: Expression = {
-    name: 'timestampWithOffset',
-    data: [
-      { dtype: 'num', num: -1000 },
-    ]
-  };
-
-  const withAbsoluteReference: Expression = {
-    name: 'timestampWithOffset',
-    data: [
-      { dtype: 'num', num: -1000 },
-      { dtype: 'num', num: 2000 },
-    ]
-  };
-
-  expect(expEval.eval(withWrongType, undefined, undefined, undefined)).toBeUndefined();
-  expect(expEval.eval(withMissingArgs, undefined, undefined, undefined)).toBeUndefined();
-  expect(expEval.eval(withTooManyArgs, undefined, undefined, undefined)).toBeUndefined();
-  expect(expEval.eval(withNowAsReference, undefined, undefined, undefined)).toBeLessThan(Date.now() - 900);
-  expect(expEval.eval(withAbsoluteReference, undefined, undefined, undefined)).toEqual(1000);
-
-})
-
-test('testing expression: countResponseItems', () => {
-  const expEval = new ExpressionEval();
-
-  const withWrongType: Expression = {
-    name: 'countResponseItems', data: [
-      { dtype: 'str', str: 'TS.I2' },
-      { dtype: 'num', num: 2 },
-    ]
-  };
-
-  const withMissingArgs: Expression = {
-    name: 'countResponseItems',
-  };
-
-  const withTooManyArgs: Expression = {
-    name: 'countResponseItems',
-    data: [
-      { dtype: 'str', str: 'TS.I2' },
-      { dtype: 'str', str: 'rg.mcg' },
-      { dtype: 'str', str: 'rg.mcg' },
-    ]
-  };
-
-  const withCorrectExp: Expression = {
-    name: 'countResponseItems',
-    data: [
-      { dtype: 'str', str: 'TS.I2' },
-      { dtype: 'str', str: 'rg.mcg' },
-    ]
-  };
-
-  expect(expEval.eval(withWrongType, undefined, undefined, undefined)).toEqual(-1);
-  expect(expEval.eval(withMissingArgs, undefined, undefined, undefined)).toEqual(-1);
-  expect(expEval.eval(withTooManyArgs, undefined, undefined, undefined)).toEqual(-1);
-
-  // missing info
-  expect(expEval.eval(withCorrectExp, undefined, undefined, undefined)).toEqual(-1);
-
-
-  // missing question
-  expect(expEval.eval(withCorrectExp, undefined, undefined, {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.other',
-        response: {
-          key: 'rg',
-          items: [{ key: 'mcg', items: [] }]
-        }
-      }
-    ]
-  })).toEqual(-1);
-
-  // missing response group
-  expect(expEval.eval(withCorrectExp, undefined, undefined, {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.I2',
-        response: {
-          key: 'rg',
-          items: [{ key: 'scg', items: [] }]
-        }
-      }
-    ]
-  })).toEqual(-1);
-
-  // zero item
-  expect(expEval.eval(withCorrectExp, undefined, undefined, {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.I2',
-        response: {
-          key: 'rg',
-          items: [{ key: 'mcg', items: [] }]
-        }
-      }
-    ]
-  })).toEqual(0);
-
-  // with items
-  expect(expEval.eval(withCorrectExp, undefined, undefined, {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.I2',
-        response: {
-          key: 'rg',
-          items: [{ key: 'mcg', items: [{ key: '1' }] }]
-        }
-      }
-    ]
-  })).toEqual(1);
-  expect(expEval.eval(withCorrectExp, undefined, undefined, {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.I2',
-        response: {
-          key: 'rg',
-          items: [{ key: 'mcg', items: [{ key: '1' }, { key: '2' }, { key: '3' }] }]
-        }
-      }
-    ]
-  })).toEqual(3);
-
-  // combined exp:
-  const combExp: Expression = {
-    name: 'gt',
-    data: [
-      { dtype: 'exp', exp: withCorrectExp },
-      { dtype: 'num', num: 2 },
-    ]
-  }
-  expect(expEval.eval(combExp, undefined, undefined, {
-    key: 'TS',
-    items: [
-      {
-        key: 'TS.I2',
-        response: {
-          key: 'rg',
-          items: [{ key: 'mcg', items: [{ key: '1' }, { key: '2' }, { key: '3' }] }]
-        }
-      }
-    ]
-  })).toBeTruthy();
-})
-
-// ---------- ROOT REFERENCES ----------------
-test('testing expression: getContext', () => {
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'getContext' })).toBeUndefined();
-
-  const testContext = {
-    mode: 'test',
-    participantFlags: {
-      prev: "1",
-    }
-  };
-  expect(expEval.eval({ name: 'getContext' }, undefined, testContext)).toBeDefined();
-
-  expect(expEval.eval(
-    {
-      name: 'eq', data: [
-        {
-          dtype: 'exp', exp: {
-            name: "getAttribute",
-            data: [
-              {
-                dtype: 'exp', exp: {
-                  name: "getAttribute",
-                  data: [
-                    { dtype: 'exp', exp: { name: 'getContext' } },
-                    { dtype: 'str', str: 'participantFlags' }
-                  ],
-                }
-              },
-              { dtype: 'str', str: 'prev' }
-            ]
+    it('should return false when flag key does not exist', () => {
+      const editor = ctx_pflag_is_defined(const_string('nonexistent'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'existing': 'value'
           }
-        },
-        { dtype: 'str', str: '1' }
-      ]
-    }
-    , undefined, testContext
-  )).toBeTruthy();
-})
-
-test('testing expression: getResponses', () => {
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'getResponses' })).toBeUndefined();
-  expect(expEval.eval({ name: 'getResponses' }, undefined, undefined, {
-    key: 'test',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: []
-  })).toBeDefined();
-})
-
-test('testing expression: getRenderedItems', () => {
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'getRenderedItems' })).toBeUndefined();
-  expect(expEval.eval({ name: 'getRenderedItems' }, {
-    key: 'test',
-    items: []
-  })).toBeDefined();
-})
-
-// ---------- WORKING WITH OBJECT/ARRAYS ----------------
-test('testing expression: getAttribute', () => {
-  const expEval = new ExpressionEval();
-
-  expect(expEval.eval(
-    {
-      name: 'getAttribute',
-      returnType: 'float',
-      data: [
-        { dtype: 'exp', exp: { name: 'getContext' } },
-        { dtype: 'str', str: 'profile' }
-      ]
-    }
-    , undefined, {
-    mode: 'test',
-    profile: 1.453,
-  })).toEqual(1.453);
-
-  expect(expEval.eval(
-    {
-      name: 'getAttribute',
-      returnType: 'float',
-      data: [
-        { dtype: 'exp', exp: { name: 'getContext' } },
-        { dtype: 'str', str: 'notexisting' }
-      ]
-    }
-    , undefined, {
-    mode: 'test',
-    profile: 1,
-  })).toBeUndefined();
-})
-
-test('testing expression: getArrayItemAtIndex', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          value: 'testvalue'
         }
-      },
-      {
-        key: 'TS.I2',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          value: 'testvalue2'
+      });
+
+      expect(expEval.eval(expression)).toBe(false);
+    });
+
+    it('should return true when flag exists', () => {
+      const editor = ctx_pflag_is_defined(const_string('existing'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'existing': 'value'
+          }
         }
-      }
-    ]
-  }
+      });
 
-  expect(expEval.eval(
-    {
-      name: 'getArrayItemAtIndex',
-      data: [
-        {
-          dtype: 'exp', exp: {
-            name: 'getAttribute', data: [
-              { dtype: 'exp', exp: { name: 'getResponses' } },
-              { dtype: 'str', str: 'items' }
-            ]
+      expect(expEval.eval(expression)).toBe(true);
+    });
+
+    it('should return undefined when key is not a string', () => {
+      const editor = ctx_pflag_is_defined(const_number(123));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'existing': 'value'
           }
-        },
-        { dtype: 'num', num: 0 }
-      ]
-    }, undefined, undefined, testSurveyResponses).response.value).toEqual('testvalue');
-
-  expect(expEval.eval(
-    {
-      name: 'getArrayItemAtIndex',
-      data: [
-        {
-          dtype: 'exp', exp: {
-            name: 'getAttribute', data: [
-              { dtype: 'exp', exp: { name: 'getResponses' } },
-              { dtype: 'str', str: 'items' }
-            ]
-          }
-        },
-        { dtype: 'num', num: 1 }
-      ]
-    }, undefined, undefined, testSurveyResponses).response.value).toEqual('testvalue2');
-
-  expect(expEval.eval(
-    {
-      name: 'getArrayItemAtIndex',
-      data: [
-        {
-          dtype: 'exp', exp: {
-            name: 'getAttribute', data: [
-              { dtype: 'exp', exp: { name: 'getResponses' } },
-              { dtype: 'str', str: 'items' }
-            ]
-          }
-        },
-        { dtype: 'num', num: 2 }
-      ]
-    }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-})
-
-test('testing expression: getArrayItemByKey', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          value: 'testvalue'
         }
-      },
-      {
-        key: 'TS.I2',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          value: 'testvalue2'
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+  });
+
+  describe('ctx_pflag_string', () => {
+    it('should return undefined when no flags are defined', () => {
+      const editor = ctx_pflag_string(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en'
         }
-      }
-    ]
-  }
+      });
 
-  expect(expEval.eval(
-    {
-      name: 'getArrayItemByKey',
-      data: [
-        {
-          dtype: 'exp', exp: {
-            name: 'getAttribute', data: [
-              { dtype: 'exp', exp: { name: 'getResponses' } },
-              { dtype: 'str', str: 'items' }
-            ]
-          }
-        },
-        { dtype: 'str', str: 'TS.I1' }]
-    }, undefined, undefined, testSurveyResponses).response.value).toEqual('testvalue');
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
 
-  expect(expEval.eval(
-    {
-      name: 'getArrayItemByKey',
-      data: [
-        {
-          dtype: 'exp', exp: {
-            name: 'getAttribute', data: [
-              { dtype: 'exp', exp: { name: 'getResponses' } },
-              { dtype: 'str', str: 'items' }
-            ]
-          }
-        },
-        { dtype: 'str', str: 'TS.I2' }]
-    }, undefined, undefined, testSurveyResponses).response.value).toEqual('testvalue2');
-
-  expect(expEval.eval(
-    {
-      name: 'getArrayItemByKey',
-      data: [
-        {
-          dtype: 'exp', exp: {
-            name: 'getAttribute', data: [
-              { dtype: 'exp', exp: { name: 'getResponses' } },
-              { dtype: 'str', str: 'items' }
-            ]
-          }
-        },
-        { dtype: 'str', str: 'TS.IWRONG' }]
-    }, undefined, undefined, testSurveyResponses)).toBeNull();
-})
-
-test('testing expression: getObjByHierarchicalKey', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          value: 'testvalue'
+    it('should return undefined when participantFlags is undefined', () => {
+      const editor = ctx_pflag_string(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: undefined
         }
-      }
-    ]
-  }
+      });
 
-  // Using survey item responses
-  expect(expEval.eval(
-    {
-      name: 'getObjByHierarchicalKey',
-      data: [
-        { dtype: 'exp', exp: { name: 'getResponses' } },
-        { dtype: 'str', str: 'TS.I1' }]
-    }, undefined, undefined, testSurveyResponses).response.value).toEqual('testvalue');
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
 
-  expect(expEval.eval({
-    name: 'getObjByHierarchicalKey',
-    data: [
-      { dtype: 'exp', exp: { name: 'getResponses' } },
-      { dtype: 'str', str: 'TS.IWRONG' }
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeNull();
-})
-
-test('testing expression: getResponseItem', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'RG1',
-          items: [
-            { key: 'R1', value: 'testvalue' }
-          ]
+    it('should return undefined when flag key does not exist', () => {
+      const editor = ctx_pflag_string(const_string('nonexistent'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'existing': 'value'
+          }
         }
-      }
-    ]
-  }
+      });
 
-  expect(expEval.eval({
-    name: 'getResponseItem',
-    data: [
-      { str: 'TS.I1' },
-      { str: 'RG1.R1' }
-    ]
-  }, undefined, undefined, testSurveyResponses).value).toEqual('testvalue');
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
 
-  expect(expEval.eval({
-    name: 'getResponseItem',
-    data: [
-      { str: 'TS.I1' },
-      { str: 'RG1' }
-    ]
-  }, undefined, undefined, testSurveyResponses).items).toHaveLength(1);
+    it('should return string value when flag exists', () => {
+      const editor = ctx_pflag_string(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': 'hello world'
+          }
+        }
+      });
 
-  expect(expEval.eval({
-    name: 'getResponseItem',
-    data: [
-      { str: 'TS.I1' },
-      { str: 'SOMETHING' }
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeUndefined();
-})
+      expect(expEval.eval(expression)).toBe('hello world');
+    });
 
-test('testing expression: getSurveyItemValidation', () => {
-  const expEval = new ExpressionEval();
-  const testRenderedSurveyItem: SurveySingleItem = {
-    key: 'TS',
-    type: 'test',
-    components: {
-      role: 'root',
-      items: []
-    },
-    validations: [
-      {
-        key: 'v1',
-        type: 'hard',
-        rule: true
-      },
-      {
-        key: 'v2',
-        type: 'hard',
-        rule: false
-      }
-    ]
-  }
+    it('should return empty string when flag value is empty', () => {
+      const editor = ctx_pflag_string(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': ''
+          }
+        }
+      });
 
-  expect(expEval.eval({
-    name: 'getSurveyItemValidation',
-    data: [
-      { str: 'this' },
-      { str: 'v1' }
-    ]
-  }, undefined, undefined, undefined, testRenderedSurveyItem)).toBeTruthy();
+      expect(expEval.eval(expression)).toBe('');
+    });
 
-  expect(expEval.eval({
-    name: 'getSurveyItemValidation',
-    data: [
-      { str: 'this' },
-      { str: 'v2' }
-    ]
-  }, undefined, undefined, undefined, testRenderedSurveyItem)).toBeFalsy();
+    it('should return numeric string as string', () => {
+      const editor = ctx_pflag_string(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': '123.45'
+          }
+        }
+      });
 
-  expect(expEval.eval({
-    name: 'getSurveyItemValidation',
-    data: [
-      { str: 'this' },
-      { str: 'v3' }
-    ]
-  }, undefined, undefined, undefined, testRenderedSurveyItem)).toBeTruthy();
-})
+      expect(expEval.eval(expression)).toBe('123.45');
+    });
 
-// ---------- QUERY METHODS ----------------
-test('testing expression: findPreviousSurveyResponsesByKey', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      { key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [] },
-      { key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [] }
-    ]
-  }
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'findPreviousSurveyResponsesByKey', data: [{ str: 'weekly' }] })).toHaveLength(0);
-  expect(expEval.eval({ name: 'findPreviousSurveyResponsesByKey', data: [{ str: 'weekly' }] }, undefined, context)).toHaveLength(2);
-})
+    it('should handle special characters in flag value', () => {
+      const editor = ctx_pflag_string(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': 'value with spaces & symbols!'
+          }
+        }
+      });
 
-test('testing expression: getLastFromSurveyResponses', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      { key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [] },
-      { key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [] }
-    ]
-  }
+      expect(expEval.eval(expression)).toBe('value with spaces & symbols!');
+    });
 
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'getLastFromSurveyResponses', data: [{ str: 'weekly' }] })).toBeUndefined();
-  expect(expEval.eval({ name: 'getLastFromSurveyResponses', data: [{ str: 'weekly' }] }, undefined, context).participantId).toEqual('test');
-})
+    it('should return undefined when key is not a string', () => {
+      const editor = ctx_pflag_string(const_number(123));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'existing': 'value'
+          }
+        }
+      });
 
-test('testing expression: getPreviousResponses', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test1' } },
-          { key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test2' } }
-        ]
-      },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test3' } },
-          { key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test4' } }
-        ]
-      }
-    ]
-  }
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+  });
 
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({ name: 'getPreviousResponses', data: [{ str: 'weekly.q1' }] })).toHaveLength(0);
-  expect(expEval.eval({ name: 'getPreviousResponses', data: [{ str: 'weekly.q1' }] }, undefined, context)).toHaveLength(2);
-})
+  describe('ctx_pflag_num', () => {
+    it('should return undefined when no flags are defined', () => {
+      const editor = ctx_pflag_num(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en'
+        }
+      });
 
-test('testing expression: filterResponsesByIncludesKeys', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test1' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1', items: [{ key: '1' }] }
-              ]
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when participantFlags is undefined', () => {
+      const editor = ctx_pflag_num(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: undefined
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when flag contains non-number string', () => {
+      const editor = ctx_pflag_num(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': 'not-a-number'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return number when flag contains valid number string', () => {
+      const editor = ctx_pflag_num(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': '42.5'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(42.5);
+    });
+
+    it('should handle negative numbers', () => {
+      const editor = ctx_pflag_num(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': '-123.45'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(-123.45);
+    });
+
+    it('should handle zero', () => {
+      const editor = ctx_pflag_num(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': '0'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(0);
+    });
+  });
+
+  describe('ctx_pflag_date', () => {
+    it('should return undefined when no flags are defined', () => {
+      const editor = ctx_pflag_date(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en'
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when participantFlags is undefined', () => {
+      const editor = ctx_pflag_date(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: undefined
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when flag contains non-number string', () => {
+      const editor = ctx_pflag_date(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': 'not-a-timestamp'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return Date when flag contains valid posix timestamp', () => {
+      const editor = ctx_pflag_date(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const expectedDate = new Date('2023-01-01T00:00:00Z');
+      const posixTimestamp = Math.floor(expectedDate.getTime() / 1000);
+
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': posixTimestamp.toString()
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toEqual(expectedDate);
+    });
+
+    it('should handle decimal timestamps', () => {
+      const editor = ctx_pflag_date(const_string('test'));
+      const expression = editor.getExpression() as Expression;
+      const posixTimestamp = 1672531200.5; // 2023-01-01T00:00:00.5Z
+
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          participantFlags: {
+            'test': posixTimestamp.toString()
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toEqual(new Date(posixTimestamp * 1000));
+    });
+  });
+
+  describe('ctx_custom_value', () => {
+    it('should return undefined when customValues is empty', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en'
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when customValues is undefined', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: undefined
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when key not found', () => {
+      const editor = ctx_custom_value(const_string('nonexistent'), ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'existing': 'value'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return value when key exists and type matches', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'test': 'hello world'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe('hello world');
+    });
+
+    it('should return undefined when value type does not match expected type', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.Number);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'test': 'string value'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should handle number values correctly', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.Number);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'test': 42.5
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(42.5);
+    });
+
+    it('should handle boolean values correctly', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.Boolean);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'test': true
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(true);
+    });
+
+    it('should handle date values correctly', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.Date);
+      const expression = editor.getExpression() as Expression;
+      const testDate = new Date('2023-01-01');
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'test': testDate
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(testDate);
+    });
+
+    it('should handle string array values correctly', () => {
+      const editor = ctx_custom_value(const_string('test'), ExpectedValueType.StringArray);
+      const expression = editor.getExpression() as Expression;
+      const testArray = ['hello', 'world'];
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customValues: {
+            'test': testArray
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toEqual(testArray);
+    });
+  });
+
+  describe('ctx_custom_expression', () => {
+    it('should return undefined when customExpressions is empty', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en'
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when customExpressions is undefined', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: undefined
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when expression key not found', () => {
+      const editor = ctx_custom_expression(const_string('nonexistent'), [], ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'existing': () => 'result'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should return undefined when expression key exists but is not a function', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            'test': 'not a function' as any
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should execute custom expression and return correct result', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => 'hello world'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe('hello world');
+    });
+
+    it('should pass arguments to custom expression', () => {
+      const editor = ctx_custom_expression(
+        const_string('test'),
+        [const_string('arg1'), const_number(42)],
+        ExpectedValueType.String
+      );
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': (args) => {
+              // Custom expressions receive Expression arguments, not evaluated values
+              expect(args).toHaveLength(2);
+              return 'executed';
             }
           }
-        ]
-      },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test3' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1', items: [{ key: '1' }, { key: '2' }] }
-              ]
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe('executed');
+    });
+
+    it('should return undefined when result type does not match expected type', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.Number);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => 'string result'
+          }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
+
+    it('should handle custom expression that throws error', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.String);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => {
+              throw new Error('Custom expression error');
             }
           }
-        ]
-      }
-    ]
-  }
+        }
+      });
 
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({
-    name: 'filterResponsesByIncludesKeys', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: '2' },
-    ]
-  })).toHaveLength(0);
+      expect(expEval.eval(expression)).toBeUndefined();
+    });
 
-  expect(expEval.eval({
-    name: 'filterResponsesByIncludesKeys', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: '2' },
-    ]
-  }, undefined, context)).toHaveLength(1);
-
-  expect(expEval.eval({
-    name: 'filterResponsesByIncludesKeys', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: '1' },
-      { str: '2' },
-    ]
-  }, undefined, context)).toHaveLength(1);
-
-  expect(expEval.eval({
-    name: 'filterResponsesByIncludesKeys', data: [
-      { exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: '3' },
-    ]
-  }, undefined, context)).toHaveLength(0);
-})
-
-test('testing expression: filterResponsesByValue', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test1' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1', value: 'test1' }
-              ]
-            }
+    it('should handle number return type correctly', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.Number);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => 42.5
           }
-        ]
-      },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test3' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1', value: 'test2' }
-              ]
-            }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(42.5);
+    });
+
+    it('should handle boolean return type correctly', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.Boolean);
+      const expression = editor.getExpression() as Expression;
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => true
           }
-        ]
-      }
-    ]
-  }
+        }
+      });
 
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({
-    name: 'filterResponsesByValue', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: 'test1' },
-    ]
-  })).toHaveLength(0);
+      expect(expEval.eval(expression)).toBe(true);
+    });
 
-  expect(expEval.eval({
-    name: 'filterResponsesByValue', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: 'test1' },
-    ]
-  }, undefined, context)).toHaveLength(1);
-
-  expect(expEval.eval({
-    name: 'filterResponsesByValue', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: 'test2' },
-    ]
-  }, undefined, context)).toHaveLength(1);
-
-  expect(expEval.eval({
-    name: 'filterResponsesByValue', data: [
-      { exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-      { str: '1.1' },
-      { str: 'test3' },
-    ]
-  }, undefined, context)).toHaveLength(0);
-})
-
-
-test('testing expression: getLastFromSurveyItemResponses', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test1' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1', value: 'test1' }
-              ]
-            }
+    it('should handle date return type correctly', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.Date);
+      const expression = editor.getExpression() as Expression;
+      const testDate = new Date('2023-01-01');
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => testDate
           }
-        ]
-      },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [20], displayed: [10] }, response: { key: '1', value: 'test3' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [20], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1', value: 'test2' }
-              ]
-            }
+        }
+      });
+
+      expect(expEval.eval(expression)).toBe(testDate);
+    });
+
+    it('should handle array return types correctly', () => {
+      const editor = ctx_custom_expression(const_string('test'), [], ExpectedValueType.StringArray);
+      const expression = editor.getExpression() as Expression;
+      const testArray = ['hello', 'world'];
+      const expEval = new ExpressionEvaluator({
+        responses: {},
+        surveyContext: {
+          locale: 'en',
+          customExpressions: {
+            'test': () => testArray
           }
-        ]
-      }
-    ]
-  }
-
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({
-    name: 'getLastFromSurveyItemResponses', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } }
-    ]
-  })).toBeUndefined();
-
-  expect(expEval.eval({
-    name: 'getLastFromSurveyItemResponses', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } },
-    ]
-  }, undefined, context).response.items[0].value).toEqual('test2');
-})
-
-test('testing expression: getSecondsSince', () => {
-  const context: SurveyContext = {
-    previousResponses: [
-      { key: 'intake', versionId: 'wfdojsdfpo', submittedAt: 1000000, participantId: 'test', responses: [] },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1200000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: { key: '1', value: 'test1' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [10], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1.1', value: 'test1' }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        key: 'weekly', versionId: 'wfdojsdfpo', submittedAt: 1300000, participantId: 'test', responses: [
-          { key: 'weekly.q1', meta: { position: 0, rendered: [10], responded: [20], displayed: [10] }, response: { key: '1', value: 'test3' } },
-          {
-            key: 'weekly.q2', meta: { position: 0, rendered: [10], responded: [Date.now() / 1000 - 100], displayed: [10] }, response: {
-              key: '1', items: [
-                { key: '1.1', value: 'test2' }
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  }
-
-  const expEval = new ExpressionEval();
-  expect(expEval.eval({
-    name: 'getSecondsSince', data: [
-      { dtype: 'num', num: Date.now() / 1000 - 10 }
-    ]
-  })).toBeGreaterThanOrEqual(10);
-  expect(expEval.eval({
-    name: 'getSecondsSince', data: [
-      { dtype: 'num', num: Date.now() / 1000 - 10 }
-    ]
-  })).toBeLessThan(30);
-
-
-  // result is not a number
-  expect(expEval.eval({
-    name: 'getSecondsSince', data: [
-      { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } }
-    ]
-  })).toBeUndefined();
-
-  const getLastResp: ExpressionArg = {
-    dtype: 'exp', exp: {
-      name: 'getLastFromSurveyItemResponses', data: [
-        { dtype: 'exp', exp: { name: 'getPreviousResponses', data: [{ str: 'weekly.q2' }] } }
-      ]
-    }
-  };
-
-  const getMeta: ExpressionArg = {
-    dtype: 'exp', exp: {
-      name: 'getAttribute', data: [
-        getLastResp,
-        { str: 'meta' }
-      ]
-    }
-  };
-
-  const getResponded: ExpressionArg = {
-    dtype: 'exp', exp: {
-      name: 'getAttribute', data: [
-        getMeta,
-        { str: 'responded' }
-      ]
-    }
-  };
-
-  const expRes = expEval.eval({
-    name: 'getSecondsSince', data: [
-      {
-        dtype: 'exp', exp: {
-          name: 'getArrayItemAtIndex', data: [
-            getResponded,
-            { dtype: 'num', num: 0 }
-          ]
         }
-      },
-    ]
-  }, undefined, context);
-  expect(expRes).toBeGreaterThan(90);
-  expect(expRes).toBeLessThan(190);
-})
+      });
 
-test('testing expression: responseHasKeysAny', () => {
-  const expEval = new ExpressionEval();
-  const testResp: SurveyGroupItemResponse = {
-    key: '1',
-    items: [
-      {
-        key: '1.1', response: {
-          key: '1',
-          items: [{
-            key: '1',
-            items: [{
-              key: '1',
-              items: [
-                { key: '1' },
-                { key: '2' },
-                { key: '3' },
-              ]
-            }]
-          }]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAny', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '4' }, { str: '3' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeTruthy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAny', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '2' }, { str: '3' }, { str: '1' }
-      ]
-    }, undefined, undefined, testResp
-  )).toBeTruthy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAny', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAny', data: [
-        { str: '1.1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAny', data: [
-        { str: '1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-
-
+      expect(expEval.eval(expression)).toEqual(testArray);
+    });
+  });
 });
-
-test('testing expression: responseHasKeysAll', () => {
-  const expEval = new ExpressionEval();
-  const testResp: SurveyGroupItemResponse = {
-    key: '1',
-    items: [
-      {
-        key: '1.1', response: {
-          key: '1',
-          items: [{
-            key: '1',
-            items: [{
-              key: '1',
-              items: [
-                { key: '1' },
-                { key: '2' },
-                { key: '3' },
-              ]
-            }]
-          }]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '4' }, { str: '3' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '2' }, { str: '3' }, { str: '1' }
-      ]
-    }, undefined, undefined, testResp
-  )).toBeTruthy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '1' }, { str: '2' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: '1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-
-});
-
-test('testing expression: hasResponse', () => {
-  const expEval = new ExpressionEval();
-  const testResp: SurveyGroupItemResponse = {
-    key: '1',
-    items: [
-      {
-        key: '1.1', response: {
-          key: '1',
-          items: [{
-            key: '1',
-            items: [{
-              key: '1',
-              items: [
-                { key: '1' },
-                { key: '2' },
-                { key: '3' },
-              ]
-            }]
-          }]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval(
-    {
-      name: 'hasResponse', data: [
-        { str: '1.1' }, { str: '1.2' }
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'hasResponse', data: [
-        { str: '1.2' }, { str: '1.1' }
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'hasResponse', data: [
-        { str: '1.1' }, { str: '1.1' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeTruthy();
-});
-
-test('testing expression: responseHasOnlyKeysOtherThan', () => {
-  const expEval = new ExpressionEval();
-  const testResp: SurveyGroupItemResponse = {
-    key: '1',
-    items: [
-      {
-        key: '1.1', response: {
-          key: '1',
-          items: [{
-            key: '1',
-            items: [{
-              key: '1',
-              items: [
-                { key: '1' },
-                { key: '2' },
-                { key: '3' },
-              ]
-            }]
-          }]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval(
-    {
-      name: 'responseHasOnlyKeysOtherThan', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '4' }, { str: '3' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasOnlyKeysOtherThan', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '2' }, { str: '3' }, { str: '1' }
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasOnlyKeysOtherThan', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeTruthy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasOnlyKeysOtherThan', data: [
-        { str: '1.1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeTruthy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasOnlyKeysOtherThan', data: [
-        { str: '1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-});
-
-test('testing expression: hasParticipantFlagKey', () => {
-  const expEval = new ExpressionEval();
-  const testContext: SurveyContext = {
-    participantFlags: {
-      test: '2'
-    }
-  };
-
-  expect(expEval.eval(
-    {
-      name: 'hasParticipantFlagKey', data: [
-        { str: 'test' }
-      ]
-    }, undefined, testContext
-  )).toBeTruthy();
-
-  expect(expEval.eval(
-    {
-      name: 'hasParticipantFlagKey', data: [
-        { str: 'wrong' }
-      ]
-    }, undefined, testContext
-  )).toBeFalsy();
-});
-
-test('testing expression: hasParticipantFlagKeyAndValue', () => {
-  const expEval = new ExpressionEval();
-  const testContext: SurveyContext = {
-    participantFlags: {
-      test: '2'
-    }
-  };
-
-  expect(expEval.eval(
-    {
-      name: 'hasParticipantFlagKeyAndValue', data: [
-        { str: 'test' }, { str: '2' }
-      ]
-    }, undefined, testContext
-  )).toBeTruthy();
-
-  expect(expEval.eval(
-    {
-      name: 'hasParticipantFlagKeyAndValue', data: [
-        { str: 'wrong' }, { str: '2' }
-      ]
-    }, undefined, testContext
-  )).toBeFalsy();
-
-  expect(expEval.eval(
-    {
-      name: 'hasParticipantFlagKeyAndValue', data: [
-        { str: 'test' }, { str: 'wrong' }
-      ]
-    }, undefined, testContext
-  )).toBeFalsy();
-});
-
-test('testing expression: getParticipantFlagValue', () => {
-  const expEval = new ExpressionEval();
-  const testContext: SurveyContext = {
-    participantFlags: {
-      test: '2'
-    }
-  };
-
-  expect(expEval.eval(
-    {
-      name: 'getParticipantFlagValue', data: [
-        { str: 'test' }
-      ]
-    }, undefined, testContext
-  )).toEqual('2');
-
-  expect(expEval.eval(
-    {
-      name: 'getParticipantFlagValue', data: [
-        { str: 'wrong' }
-      ]
-    }, undefined, testContext
-  )).toBeUndefined();
-});
-
-
-test('testing expression: validateSelectedOptionHasValueDefined', () => {
-  const expEval = new ExpressionEval();
-  const testSurveyResponses: SurveyItemResponse = {
-    key: 'TS',
-    meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-    items: [
-      {
-        key: 'TS.I1',
-        meta: { position: 0, localeCode: 'de', rendered: [], displayed: [], responded: [] },
-        response: {
-          key: 'R1',
-          items: [
-            { key: 'V1', value: '' },
-            { key: 'V2', value: '123.23' },
-            { key: 'V3' }
-          ]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval({
-    name: 'validateSelectedOptionHasValueDefined', data: [
-      { str: 'TS.I1' }, { str: 'R1.V1' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeTruthy();
-
-  expect(expEval.eval({
-    name: 'validateSelectedOptionHasValueDefined', data: [
-      { str: 'TS.I1' }, { str: 'R1.V2' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeTruthy();
-
-  expect(expEval.eval({
-    name: 'validateSelectedOptionHasValueDefined', data: [
-      { str: 'TS.I1' }, { str: 'R1.V3' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeFalsy();
-
-  expect(expEval.eval({
-    name: 'validateSelectedOptionHasValueDefined', data: [
-      { str: 'TS.I1' }, { str: 'R1.V4' },
-    ]
-  }, undefined, undefined, testSurveyResponses)).toBeTruthy();
-
-})
-
-test('testing expression: dateResponseDiffFromNow', () => {
-  const expEval = new ExpressionEval();
-  const testResp: SurveyGroupItemResponse = {
-    key: '1',
-    items: [
-      {
-        key: '1.1', response: {
-          key: '1',
-          items: [{
-            key: '1',
-            items: [{
-              key: '1',
-              items: [
-                { key: '1', dtype: 'date', value: getUnixTime(add(new Date(), { years: -2 })).toString() },
-                { key: '2', dtype: 'date', value: getUnixTime(add(new Date(), { months: 18 })).toString() },
-                { key: '3', value: '15323422332' },
-              ]
-            }]
-          }]
-        }
-      }
-    ]
-  }
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.2' }, { str: '1.1.1.1' }, { str: 'years' }, { num: 1 },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeUndefined();
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.1' }, { str: '1.1.1.no' }, { str: 'years' }, { num: 1 },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeUndefined();
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.1' }, { str: '1.1.1.3' }, { str: 'years' }, { num: 1 },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeUndefined();
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.1' }, { str: '1.1.1.1' }, { str: 'years' }, { num: 1 },
-      ]
-    }, undefined, undefined, testResp
-  )).toEqual(2);
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.1' }, { str: '1.1.1.1' }, { str: 'months' },
-      ]
-    }, undefined, undefined, testResp
-  )).toEqual(-24);
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.1' }, { str: '1.1.1.2' }, { str: 'months' },
-      ]
-    }, undefined, undefined, testResp
-  )).toEqual(17);
-
-  expect(expEval.eval(
-    {
-      name: 'dateResponseDiffFromNow', data: [
-        { str: '1.1' }, { str: '1.1.1.2' }, { str: 'years' },
-      ]
-    }, undefined, undefined, testResp
-  )).toEqual(1);
-});
- */

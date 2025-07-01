@@ -1,4 +1,3 @@
-import { SurveyContextDef } from "../data_types/context";
 import { Expression } from "../data_types/expression";
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey, } from "./survey-file-schema";
 import { SurveyItemTranslations, SurveyTranslations } from "./utils/translations";
@@ -7,10 +6,8 @@ import { ExpectedValueType } from "./utils/types";
 import { ResponseConfigComponent, ValueRefTypeLookup } from "./components";
 
 
-
 abstract class SurveyBase {
   prefillRules?: Expression[];
-  contextRules?: SurveyContextDef;
   maxItemsPerPage?: { large: number, small: number };
   availableFor?: string;
   requireLoginBeforeSubmission?: boolean;
@@ -57,9 +54,6 @@ export class Survey extends SurveyBase {
     if (rawSurvey.prefillRules) {
       survey.prefillRules = rawSurvey.prefillRules;
     }
-    if (rawSurvey.contextRules) {
-      survey.contextRules = rawSurvey.contextRules;
-    }
     if (rawSurvey.maxItemsPerPage) {
       survey.maxItemsPerPage = rawSurvey.maxItemsPerPage;
     }
@@ -87,9 +81,6 @@ export class Survey extends SurveyBase {
 
     if (this.prefillRules) {
       json.prefillRules = this.prefillRules;
-    }
-    if (this.contextRules) {
-      json.contextRules = this.contextRules;
     }
     if (this.maxItemsPerPage) {
       json.maxItemsPerPage = this.maxItemsPerPage;
