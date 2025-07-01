@@ -4,6 +4,7 @@ import { SurveyItemTranslations, SurveyTranslations } from "./utils/translations
 import { GroupItem, QuestionItem, SurveyItem } from "./items";
 import { ExpectedValueType } from "./utils/types";
 import { ResponseConfigComponent, ValueRefTypeLookup } from "./components";
+import { ReferenceUsage } from "./utils/value-reference";
 
 
 abstract class SurveyBase {
@@ -156,5 +157,34 @@ export class Survey extends SurveyBase {
       }
     }
     return valueRefs;
+  }
+
+  /**
+   * Get all reference usages for the survey
+   * @param forItemKey - optional item key to filter usages for a specific item and its children (if not provided, all usages are returned)
+   * @returns all reference usages for the survey (or for a specific item and its children)
+   */
+  getReferenceUsages(forItemKey?: string): ReferenceUsage[] {
+    const usages: ReferenceUsage[] = [];
+    for (const item of Object.values(this.surveyItems)) {
+      if (forItemKey && item.key.fullKey !== forItemKey && !item.key.fullKey.startsWith(forItemKey + '.')) {
+        continue;
+      }
+      usages.push(...item.getReferenceUsages());
+    }
+    return usages;
+  }
+
+  findInvalidReferenceUsages(): ReferenceUsage[] {
+    const usages = this.getReferenceUsages();
+    const valueRefs = this.getResponseValueReferences();
+
+    const invalidUsages: ReferenceUsage[] = [];
+    for (const usage of usages) {
+      if (!valueRefs[usage.valueReference.toString()]) {
+        invalidUsages.push(usage);
+      }
+    }
+    return invalidUsages;
   }
 }

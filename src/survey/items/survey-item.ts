@@ -5,6 +5,7 @@ import { Expression } from '../../expressions';
 import { DisabledConditions, disabledConditionsFromJson, disabledConditionsToJson, DisplayConditions, displayConditionsFromJson, displayConditionsToJson } from './utils';
 import { DisplayComponent, ItemComponent, TextComponent, ScgMcgChoiceResponseConfig } from '../components';
 import { ConfidentialMode, SurveyItemType } from './types';
+import { ReferenceUsage, ReferenceUsageType } from '../utils';
 
 
 // ========================================
@@ -37,6 +38,74 @@ export abstract class SurveyItem {
 
   static fromJson(key: string, json: JsonSurveyItem): SurveyItem {
     return initItemClassBasedOnType(key, json);
+  }
+
+  getReferenceUsages(): ReferenceUsage[] {
+    const usages: ReferenceUsage[] = [];
+
+    if (this.displayConditions) {
+      // root
+      for (const ref of this.displayConditions.root?.responseVariableRefs || []) {
+        usages.push({
+          fullItemKey: this.key.fullKey,
+          usageType: ReferenceUsageType.displayConditions,
+          valueReference: ref,
+        });
+      }
+
+      // components
+      for (const [componentKey, expression] of Object.entries(this.displayConditions.components || {})) {
+        for (const ref of expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: componentKey,
+            usageType: ReferenceUsageType.displayConditions,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    if (this.templateValues) {
+      for (const [templateValueKey, templateValue] of Object.entries(this.templateValues)) {
+        for (const ref of templateValue.expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: templateValueKey,
+            usageType: ReferenceUsageType.templateValues,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    if (this.disabledConditions) {
+      for (const [componentKey, expression] of Object.entries(this.disabledConditions.components || {})) {
+        for (const ref of expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: componentKey,
+            usageType: ReferenceUsageType.disabledConditions,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    if (this.validations) {
+      for (const [validationKey, expression] of Object.entries(this.validations)) {
+        for (const ref of expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: validationKey,
+            usageType: ReferenceUsageType.validations,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    return usages;
   }
 
 }

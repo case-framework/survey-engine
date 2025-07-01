@@ -4,6 +4,9 @@ import { ExpectedValueType } from '../survey/utils';
 import { ValueReference, ValueReferenceMethod } from '../survey/utils/value-reference';
 import { Survey } from '../survey/survey';
 import { SingleChoiceQuestionItem, MultipleChoiceQuestionItem, DisplayItem, GroupItem } from '../survey/items';
+import { ResponseVariableExpression } from '../expressions/expression';
+import { TemplateDefTypes } from '../expressions/template-value';
+import { ReferenceUsageType } from '../survey/utils/value-reference';
 
 
 describe('ScgMcgChoiceResponseConfig - Value References', () => {
@@ -560,6 +563,498 @@ describe('Survey - getResponseValueReferences', () => {
 
       expect(Object.keys(stringRefs).length).toBe(100);
       expect(Object.keys(booleanRefs).length).toBe(100);
+    });
+  });
+});
+
+describe('Survey - getReferenceUsages', () => {
+  let survey: Survey;
+
+  beforeEach(() => {
+    survey = new Survey('test-survey');
+  });
+
+  describe('Empty and basic survey scenarios', () => {
+    it('should return empty array for survey with no items', () => {
+      // Create completely empty survey
+      const emptySurvey = new Survey('empty');
+      emptySurvey.surveyItems = {}; // Remove even the root item
+
+      const usages = emptySurvey.getReferenceUsages();
+      expect(usages).toEqual([]);
+    });
+
+    it('should return empty array for survey with only root group item', () => {
+      const usages = survey.getReferenceUsages();
+      expect(usages).toEqual([]);
+    });
+
+    it('should return empty array for survey with items that have no references', () => {
+      const displayItem = new DisplayItem('test-survey.display1');
+      const groupItem = new GroupItem('test-survey.group1');
+
+      survey.surveyItems['test-survey.display1'] = displayItem;
+      survey.surveyItems['test-survey.group1'] = groupItem;
+
+      const usages = survey.getReferenceUsages();
+      expect(usages).toEqual([]);
+    });
+  });
+
+  describe('Display conditions', () => {
+    it('should return reference usages from display conditions', () => {
+      const displayItem = new DisplayItem('test-survey.display1');
+
+      // Add display conditions with response variable references
+      displayItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.question1...get'),
+        components: {
+          'comp1': new ResponseVariableExpression('test-survey.question2...isDefined')
+        }
+      };
+
+      survey.surveyItems['test-survey.display1'] = displayItem;
+
+      const usages = survey.getReferenceUsages();
+
+      expect(usages).toHaveLength(2);
+
+      // Check root display condition usage
+      const rootUsage = usages.find(u => u.fullComponentKey === undefined);
+      expect(rootUsage).toBeDefined();
+      expect(rootUsage?.fullItemKey).toBe('test-survey.display1');
+      expect(rootUsage?.usageType).toBe(ReferenceUsageType.displayConditions);
+      expect(rootUsage?.valueReference.toString()).toBe('test-survey.question1...get');
+
+      // Check component display condition usage
+      const componentUsage = usages.find(u => u.fullComponentKey === 'comp1');
+      expect(componentUsage).toBeDefined();
+      expect(componentUsage?.fullItemKey).toBe('test-survey.display1');
+      expect(componentUsage?.usageType).toBe(ReferenceUsageType.displayConditions);
+      expect(componentUsage?.valueReference.toString()).toBe('test-survey.question2...isDefined');
+    });
+  });
+
+  describe('Template values', () => {
+    it('should return reference usages from template values', () => {
+      const displayItem = new DisplayItem('test-survey.display1');
+
+      // Add template values with response variable references
+      displayItem.templateValues = {
+        'template1': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.String,
+          expression: new ResponseVariableExpression('test-survey.question1...get')
+        },
+        'template2': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.Boolean,
+          expression: new ResponseVariableExpression('test-survey.question2...isDefined')
+        }
+      };
+
+      survey.surveyItems['test-survey.display1'] = displayItem;
+
+      const usages = survey.getReferenceUsages();
+
+      expect(usages).toHaveLength(2);
+
+      // Check first template value usage
+      const template1Usage = usages.find(u => u.fullComponentKey === 'template1');
+      expect(template1Usage).toBeDefined();
+      expect(template1Usage?.fullItemKey).toBe('test-survey.display1');
+      expect(template1Usage?.usageType).toBe(ReferenceUsageType.templateValues);
+      expect(template1Usage?.valueReference.toString()).toBe('test-survey.question1...get');
+
+      // Check second template value usage
+      const template2Usage = usages.find(u => u.fullComponentKey === 'template2');
+      expect(template2Usage).toBeDefined();
+      expect(template2Usage?.fullItemKey).toBe('test-survey.display1');
+      expect(template2Usage?.usageType).toBe(ReferenceUsageType.templateValues);
+      expect(template2Usage?.valueReference.toString()).toBe('test-survey.question2...isDefined');
+    });
+  });
+
+  describe('Disabled conditions', () => {
+    it('should return reference usages from disabled conditions', () => {
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+
+      // Add disabled conditions with response variable references
+      questionItem.disabledConditions = {
+        components: {
+          'rg.option1': new ResponseVariableExpression('test-survey.question2...get'),
+          'rg.option2': new ResponseVariableExpression('test-survey.question3...isDefined')
+        }
+      };
+
+      survey.surveyItems['test-survey.question1'] = questionItem;
+
+      const usages = survey.getReferenceUsages();
+
+      expect(usages).toHaveLength(2);
+
+      // Check first disabled condition usage
+      const option1Usage = usages.find(u => u.fullComponentKey === 'rg.option1');
+      expect(option1Usage).toBeDefined();
+      expect(option1Usage?.fullItemKey).toBe('test-survey.question1');
+      expect(option1Usage?.usageType).toBe(ReferenceUsageType.disabledConditions);
+      expect(option1Usage?.valueReference.toString()).toBe('test-survey.question2...get');
+
+      // Check second disabled condition usage
+      const option2Usage = usages.find(u => u.fullComponentKey === 'rg.option2');
+      expect(option2Usage).toBeDefined();
+      expect(option2Usage?.fullItemKey).toBe('test-survey.question1');
+      expect(option2Usage?.usageType).toBe(ReferenceUsageType.disabledConditions);
+      expect(option2Usage?.valueReference.toString()).toBe('test-survey.question3...isDefined');
+    });
+  });
+
+  describe('Validations', () => {
+    it('should return reference usages from validations', () => {
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+
+      // Add validations with response variable references
+      questionItem.validations = {
+        'validation1': new ResponseVariableExpression('test-survey.question2...get'),
+        'validation2': new ResponseVariableExpression('test-survey.question3...isDefined')
+      };
+
+      survey.surveyItems['test-survey.question1'] = questionItem;
+
+      const usages = survey.getReferenceUsages();
+
+      expect(usages).toHaveLength(2);
+
+      // Check first validation usage
+      const validation1Usage = usages.find(u => u.fullComponentKey === 'validation1');
+      expect(validation1Usage).toBeDefined();
+      expect(validation1Usage?.fullItemKey).toBe('test-survey.question1');
+      expect(validation1Usage?.usageType).toBe(ReferenceUsageType.validations);
+      expect(validation1Usage?.valueReference.toString()).toBe('test-survey.question2...get');
+
+      // Check second validation usage
+      const validation2Usage = usages.find(u => u.fullComponentKey === 'validation2');
+      expect(validation2Usage).toBeDefined();
+      expect(validation2Usage?.fullItemKey).toBe('test-survey.question1');
+      expect(validation2Usage?.usageType).toBe(ReferenceUsageType.validations);
+      expect(validation2Usage?.valueReference.toString()).toBe('test-survey.question3...isDefined');
+    });
+  });
+
+  describe('Mixed usage types', () => {
+    it('should return reference usages from all usage types combined', () => {
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+
+      // Add multiple types of references
+      questionItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.q1...get')
+      };
+
+      questionItem.templateValues = {
+        'template1': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.String,
+          expression: new ResponseVariableExpression('test-survey.q2...get')
+        }
+      };
+
+      questionItem.disabledConditions = {
+        components: {
+          'rg.option1': new ResponseVariableExpression('test-survey.q3...isDefined')
+        }
+      };
+
+      questionItem.validations = {
+        'validation1': new ResponseVariableExpression('test-survey.q4...get')
+      };
+
+      survey.surveyItems['test-survey.question1'] = questionItem;
+
+      const usages = survey.getReferenceUsages();
+
+      expect(usages).toHaveLength(4);
+
+      // Check that all usage types are present
+      const usageTypes = usages.map(u => u.usageType);
+      expect(usageTypes).toContain(ReferenceUsageType.displayConditions);
+      expect(usageTypes).toContain(ReferenceUsageType.templateValues);
+      expect(usageTypes).toContain(ReferenceUsageType.disabledConditions);
+      expect(usageTypes).toContain(ReferenceUsageType.validations);
+    });
+
+    it('should aggregate reference usages from multiple items', () => {
+      const displayItem = new DisplayItem('test-survey.display1');
+      displayItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.q1...get')
+      };
+
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+      questionItem.validations = {
+        'validation1': new ResponseVariableExpression('test-survey.q2...isDefined')
+      };
+
+      const groupItem = new GroupItem('test-survey.group1');
+      groupItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.q3...get')
+      };
+
+      survey.surveyItems['test-survey.display1'] = displayItem;
+      survey.surveyItems['test-survey.question1'] = questionItem;
+      survey.surveyItems['test-survey.group1'] = groupItem;
+
+      const usages = survey.getReferenceUsages();
+
+      expect(usages).toHaveLength(3);
+
+      // Check that all items contributed their references
+      const itemKeys = usages.map(u => u.fullItemKey);
+      expect(itemKeys).toContain('test-survey.display1');
+      expect(itemKeys).toContain('test-survey.question1');
+      expect(itemKeys).toContain('test-survey.group1');
+    });
+  });
+
+  describe('Filtering by forItemKey', () => {
+    beforeEach(() => {
+      // Set up survey with multiple items
+      const displayItem = new DisplayItem('test-survey.display1');
+      displayItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.q1...get')
+      };
+
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+      questionItem.validations = {
+        'validation1': new ResponseVariableExpression('test-survey.q2...isDefined')
+      };
+
+      const nestedDisplayItem = new DisplayItem('test-survey.group1.display2');
+      nestedDisplayItem.templateValues = {
+        'template1': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.String,
+          expression: new ResponseVariableExpression('test-survey.q3...get')
+        }
+      };
+
+      survey.surveyItems['test-survey.display1'] = displayItem;
+      survey.surveyItems['test-survey.question1'] = questionItem;
+      survey.surveyItems['test-survey.group1.display2'] = nestedDisplayItem;
+    });
+
+    it('should return all usages when no forItemKey is provided', () => {
+      const usages = survey.getReferenceUsages();
+      expect(usages).toHaveLength(3);
+    });
+
+    it('should return only usages from specific item when forItemKey matches exactly', () => {
+      const usages = survey.getReferenceUsages('test-survey.question1');
+
+      expect(usages).toHaveLength(1);
+      expect(usages[0].fullItemKey).toBe('test-survey.question1');
+      expect(usages[0].usageType).toBe(ReferenceUsageType.validations);
+    });
+
+    it('should return usages from item and its children when forItemKey is a parent', () => {
+      const usages = survey.getReferenceUsages('test-survey.group1');
+
+      expect(usages).toHaveLength(1);
+      expect(usages[0].fullItemKey).toBe('test-survey.group1.display2');
+      expect(usages[0].usageType).toBe(ReferenceUsageType.templateValues);
+    });
+
+    it('should return usages from all items under the specified parent key', () => {
+      // Add another nested item under group1
+      const anotherNestedItem = new DisplayItem('test-survey.group1.display3');
+      anotherNestedItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.q4...get')
+      };
+      survey.surveyItems['test-survey.group1.display3'] = anotherNestedItem;
+
+      const usages = survey.getReferenceUsages('test-survey.group1');
+
+      expect(usages).toHaveLength(2);
+      const itemKeys = usages.map(u => u.fullItemKey);
+      expect(itemKeys).toContain('test-survey.group1.display2');
+      expect(itemKeys).toContain('test-survey.group1.display3');
+    });
+
+    it('should return empty array when forItemKey matches no items', () => {
+      const usages = survey.getReferenceUsages('test-survey.nonexistent');
+      expect(usages).toEqual([]);
+    });
+
+    it('should return empty array when forItemKey matches item with no references', () => {
+      const emptyItem = new DisplayItem('test-survey.empty');
+      survey.surveyItems['test-survey.empty'] = emptyItem;
+
+      const usages = survey.getReferenceUsages('test-survey.empty');
+      expect(usages).toEqual([]);
+    });
+  });
+});
+
+describe('Survey - findInvalidReferenceUsages', () => {
+  let survey: Survey;
+
+  beforeEach(() => {
+    survey = new Survey('test-survey');
+  });
+
+  describe('Invalid reference detection', () => {
+    it('should return empty array when no invalid references exist', () => {
+      // Create a question that generates valid value references
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+      const option = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+      questionItem.responseConfig.options = [option];
+      survey.surveyItems['test-survey.question1'] = questionItem;
+
+      // Create an item that references the valid value reference
+      const displayItem = new DisplayItem('test-survey.display1');
+      displayItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.question1...get')
+      };
+      survey.surveyItems['test-survey.display1'] = displayItem;
+
+      const invalidUsages = survey.findInvalidReferenceUsages();
+      expect(invalidUsages).toEqual([]);
+    });
+
+    it('should return invalid usages when expressions reference non-existing response value references', () => {
+      // Create a question that generates valid value references
+      const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
+      const option = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+      questionItem.responseConfig.options = [option];
+      survey.surveyItems['test-survey.question1'] = questionItem;
+
+      // Create items that reference both valid and invalid value references
+      const displayItem = new DisplayItem('test-survey.display1');
+      displayItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.question1...get') // Valid reference
+      };
+      displayItem.templateValues = {
+        'template1': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.String,
+          expression: new ResponseVariableExpression('test-survey.nonexistent...get') // Invalid reference
+        }
+      };
+      survey.surveyItems['test-survey.display1'] = displayItem;
+
+      const questionItem2 = new SingleChoiceQuestionItem('test-survey.question2');
+      questionItem2.validations = {
+        'validation1': new ResponseVariableExpression('test-survey.question1...isDefined'), // Valid reference
+        'validation2': new ResponseVariableExpression('test-survey.another-nonexistent...isDefined') // Invalid reference
+      };
+      survey.surveyItems['test-survey.question2'] = questionItem2;
+
+      const invalidUsages = survey.findInvalidReferenceUsages();
+
+      expect(invalidUsages).toHaveLength(2);
+
+      // Check first invalid usage (from display item template values)
+      const templateInvalidUsage = invalidUsages.find(u =>
+        u.fullItemKey === 'test-survey.display1' &&
+        u.fullComponentKey === 'template1' &&
+        u.usageType === ReferenceUsageType.templateValues
+      );
+      expect(templateInvalidUsage).toBeDefined();
+      expect(templateInvalidUsage?.valueReference.toString()).toBe('test-survey.nonexistent...get');
+
+      // Check second invalid usage (from question validation)
+      const validationInvalidUsage = invalidUsages.find(u =>
+        u.fullItemKey === 'test-survey.question2' &&
+        u.fullComponentKey === 'validation2' &&
+        u.usageType === ReferenceUsageType.validations
+      );
+      expect(validationInvalidUsage).toBeDefined();
+      expect(validationInvalidUsage?.valueReference.toString()).toBe('test-survey.another-nonexistent...isDefined');
+    });
+
+    it('should handle mixed scenarios with valid and invalid references across multiple usage types', () => {
+      // Create questions that generate valid value references
+      const questionItem1 = new SingleChoiceQuestionItem('test-survey.question1');
+      const option1 = new ScgMcgOption('option1', questionItem1.responseConfig.key.fullKey, questionItem1.key.fullKey);
+      questionItem1.responseConfig.options = [option1];
+      survey.surveyItems['test-survey.question1'] = questionItem1;
+
+      const questionItem2 = new SingleChoiceQuestionItem('test-survey.question2');
+      const optionWithInput = new ScgMcgOptionWithTextInput('optionText', questionItem2.responseConfig.key.fullKey, questionItem2.key.fullKey);
+      questionItem2.responseConfig.options = [optionWithInput];
+      survey.surveyItems['test-survey.question2'] = questionItem2;
+
+      // Create an item with multiple types of references (valid and invalid)
+      const complexItem = new SingleChoiceQuestionItem('test-survey.complex');
+
+      // Valid references
+      complexItem.displayConditions = {
+        root: new ResponseVariableExpression('test-survey.question1...get') // Valid
+      };
+
+      // Mix of valid and invalid references
+      complexItem.templateValues = {
+        'validTemplate': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.String,
+          expression: new ResponseVariableExpression('test-survey.question2...isDefined') // Valid
+        },
+        'invalidTemplate': {
+          type: TemplateDefTypes.Default,
+          returnType: ExpectedValueType.String,
+          expression: new ResponseVariableExpression('test-survey.missing-question...get') // Invalid
+        }
+      };
+
+      complexItem.disabledConditions = {
+        components: {
+          'rg.option1': new ResponseVariableExpression('test-survey.question1...isDefined'), // Valid
+          'rg.option2': new ResponseVariableExpression('test-survey.ghost-question...get') // Invalid
+        }
+      };
+
+      complexItem.validations = {
+        'validValidation': new ResponseVariableExpression('test-survey.question2...get...scg.optionText'), // Valid reference to option with text input
+        'invalidValidation': new ResponseVariableExpression('test-survey.void-question...isDefined') // Invalid
+      };
+
+      survey.surveyItems['test-survey.complex'] = complexItem;
+
+      const invalidUsages = survey.findInvalidReferenceUsages();
+
+      expect(invalidUsages).toHaveLength(3);
+
+      // Should only contain the invalid references
+      const invalidRefs = invalidUsages.map(u => u.valueReference.toString());
+      expect(invalidRefs).toContain('test-survey.missing-question...get');
+      expect(invalidRefs).toContain('test-survey.ghost-question...get');
+      expect(invalidRefs).toContain('test-survey.void-question...isDefined');
+
+      // Should not contain valid references
+      expect(invalidRefs).not.toContain('test-survey.question1...get');
+      expect(invalidRefs).not.toContain('test-survey.question1...isDefined');
+      expect(invalidRefs).not.toContain('test-survey.question2...isDefined');
+      expect(invalidRefs).not.toContain('test-survey.question2...get...scg.optionText');
+
+      // Verify each invalid usage has the correct metadata
+      const templateInvalid = invalidUsages.find(u => u.fullComponentKey === 'invalidTemplate');
+      expect(templateInvalid?.usageType).toBe(ReferenceUsageType.templateValues);
+      expect(templateInvalid?.fullItemKey).toBe('test-survey.complex');
+
+      const disabledInvalid = invalidUsages.find(u => u.fullComponentKey === 'rg.option2');
+      expect(disabledInvalid?.usageType).toBe(ReferenceUsageType.disabledConditions);
+      expect(disabledInvalid?.fullItemKey).toBe('test-survey.complex');
+
+      const validationInvalid = invalidUsages.find(u => u.fullComponentKey === 'invalidValidation');
+      expect(validationInvalid?.usageType).toBe(ReferenceUsageType.validations);
+      expect(validationInvalid?.fullItemKey).toBe('test-survey.complex');
+    });
+
+    it('should return empty array when survey has no items with expressions', () => {
+      // Create a survey with only display items that have no expressions
+      const displayItem = new DisplayItem('test-survey.display1');
+      survey.surveyItems['test-survey.display1'] = displayItem;
+
+      const invalidUsages = survey.findInvalidReferenceUsages();
+      expect(invalidUsages).toEqual([]);
     });
   });
 });

@@ -49,3 +49,18 @@ export class ValueReference {
     return new ValueReference(`${itemKey.fullKey}${SEPARATOR}${name}${slotKey ? SEPARATOR + slotKey.fullKey : ''}`);
   }
 }
+
+
+export enum ReferenceUsageType {
+  displayConditions = 'displayConditions',
+  templateValues = 'templateValues',
+  validations = 'validations',
+  disabledConditions = 'disabledConditions',
+}
+
+export interface ReferenceUsage {
+  fullItemKey: string;
+  fullComponentKey?: string;
+  usageType?: ReferenceUsageType;
+  valueReference: ValueReference;
+}

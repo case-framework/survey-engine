@@ -408,6 +408,83 @@ describe('SurveyEditor', () => {
         'test-survey.page1.display3'
       ]);
     });
+
+    test('should remove group with all nested items and translations as single operation', () => {
+      const testGroup = new GroupItem('test-survey.page1.subgroup1');
+      const testItem1 = new DisplayItem('test-survey.page1.subgroup1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.subgroup1.display2');
+      const nestedGroup = new GroupItem('test-survey.page1.subgroup1.nestedgroup');
+      const nestedItem = new DisplayItem('test-survey.page1.subgroup1.nestedgroup.display1');
+      const testTranslations = createTestTranslations();
+
+      // Build nested structure
+      editor.addItem({ parentKey: 'test-survey.page1' }, testGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, nestedGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1.nestedgroup' }, nestedItem, testTranslations);
+
+      // Verify all items exist
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeDefined();
+
+      // Verify translations exist for all items
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.display1')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.display2')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup.display1')).toBeDefined();
+
+      const initialUndoCount = editor.canUndo() ? 1 : 0; // Check how many operations we can undo
+      let undoCount = 0;
+      while (editor.canUndo()) {
+        undoCount++;
+        editor.undo();
+      }
+      // Redo all to get back to initial state
+      for (let i = 0; i < undoCount; i++) {
+        editor.redo();
+      }
+
+      // Remove the group with all nested items
+      const removeSuccess = editor.removeItem('test-survey.page1.subgroup1');
+
+      expect(removeSuccess).toBe(true);
+
+      // Verify all nested items and the group are removed from survey items
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeUndefined();
+
+      // Verify the group is removed from parent's items array
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).not.toContain('test-survey.page1.subgroup1');
+
+      // Verify all translations are removed
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.display1')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.display2')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup.display1')).toThrow();
+
+      // Verify this created only ONE undo operation
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Removed test-survey.page1.subgroup1');
+
+      // Undo should restore all items
+      editor.undo();
+
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeDefined();
+    });
   });
 
   describe('Moving Items', () => {
