@@ -191,7 +191,22 @@ export class SurveyTranslations {
   }
 
   /**
-   * Remove all translations for an item
+   * Rename an item key - update key in all translations and remove old key
+   * @param oldKey - The old key
+   * @param newKey - The new key
+   */
+  onItemKeyChanged(oldKey: string, newKey: string): void {
+    for (const locale of this.locales) {
+      const itemTranslations = this._translations?.[locale]?.[oldKey];
+      if (itemTranslations) {
+        this._translations![locale][newKey] = { ...itemTranslations };
+        delete this._translations![locale][oldKey];
+      }
+    }
+  }
+
+  /**
+   * Remove all translations for an item and all its children
    * @param fullItemKey - The full key of the item
    */
   onItemDeleted(fullItemKey: string): void {

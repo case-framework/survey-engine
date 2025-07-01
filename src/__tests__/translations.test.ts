@@ -496,6 +496,175 @@ describe('SurveyTranslations', () => {
     });
   });
 
+  describe('item key changes', () => {
+    beforeEach(() => {
+      // Create a test setup with multiple locales and items
+      surveyTranslations.setSurveyCardContent(enLocale, mockSurveyCardContent);
+      surveyTranslations.setSurveyCardContent(deLocale, mockSurveyCardContent);
+
+      // Set up translations for multiple items
+      const itemTranslations1 = new SurveyItemTranslations();
+      itemTranslations1.setContent(enLocale, 'title', mockContent);
+      itemTranslations1.setContent(enLocale, 'description', mockCQMContent);
+      itemTranslations1.setContent(deLocale, 'title', mockCQMContent);
+      itemTranslations1.setContent(deLocale, 'description', mockContent);
+
+      const itemTranslations2 = new SurveyItemTranslations();
+      itemTranslations2.setContent(enLocale, 'label', mockContent);
+      itemTranslations2.setContent(deLocale, 'label', mockCQMContent);
+
+      surveyTranslations.setItemTranslations('oldItemKey', itemTranslations1);
+      surveyTranslations.setItemTranslations('otherItem', itemTranslations2);
+    });
+
+    test('should rename item key and preserve translations', () => {
+      // Get original translations before rename
+      const originalTranslations = surveyTranslations.getItemTranslations('oldItemKey');
+      const originalEnContent = originalTranslations!.getAllForLocale(enLocale);
+      const originalDeContent = originalTranslations!.getAllForLocale(deLocale);
+
+      // Perform the rename
+      surveyTranslations.onItemKeyChanged('oldItemKey', 'newItemKey');
+
+      // Verify old key is removed
+      const result = surveyTranslations.toJson();
+      expect(result!.en['oldItemKey']).toBeUndefined();
+      expect(result!.de['oldItemKey']).toBeUndefined();
+
+      // Verify new key has the same translations
+      expect(result!.en['newItemKey']).toBeDefined();
+      expect(result!.de['newItemKey']).toBeDefined();
+      expect(result!.en['newItemKey']).toEqual(originalEnContent);
+      expect(result!.de['newItemKey']).toEqual(originalDeContent);
+
+      // Verify content matches exactly
+      const newTranslations = surveyTranslations.getItemTranslations('newItemKey');
+      expect(newTranslations!.getContent(enLocale, 'title')).toEqual(mockContent);
+      expect(newTranslations!.getContent(enLocale, 'description')).toEqual(mockCQMContent);
+      expect(newTranslations!.getContent(deLocale, 'title')).toEqual(mockCQMContent);
+      expect(newTranslations!.getContent(deLocale, 'description')).toEqual(mockContent);
+    });
+
+    test('should not affect other item translations when renaming', () => {
+      // Get original translations for other item
+      const otherItemOriginal = surveyTranslations.getItemTranslations('otherItem');
+      const otherItemEnContent = otherItemOriginal!.getAllForLocale(enLocale);
+      const otherItemDeContent = otherItemOriginal!.getAllForLocale(deLocale);
+
+      // Perform the rename
+      surveyTranslations.onItemKeyChanged('oldItemKey', 'newItemKey');
+
+      // Verify other item is unchanged
+      const result = surveyTranslations.toJson();
+      expect(result!.en['otherItem']).toEqual(otherItemEnContent);
+      expect(result!.de['otherItem']).toEqual(otherItemDeContent);
+
+      const otherItemAfter = surveyTranslations.getItemTranslations('otherItem');
+      expect(otherItemAfter!.getContent(enLocale, 'label')).toEqual(mockContent);
+      expect(otherItemAfter!.getContent(deLocale, 'label')).toEqual(mockCQMContent);
+    });
+
+    test('should handle renaming non-existent item key gracefully', () => {
+      // Get state before attempted rename
+      const beforeRename = surveyTranslations.toJson();
+
+      // Attempt to rename non-existent key
+      surveyTranslations.onItemKeyChanged('nonExistentKey', 'someNewKey');
+
+      // Verify no changes occurred
+      const afterRename = surveyTranslations.toJson();
+      expect(afterRename).toEqual(beforeRename);
+
+      // Verify the new key was not created
+      expect(afterRename!.en['someNewKey']).toBeUndefined();
+      expect(afterRename!.de['someNewKey']).toBeUndefined();
+
+      // Verify existing translations are still intact
+      expect(afterRename!.en['oldItemKey']).toBeDefined();
+      expect(afterRename!.en['otherItem']).toBeDefined();
+    });
+
+    test('should handle renaming to existing key by overwriting', () => {
+      // Perform rename where new key already exists
+      surveyTranslations.onItemKeyChanged('oldItemKey', 'otherItem');
+
+      const result = surveyTranslations.toJson();
+
+      // Verify old key is removed
+      expect(result!.en['oldItemKey']).toBeUndefined();
+      expect(result!.de['oldItemKey']).toBeUndefined();
+
+      // Verify the existing key is overwritten with old key's content
+      expect(result!.en['otherItem']).toBeDefined();
+      expect(result!.de['otherItem']).toBeDefined();
+
+      // The content should now be from the original 'oldItemKey'
+      const finalTranslations = surveyTranslations.getItemTranslations('otherItem');
+      expect(finalTranslations!.getContent(enLocale, 'title')).toEqual(mockContent);
+      expect(finalTranslations!.getContent(enLocale, 'description')).toEqual(mockCQMContent);
+      expect(finalTranslations!.getContent(deLocale, 'title')).toEqual(mockCQMContent);
+      expect(finalTranslations!.getContent(deLocale, 'description')).toEqual(mockContent);
+
+      // The original 'otherItem' content (label) should be gone
+      expect(finalTranslations!.getContent(enLocale, 'label')).toBeUndefined();
+    });
+
+    test('should work with single locale', () => {
+      // Create a survey with only one locale
+      const singleLocaleSurvey = new SurveyTranslations();
+      singleLocaleSurvey.setSurveyCardContent(enLocale, mockSurveyCardContent);
+
+      const itemTranslations = new SurveyItemTranslations();
+      itemTranslations.setContent(enLocale, 'title', mockContent);
+      itemTranslations.setContent(enLocale, 'description', mockCQMContent);
+
+      singleLocaleSurvey.setItemTranslations('originalKey', itemTranslations);
+
+      // Perform rename
+      singleLocaleSurvey.onItemKeyChanged('originalKey', 'renamedKey');
+
+      const result = singleLocaleSurvey.toJson();
+
+      // Verify old key is removed and new key has correct content
+      expect(result!.en['originalKey']).toBeUndefined();
+      expect(result!.en['renamedKey']).toBeDefined();
+      expect(result!.en['renamedKey']).toEqual({
+        title: mockContent,
+        description: mockCQMContent
+      });
+    });
+
+    test('should handle complex nested keys', () => {
+      // Set up translations with complex nested structure
+      const complexTranslations = new SurveyItemTranslations();
+      complexTranslations.setContent(enLocale, 'comp1.title', mockContent);
+      complexTranslations.setContent(enLocale, 'comp1.description', mockCQMContent);
+      complexTranslations.setContent(enLocale, 'comp2.nested.label', mockContent);
+      complexTranslations.setContent(deLocale, 'comp1.title', mockCQMContent);
+
+      surveyTranslations.setItemTranslations('survey.page1.group.item', complexTranslations);
+
+      // Rename the complex key
+      surveyTranslations.onItemKeyChanged('survey.page1.group.item', 'survey.page2.newGroup.renamedItem');
+
+      const result = surveyTranslations.toJson();
+
+      // Verify old key is completely removed
+      expect(result!.en['survey.page1.group.item']).toBeUndefined();
+      expect(result!.de['survey.page1.group.item']).toBeUndefined();
+
+      // Verify new key has all the complex nested content
+      expect(result!.en['survey.page2.newGroup.renamedItem']).toBeDefined();
+      expect(result!.de['survey.page2.newGroup.renamedItem']).toBeDefined();
+
+      const renamedTranslations = surveyTranslations.getItemTranslations('survey.page2.newGroup.renamedItem');
+      expect(renamedTranslations!.getContent(enLocale, 'comp1.title')).toEqual(mockContent);
+      expect(renamedTranslations!.getContent(enLocale, 'comp1.description')).toEqual(mockCQMContent);
+      expect(renamedTranslations!.getContent(enLocale, 'comp2.nested.label')).toEqual(mockContent);
+      expect(renamedTranslations!.getContent(deLocale, 'comp1.title')).toEqual(mockCQMContent);
+    });
+  });
+
   describe('edge cases', () => {
     test('should not allow empty strings as locale keys for survey card content', () => {
       expect(() => {
