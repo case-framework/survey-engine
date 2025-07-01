@@ -173,6 +173,24 @@ export class SurveyTranslations {
   }
 
   /**
+   * Rename a component key (within an item) - update key in all translations and remove old key
+   * @param itemKey - The key of the item
+   * @param oldKey - The old key of the component
+   * @param newKey - The new key of the component
+   */
+  onComponentKeyChanged(itemKey: string, oldKey: string, newKey: string): void {
+    for (const locale of this.locales) {
+      const itemTranslations = this._translations?.[locale]?.[itemKey] as JsonComponentContent;
+      if (itemTranslations) {
+        if (itemTranslations[oldKey]) {
+          itemTranslations[newKey] = { ...itemTranslations[oldKey] };
+          delete itemTranslations[oldKey];
+        }
+      }
+    }
+  }
+
+  /**
    * Remove all translations for a component
    * @param fullItemKey - The full key of the item
    * @param componentKey - The key of the component

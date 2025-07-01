@@ -665,6 +665,208 @@ describe('SurveyTranslations', () => {
     });
   });
 
+  describe('component key changes', () => {
+    beforeEach(() => {
+      // Create a test setup with multiple locales and component translations
+      surveyTranslations.setSurveyCardContent(enLocale, mockSurveyCardContent);
+      surveyTranslations.setSurveyCardContent(deLocale, mockSurveyCardContent);
+
+      // Set up translations for an item with multiple components
+      const itemTranslations = new SurveyItemTranslations();
+      itemTranslations.setContent(enLocale, 'oldComponentKey', mockContent);
+      itemTranslations.setContent(enLocale, 'anotherComponent', mockCQMContent);
+      itemTranslations.setContent(enLocale, 'thirdComponent.title', mockContent);
+      itemTranslations.setContent(deLocale, 'oldComponentKey', mockCQMContent);
+      itemTranslations.setContent(deLocale, 'anotherComponent', mockContent);
+      itemTranslations.setContent(deLocale, 'thirdComponent.title', mockCQMContent);
+
+      // Set up another item to ensure it's not affected
+      const otherItemTranslations = new SurveyItemTranslations();
+      otherItemTranslations.setContent(enLocale, 'oldComponentKey', mockContent);
+      otherItemTranslations.setContent(deLocale, 'oldComponentKey', mockCQMContent);
+
+      surveyTranslations.setItemTranslations('testItem', itemTranslations);
+      surveyTranslations.setItemTranslations('otherItem', otherItemTranslations);
+    });
+
+    test('should rename component key and preserve translations', () => {
+      // Get original content before rename
+      const originalTranslations = surveyTranslations.getItemTranslations('testItem');
+      const originalEnContent = originalTranslations!.getContent(enLocale, 'oldComponentKey');
+      const originalDeContent = originalTranslations!.getContent(deLocale, 'oldComponentKey');
+
+      // Perform the component rename
+      surveyTranslations.onComponentKeyChanged('testItem', 'oldComponentKey', 'newComponentKey');
+
+      // Verify old component key is removed
+      const updatedTranslations = surveyTranslations.getItemTranslations('testItem');
+      expect(updatedTranslations!.getContent(enLocale, 'oldComponentKey')).toBeUndefined();
+      expect(updatedTranslations!.getContent(deLocale, 'oldComponentKey')).toBeUndefined();
+
+      // Verify new component key has the same content
+      expect(updatedTranslations!.getContent(enLocale, 'newComponentKey')).toEqual(originalEnContent);
+      expect(updatedTranslations!.getContent(deLocale, 'newComponentKey')).toEqual(originalDeContent);
+
+      // Verify the content matches exactly
+      expect(updatedTranslations!.getContent(enLocale, 'newComponentKey')).toEqual(mockContent);
+      expect(updatedTranslations!.getContent(deLocale, 'newComponentKey')).toEqual(mockCQMContent);
+    });
+
+    test('should not affect other components in the same item', () => {
+      // Get original content for other components
+      const originalTranslations = surveyTranslations.getItemTranslations('testItem');
+      const anotherCompEnContent = originalTranslations!.getContent(enLocale, 'anotherComponent');
+      const anotherCompDeContent = originalTranslations!.getContent(deLocale, 'anotherComponent');
+      const thirdCompEnContent = originalTranslations!.getContent(enLocale, 'thirdComponent.title');
+      const thirdCompDeContent = originalTranslations!.getContent(deLocale, 'thirdComponent.title');
+
+      // Perform the rename
+      surveyTranslations.onComponentKeyChanged('testItem', 'oldComponentKey', 'newComponentKey');
+
+      // Verify other components are unchanged
+      const updatedTranslations = surveyTranslations.getItemTranslations('testItem');
+      expect(updatedTranslations!.getContent(enLocale, 'anotherComponent')).toEqual(anotherCompEnContent);
+      expect(updatedTranslations!.getContent(deLocale, 'anotherComponent')).toEqual(anotherCompDeContent);
+      expect(updatedTranslations!.getContent(enLocale, 'thirdComponent.title')).toEqual(thirdCompEnContent);
+      expect(updatedTranslations!.getContent(deLocale, 'thirdComponent.title')).toEqual(thirdCompDeContent);
+    });
+
+    test('should not affect other items', () => {
+      // Get original content for other item
+      const otherItemOriginal = surveyTranslations.getItemTranslations('otherItem');
+      const otherItemEnContent = otherItemOriginal!.getContent(enLocale, 'oldComponentKey');
+      const otherItemDeContent = otherItemOriginal!.getContent(deLocale, 'oldComponentKey');
+
+      // Perform the rename on the first item
+      surveyTranslations.onComponentKeyChanged('testItem', 'oldComponentKey', 'newComponentKey');
+
+      // Verify other item's component is unchanged
+      const otherItemAfter = surveyTranslations.getItemTranslations('otherItem');
+      expect(otherItemAfter!.getContent(enLocale, 'oldComponentKey')).toEqual(otherItemEnContent);
+      expect(otherItemAfter!.getContent(deLocale, 'oldComponentKey')).toEqual(otherItemDeContent);
+
+      // Verify the new key wasn't created in the other item
+      expect(otherItemAfter!.getContent(enLocale, 'newComponentKey')).toBeUndefined();
+      expect(otherItemAfter!.getContent(deLocale, 'newComponentKey')).toBeUndefined();
+    });
+
+    test('should handle renaming non-existent component key gracefully', () => {
+      // Get state before attempted rename
+      const beforeRename = surveyTranslations.toJson();
+
+      // Attempt to rename non-existent component key
+      surveyTranslations.onComponentKeyChanged('testItem', 'nonExistentComponent', 'someNewComponent');
+
+      // Verify no changes occurred
+      const afterRename = surveyTranslations.toJson();
+      expect(afterRename).toEqual(beforeRename);
+
+      // Verify the new key was not created
+      const updatedTranslations = surveyTranslations.getItemTranslations('testItem');
+      expect(updatedTranslations!.getContent(enLocale, 'someNewComponent')).toBeUndefined();
+      expect(updatedTranslations!.getContent(deLocale, 'someNewComponent')).toBeUndefined();
+    });
+
+    test('should handle renaming component in non-existent item gracefully', () => {
+      // Get state before attempted rename
+      const beforeRename = surveyTranslations.toJson();
+
+      // Attempt to rename component in non-existent item
+      surveyTranslations.onComponentKeyChanged('nonExistentItem', 'oldComponentKey', 'newComponentKey');
+
+      // Verify no changes occurred
+      const afterRename = surveyTranslations.toJson();
+      expect(afterRename).toEqual(beforeRename);
+    });
+
+    test('should handle renaming to existing component key by overwriting', () => {
+      // Perform rename where new key already exists
+      surveyTranslations.onComponentKeyChanged('testItem', 'oldComponentKey', 'anotherComponent');
+
+      const updatedTranslations = surveyTranslations.getItemTranslations('testItem');
+
+      // Verify old key is removed
+      expect(updatedTranslations!.getContent(enLocale, 'oldComponentKey')).toBeUndefined();
+      expect(updatedTranslations!.getContent(deLocale, 'oldComponentKey')).toBeUndefined();
+
+      // Verify the existing key is overwritten with old key's content
+      expect(updatedTranslations!.getContent(enLocale, 'anotherComponent')).toEqual(mockContent);
+      expect(updatedTranslations!.getContent(deLocale, 'anotherComponent')).toEqual(mockCQMContent);
+    });
+
+    test('should work with single locale', () => {
+      // Create a survey with only one locale
+      const singleLocaleSurvey = new SurveyTranslations();
+      singleLocaleSurvey.setSurveyCardContent(enLocale, mockSurveyCardContent);
+
+      const itemTranslations = new SurveyItemTranslations();
+      itemTranslations.setContent(enLocale, 'originalCompKey', mockContent);
+      itemTranslations.setContent(enLocale, 'otherComp', mockCQMContent);
+
+      singleLocaleSurvey.setItemTranslations('testItem', itemTranslations);
+
+      // Perform rename
+      singleLocaleSurvey.onComponentKeyChanged('testItem', 'originalCompKey', 'renamedCompKey');
+
+      const result = singleLocaleSurvey.getItemTranslations('testItem');
+
+      // Verify old key is removed and new key has correct content
+      expect(result!.getContent(enLocale, 'originalCompKey')).toBeUndefined();
+      expect(result!.getContent(enLocale, 'renamedCompKey')).toEqual(mockContent);
+      expect(result!.getContent(enLocale, 'otherComp')).toEqual(mockCQMContent);
+    });
+
+    test('should handle complex nested component keys', () => {
+      // Set up translations with complex nested component structure
+      const complexTranslations = new SurveyItemTranslations();
+      complexTranslations.setContent(enLocale, 'comp.nested.title', mockContent);
+      complexTranslations.setContent(enLocale, 'comp.nested.description', mockCQMContent);
+      complexTranslations.setContent(enLocale, 'otherComp.title', mockContent);
+      complexTranslations.setContent(deLocale, 'comp.nested.title', mockCQMContent);
+
+      surveyTranslations.setItemTranslations('complexItem', complexTranslations);
+
+      // Rename the nested component key
+      surveyTranslations.onComponentKeyChanged('complexItem', 'comp.nested.title', 'comp.renamed.title');
+
+      const renamedTranslations = surveyTranslations.getItemTranslations('complexItem');
+
+      // Verify old key is removed
+      expect(renamedTranslations!.getContent(enLocale, 'comp.nested.title')).toBeUndefined();
+      expect(renamedTranslations!.getContent(deLocale, 'comp.nested.title')).toBeUndefined();
+
+      // Verify new key has the correct content
+      expect(renamedTranslations!.getContent(enLocale, 'comp.renamed.title')).toEqual(mockContent);
+      expect(renamedTranslations!.getContent(deLocale, 'comp.renamed.title')).toEqual(mockCQMContent);
+
+      // Verify other components are unchanged
+      expect(renamedTranslations!.getContent(enLocale, 'comp.nested.description')).toEqual(mockCQMContent);
+      expect(renamedTranslations!.getContent(enLocale, 'otherComp.title')).toEqual(mockContent);
+    });
+
+    test('should handle multiple sequential renames', () => {
+      // Perform multiple renames in sequence
+      surveyTranslations.onComponentKeyChanged('testItem', 'oldComponentKey', 'intermediateKey');
+      surveyTranslations.onComponentKeyChanged('testItem', 'intermediateKey', 'finalKey');
+
+      const finalTranslations = surveyTranslations.getItemTranslations('testItem');
+
+      // Verify all intermediate keys are removed
+      expect(finalTranslations!.getContent(enLocale, 'oldComponentKey')).toBeUndefined();
+      expect(finalTranslations!.getContent(enLocale, 'intermediateKey')).toBeUndefined();
+      expect(finalTranslations!.getContent(deLocale, 'oldComponentKey')).toBeUndefined();
+      expect(finalTranslations!.getContent(deLocale, 'intermediateKey')).toBeUndefined();
+
+      // Verify final key has the original content
+      expect(finalTranslations!.getContent(enLocale, 'finalKey')).toEqual(mockContent);
+      expect(finalTranslations!.getContent(deLocale, 'finalKey')).toEqual(mockCQMContent);
+
+      // Verify other components are still intact
+      expect(finalTranslations!.getContent(enLocale, 'anotherComponent')).toEqual(mockCQMContent);
+      expect(finalTranslations!.getContent(enLocale, 'thirdComponent.title')).toEqual(mockContent);
+    });
+  });
+
   describe('edge cases', () => {
     test('should not allow empty strings as locale keys for survey card content', () => {
       expect(() => {
