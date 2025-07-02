@@ -182,9 +182,11 @@ export class SurveyTranslations {
     for (const locale of this.locales) {
       const itemTranslations = this._translations?.[locale]?.[itemKey] as JsonComponentContent;
       if (itemTranslations) {
-        if (itemTranslations[oldKey]) {
-          itemTranslations[newKey] = { ...itemTranslations[oldKey] };
-          delete itemTranslations[oldKey];
+        for (const key of Object.keys(itemTranslations)) {
+          if (key.startsWith(oldKey + '.') || key === oldKey) {
+            itemTranslations[key.replace(oldKey, newKey)] = { ...itemTranslations[key] };
+            delete itemTranslations[key];
+          }
         }
       }
     }

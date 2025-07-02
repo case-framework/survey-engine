@@ -155,6 +155,10 @@ export abstract class SurveyItemEditor {
     this._currentItem = this._editor.survey.surveyItems[newFullKey];
   }
 
+  changeComponentKey(oldComponentKey: string, newComponentKey: string): void {
+    this._editor.onComponentKeyChanged(this._currentItem.key.fullKey, oldComponentKey, newComponentKey);
+  }
+
   abstract convertToType(type: SurveyItemType): void;
 }
 
@@ -229,7 +233,7 @@ abstract class ScgMcgEditor extends QuestionEditor {
   }
 
   get optionEditors(): Array<ScgMcgOptionBaseEditor> {
-    return this._currentItem.responseConfig.options.map(option => ScgMcgOptionBaseEditor.fromOption(this, option));
+    return this._currentItem.responseConfig.items.map(option => ScgMcgOptionBaseEditor.fromOption(this, option));
   }
 
   addNewOption(optionKey: string, optionType: ScgMcgOptionTypes, index?: number): void {
@@ -250,21 +254,21 @@ abstract class ScgMcgEditor extends QuestionEditor {
 
   addExistingOption(option: ScgMcgOptionBase, index?: number): void {
     if (index !== undefined && index >= 0) {
-      this._currentItem.responseConfig.options.splice(index, 0, option);
+      this._currentItem.responseConfig.items.splice(index, 0, option);
     } else {
-      this._currentItem.responseConfig.options.push(option);
+      this._currentItem.responseConfig.items.push(option);
     }
   }
 
   optionKeyAvailable(optionKey: string): boolean {
-    return !this._currentItem.responseConfig.options.some(option => option.key.componentKey === optionKey);
+    return !this._currentItem.responseConfig.items.some(option => option.key.componentKey === optionKey);
   }
 
   swapOptions(activeIndex: number, overIndex: number): void {
-    const newOrder = [...this._currentItem.responseConfig.options];
+    const newOrder = [...this._currentItem.responseConfig.items];
     newOrder.splice(activeIndex, 1);
-    newOrder.splice(overIndex, 0, this._currentItem.responseConfig.options[activeIndex]);
-    this._currentItem.responseConfig.options = newOrder;
+    newOrder.splice(overIndex, 0, this._currentItem.responseConfig.items[activeIndex]);
+    this._currentItem.responseConfig.items = newOrder;
   }
 }
 

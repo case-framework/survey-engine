@@ -42,6 +42,9 @@ abstract class Key {
   }
 
   private validateKey(key: string): void {
+    if (key.trim() === '') {
+      throw new Error('Key cannot be empty');
+    }
     if (key.includes('.')) {
       throw new Error('Key must not contain a dot (.)');
     }
@@ -138,11 +141,10 @@ export class ItemComponentKey extends Key {
     this.setParentFullKey(newParentFullKey);
   }
 
-  static fromFullKey(fullKey: string): ItemComponentKey {
+  static fromFullKey(fullKey: string, itemFullKey: string): ItemComponentKey {
     const keyParts = fullKey.split('.');
     const componentKey = keyParts[keyParts.length - 1];
     const parentComponentFullKey = keyParts.slice(0, -1).join('.');
-    const parentItemFullKey = keyParts.slice(0, -2).join('.');
-    return new ItemComponentKey(componentKey, parentComponentFullKey, parentItemFullKey);
+    return new ItemComponentKey(componentKey, parentComponentFullKey, itemFullKey);
   }
 }

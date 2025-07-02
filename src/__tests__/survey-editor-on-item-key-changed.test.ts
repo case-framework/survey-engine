@@ -136,11 +136,11 @@ describe('SurveyEditor onItemKeyChanged', () => {
       // Add some options for testing
       const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
       const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.options = [option1, option2];
+      questionItem.responseConfig.items = [option1, option2];
 
       // Verify initial component keys
       expect(titleComponent.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
-      expect(questionItem.responseConfig.options).toHaveLength(2);
+      expect(questionItem.responseConfig.items).toHaveLength(2);
       expect(option1.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
       expect(option2.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
 

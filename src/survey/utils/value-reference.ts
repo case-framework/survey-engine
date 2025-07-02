@@ -25,7 +25,7 @@ export class ValueReference {
     }
     this._name = parts[1] as ValueReferenceMethod;
     if (parts.length > 2) {
-      this._slotKey = ItemComponentKey.fromFullKey(parts[2]);
+      this._slotKey = ItemComponentKey.fromFullKey(parts[2], this._itemKey.fullKey);
     }
   }
 

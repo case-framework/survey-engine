@@ -34,7 +34,8 @@ export abstract class SurveyItem {
 
   abstract toJson(): JsonSurveyItem
 
-  onComponentDeleted?(componentKey: string): void;
+  abstract onComponentKeyChanged(oldKey: string, newKey: string): void;
+  onComponentDeleted?(componentFullKey: string): void;
   onItemKeyChanged(newFullKey: string): void {
     this.key = SurveyItemKey.fromFullKey(newFullKey);
   }
@@ -176,6 +177,9 @@ export class GroupItem extends SurveyItem {
     // can be ignored for group item
   }
 
+  onComponentKeyChanged(_componentKey: string, _newKey: string): void {
+    // can be ignored for group item
+  }
 }
 
 
@@ -207,6 +211,17 @@ export class DisplayItem extends SurveyItem {
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
       templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
+    }
+  }
+
+  onComponentKeyChanged(oldKey: string, newKey: string): void {
+    if (this.components) {
+      for (const component of this.components) {
+        if (component.key.fullKey === oldKey) {
+          component.onComponentKeyChanged(newKey);
+          break;
+        }
+      }
     }
   }
 
@@ -245,6 +260,10 @@ export class PageBreakItem extends SurveyItem {
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
     }
   }
+
+  onComponentKeyChanged(_componentKey: string, _newKey: string): void {
+    // can be ignored for page break item
+  }
 }
 
 export class SurveyEndItem extends SurveyItem {
@@ -269,6 +288,10 @@ export class SurveyEndItem extends SurveyItem {
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
       templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
     }
+  }
+
+  onComponentKeyChanged(_componentKey: string, _newKey: string): void {
+    // can be ignored for survey end item
   }
 }
 
@@ -352,6 +375,54 @@ export abstract class QuestionItem extends SurveyItem {
     return json;
   }
 
+  onComponentKeyChanged(oldKey: string, newKey: string): void {
+    if (this.disabledConditions?.components?.[oldKey]) {
+      this.disabledConditions.components[newKey] = this.disabledConditions.components[oldKey];
+      delete this.disabledConditions.components[oldKey];
+    }
+
+    if (this.displayConditions?.components?.[oldKey]) {
+      this.displayConditions.components[newKey] = this.displayConditions.components[oldKey];
+      delete this.displayConditions.components[oldKey];
+    }
+
+    if (this.header?.title?.key.fullKey === oldKey) {
+      this.header.title.onComponentKeyChanged(newKey);
+      return;
+    }
+    if (this.header?.subtitle?.key.fullKey === oldKey) {
+      this.header.subtitle.onComponentKeyChanged(newKey);
+      return;
+    }
+    if (this.header?.helpPopover?.key.fullKey === oldKey) {
+      this.header.helpPopover.onComponentKeyChanged(newKey);
+      return;
+    }
+
+    for (const component of this.body?.topContent || []) {
+      if (component.key.fullKey === oldKey) {
+        component.onComponentKeyChanged(newKey);
+        break;
+      }
+    }
+    for (const component of this.body?.bottomContent || []) {
+      if (component.key.fullKey === oldKey) {
+        component.onComponentKeyChanged(newKey);
+        break;
+      }
+    }
+
+    if (this.footer?.key.fullKey === oldKey) {
+      this.footer.onComponentKeyChanged(newKey);
+      return;
+    }
+
+    if (this.responseConfig.key.fullKey === oldKey) {
+      this.responseConfig.onComponentKeyChanged(newKey);
+      return;
+    }
+  }
+
 
   onComponentDeleted(componentKey: string): void {
     if (this.header?.title?.key.fullKey === componentKey) {
@@ -420,6 +491,19 @@ abstract class ScgMcgQuestionItem extends QuestionItem {
   constructor(itemFullKey: string, itemType: SurveyItemType.SingleChoiceQuestion | SurveyItemType.MultipleChoiceQuestion) {
     super(itemFullKey, itemType);
     this.responseConfig = new ScgMcgChoiceResponseConfig(itemType === SurveyItemType.SingleChoiceQuestion ? 'scg' : 'mcg', undefined, this.key.fullKey);
+  }
+
+  onComponentKeyChanged(oldKey: string, newKey: string): void {
+    super.onComponentKeyChanged(oldKey, newKey);
+
+    if (oldKey.startsWith(this.responseConfig.key.fullKey)) {
+      for (const comp of this.responseConfig.items || []) {
+        if (comp.key.fullKey === oldKey) {
+          comp.onComponentKeyChanged(newKey);
+          break;
+        }
+      }
+    }
   }
 }
 

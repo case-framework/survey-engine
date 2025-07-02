@@ -1404,7 +1404,7 @@ describe('SurveyItemEditor', () => {
       // Add some options for testing
       const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
       const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.options = [option1, option2];
+      questionItem.responseConfig.items = [option1, option2];
 
       // Create group item editor
       const groupEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.group1', SurveyItemType.Group);

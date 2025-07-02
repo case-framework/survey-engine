@@ -19,7 +19,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
   describe('Basic functionality', () => {
     it('should create ScgMcgChoiceResponseConfig with correct type', () => {
       expect(singleChoiceConfig.componentType).toBe(ItemComponentType.SingleChoice);
-      expect(singleChoiceConfig.options).toEqual([]);
+      expect(singleChoiceConfig.items).toEqual([]);
     });
 
     it('should initialize with default value references when no options', () => {
@@ -36,7 +36,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
       const option1 = new ScgMcgOption('option1', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
       const option2 = new ScgMcgOption('option2', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
 
-      singleChoiceConfig.options = [option1, option2];
+      singleChoiceConfig.items = [option1, option2];
 
       const valueRefs = singleChoiceConfig.valueReferences;
       expect(valueRefs).toEqual({
@@ -81,7 +81,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
       const basicOption = new ScgMcgOption('option1', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
       const optionWithInput = new ScgMcgOptionWithTextInput('optionText', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
 
-      singleChoiceConfig.options = [basicOption, optionWithInput];
+      singleChoiceConfig.items = [basicOption, optionWithInput];
 
       const valueRefs = singleChoiceConfig.valueReferences;
 
@@ -110,7 +110,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
       const optionWithInput1 = new ScgMcgOptionWithTextInput('optionText1', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
       const optionWithInput2 = new ScgMcgOptionWithTextInput('optionText2', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
 
-      singleChoiceConfig.options = [optionWithInput1, optionWithInput2];
+      singleChoiceConfig.items = [optionWithInput1, optionWithInput2];
 
       const valueRefs = singleChoiceConfig.valueReferences;
 
@@ -157,7 +157,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
       const optionWithInput = new ScgMcgOptionWithTextInput('optionText', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
       const basicOption2 = new ScgMcgOption('option2', singleChoiceConfig.key.fullKey, singleChoiceConfig.key.parentItemKey.fullKey);
 
-      singleChoiceConfig.options = [basicOption1, optionWithInput, basicOption2];
+      singleChoiceConfig.items = [basicOption1, optionWithInput, basicOption2];
 
       const valueRefs = singleChoiceConfig.valueReferences;
 
@@ -212,7 +212,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
       const nestedSingleChoice = new ScgMcgChoiceResponseConfig('scg', 'parent.component', 'survey.page1.question1');
       const optionWithInput = new ScgMcgOptionWithTextInput('option1', nestedSingleChoice.key.fullKey, nestedSingleChoice.key.parentItemKey.fullKey);
 
-      nestedSingleChoice.options = [optionWithInput];
+      nestedSingleChoice.items = [optionWithInput];
 
       const valueRefs = nestedSingleChoice.valueReferences;
 
@@ -230,7 +230,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
     });
 
     it('should handle empty options array', () => {
-      singleChoiceConfig.options = [];
+      singleChoiceConfig.items = [];
 
       const valueRefs = singleChoiceConfig.valueReferences;
 
@@ -242,7 +242,7 @@ describe('ScgMcgChoiceResponseConfig - Value References', () => {
 
     it('should handle undefined options', () => {
       // Reset options to undefined
-      singleChoiceConfig.options = undefined as unknown as ScgMcgOptionBase[];
+      singleChoiceConfig.items = undefined as unknown as ScgMcgOptionBase[];
 
       const valueRefs = singleChoiceConfig.valueReferences;
 
@@ -299,7 +299,7 @@ describe('Survey - getResponseValueReferences', () => {
       const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
       const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
 
-      questionItem.responseConfig.options = [option1, option2];
+      questionItem.responseConfig.items = [option1, option2];
       survey.surveyItems['test-survey.question1'] = questionItem;
 
       const valueRefs = survey.getResponseValueReferences();
@@ -326,7 +326,7 @@ describe('Survey - getResponseValueReferences', () => {
       const basicOption = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
       const optionWithInput = new ScgMcgOptionWithTextInput('optionText', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
 
-      questionItem.responseConfig.options = [basicOption, optionWithInput];
+      questionItem.responseConfig.items = [basicOption, optionWithInput];
       survey.surveyItems['test-survey.question1'] = questionItem;
 
       const valueRefs = survey.getResponseValueReferences();
@@ -365,11 +365,11 @@ describe('Survey - getResponseValueReferences', () => {
     it('should return value references for multiple single choice questions', () => {
       const questionItem1 = new SingleChoiceQuestionItem('test-survey.question1');
       const option1 = new ScgMcgOption('option1', questionItem1.responseConfig.key.fullKey, questionItem1.key.fullKey);
-      questionItem1.responseConfig.options = [option1];
+      questionItem1.responseConfig.items = [option1];
 
       const questionItem2 = new SingleChoiceQuestionItem('test-survey.question2');
       const optionWithInput = new ScgMcgOptionWithTextInput('optionText', questionItem2.responseConfig.key.fullKey, questionItem2.key.fullKey);
-      questionItem2.responseConfig.options = [optionWithInput];
+      questionItem2.responseConfig.items = [optionWithInput];
 
       survey.surveyItems['test-survey.question1'] = questionItem1;
       survey.surveyItems['test-survey.question2'] = questionItem2;
@@ -391,7 +391,7 @@ describe('Survey - getResponseValueReferences', () => {
       const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
       const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
 
-      questionItem.responseConfig.options = [option1, option2];
+      questionItem.responseConfig.items = [option1, option2];
       survey.surveyItems['test-survey.mcq1'] = questionItem;
 
       const valueRefs = survey.getResponseValueReferences();
@@ -410,11 +410,11 @@ describe('Survey - getResponseValueReferences', () => {
     it('should aggregate value references from mixed question types', () => {
       const singleChoice = new SingleChoiceQuestionItem('test-survey.scq1');
       const scOption = new ScgMcgOption('option1', singleChoice.responseConfig.key.fullKey, singleChoice.key.fullKey);
-      singleChoice.responseConfig.options = [scOption];
+      singleChoice.responseConfig.items = [scOption];
 
       const multipleChoice = new MultipleChoiceQuestionItem('test-survey.mcq1');
       const mcOptionWithInput = new ScgMcgOptionWithTextInput('optionText', multipleChoice.responseConfig.key.fullKey, multipleChoice.key.fullKey);
-      multipleChoice.responseConfig.options = [mcOptionWithInput];
+      multipleChoice.responseConfig.items = [mcOptionWithInput];
 
       const displayItem = new DisplayItem('test-survey.display1'); // Should be ignored
 
@@ -439,7 +439,7 @@ describe('Survey - getResponseValueReferences', () => {
       // Set up survey with mixed value reference types
       const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
       const optionWithInput = new ScgMcgOptionWithTextInput('optionText', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.options = [optionWithInput];
+      questionItem.responseConfig.items = [optionWithInput];
       survey.surveyItems['test-survey.question1'] = questionItem;
     });
 
@@ -510,7 +510,7 @@ describe('Survey - getResponseValueReferences', () => {
     it('should handle deeply nested question items', () => {
       const questionItem = new SingleChoiceQuestionItem('test-survey.page1.section1.question1');
       const option = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.options = [option];
+      questionItem.responseConfig.items = [option];
 
       survey.surveyItems['test-survey.page1.section1.question1'] = questionItem;
 
@@ -528,7 +528,7 @@ describe('Survey - getResponseValueReferences', () => {
       const basicOption2 = new ScgMcgOption('basic2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
       const optionWithInput2 = new ScgMcgOptionWithTextInput('text2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
 
-      questionItem.responseConfig.options = [basicOption1, optionWithInput1, basicOption2, optionWithInput2];
+      questionItem.responseConfig.items = [basicOption1, optionWithInput1, basicOption2, optionWithInput2];
       survey.surveyItems['test-survey.question1'] = questionItem;
 
       const valueRefs = survey.getResponseValueReferences();
@@ -548,7 +548,7 @@ describe('Survey - getResponseValueReferences', () => {
       for (let i = 1; i <= 100; i++) {
         const questionItem = new SingleChoiceQuestionItem(`test-survey.question${i}`);
         const option = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-        questionItem.responseConfig.options = [option];
+        questionItem.responseConfig.items = [option];
         survey.surveyItems[`test-survey.question${i}`] = questionItem;
       }
 
@@ -905,7 +905,7 @@ describe('Survey - findInvalidReferenceUsages', () => {
       // Create a question that generates valid value references
       const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
       const option = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.options = [option];
+      questionItem.responseConfig.items = [option];
       survey.surveyItems['test-survey.question1'] = questionItem;
 
       // Create an item that references the valid value reference
@@ -923,7 +923,7 @@ describe('Survey - findInvalidReferenceUsages', () => {
       // Create a question that generates valid value references
       const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
       const option = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.options = [option];
+      questionItem.responseConfig.items = [option];
       survey.surveyItems['test-survey.question1'] = questionItem;
 
       // Create items that reference both valid and invalid value references
@@ -974,12 +974,12 @@ describe('Survey - findInvalidReferenceUsages', () => {
       // Create questions that generate valid value references
       const questionItem1 = new SingleChoiceQuestionItem('test-survey.question1');
       const option1 = new ScgMcgOption('option1', questionItem1.responseConfig.key.fullKey, questionItem1.key.fullKey);
-      questionItem1.responseConfig.options = [option1];
+      questionItem1.responseConfig.items = [option1];
       survey.surveyItems['test-survey.question1'] = questionItem1;
 
       const questionItem2 = new SingleChoiceQuestionItem('test-survey.question2');
       const optionWithInput = new ScgMcgOptionWithTextInput('optionText', questionItem2.responseConfig.key.fullKey, questionItem2.key.fullKey);
-      questionItem2.responseConfig.options = [optionWithInput];
+      questionItem2.responseConfig.items = [optionWithInput];
       survey.surveyItems['test-survey.question2'] = questionItem2;
 
       // Create an item with multiple types of references (valid and invalid)

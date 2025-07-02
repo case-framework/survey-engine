@@ -1,4 +1,3 @@
-import { Expression } from "../../data_types/expression";
 import { ItemComponentKey } from "../item-component-key";
 import { JsonItemComponent } from "../survey-file-schema";
 import { ExpectedValueType } from "../utils";
@@ -37,28 +36,22 @@ export abstract class ItemComponent {
   abstract toJson(): JsonItemComponent
 
   onSubComponentDeleted?(componentKey: string): void;
+
   onItemKeyChanged(newFullKey: string): void {
     this.key.setParentItemKey(newFullKey);
   }
-}
 
-const initComponentClassBasedOnType = (json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ItemComponent => {
-  switch (json.type) {
-    case ItemComponentType.Group:
-      return GroupComponent.fromJson(json as JsonItemComponent, parentFullKey, parentItemKey);
-    case ItemComponentType.Text:
-    case ItemComponentType.Markdown:
-    case ItemComponentType.Info:
-    case ItemComponentType.Warning:
-    case ItemComponentType.Error:
-      return initDisplayComponentBasedOnType(json, parentFullKey, parentItemKey);
-    default:
-      throw new Error(`Unsupported item type for initialization: ${json.type}`);
+  onParentComponentKeyChanged(newParentFullKey: string): void {
+    this.key.setParentComponentFullKey(newParentFullKey);
+  }
+
+  onComponentKeyChanged(newComponentKey: string): void {
+    this.key = ItemComponentKey.fromFullKey(newComponentKey, this.key.parentItemKey.fullKey);
   }
 }
 
-const initDisplayComponentBasedOnType = (json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): DisplayComponent => {
-  const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
+const initDisplayComponentBasedOnType = (json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): DisplayComponent => {
+  const componentKey = ItemComponentKey.fromFullKey(json.key, parentItemKey).componentKey;
 
   switch (json.type) {
     case ItemComponentType.Text: {
@@ -95,37 +88,17 @@ const initDisplayComponentBasedOnType = (json: JsonItemComponent, parentFullKey:
 /**
  * Group component
  */
-export class GroupComponent extends ItemComponent {
-  componentType: ItemComponentType.Group = ItemComponentType.Group;
+export abstract class GroupComponent extends ItemComponent {
   items?: Array<ItemComponent>;
-  order?: Expression;
+  shuffleItems?: boolean;
 
-
-  constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
+  constructor(type: ItemComponentType, compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
     super(
       compKey,
       parentFullKey,
-      ItemComponentType.Group,
+      type,
       parentItemKey,
     );
-  }
-
-
-  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): GroupComponent {
-    const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
-    const group = new GroupComponent(componentKey, parentFullKey, parentItemKey);
-    group.items = json.items?.map(item => initComponentClassBasedOnType(item, group.key.fullKey, group.key.parentItemKey.fullKey));
-    group.styles = json.styles;
-    return group;
-  }
-
-  toJson(): JsonItemComponent {
-    return {
-      key: this.key.fullKey,
-      type: ItemComponentType.Group,
-      items: this.items?.map(item => item.toJson()),
-      styles: this.styles,
-    }
   }
 
   onSubComponentDeleted(componentKey: string): void {
@@ -141,6 +114,23 @@ export class GroupComponent extends ItemComponent {
     super.onItemKeyChanged(newFullKey);
     this.items?.forEach(item => {
       item.onItemKeyChanged(newFullKey);
+    });
+  }
+
+  onParentComponentKeyChanged(newParentFullKey: string): void {
+    super.onParentComponentKeyChanged(newParentFullKey);
+    this.items?.forEach(item => {
+      item.onParentComponentKeyChanged(this.key.fullKey);
+    });
+  }
+
+  onComponentKeyChanged(newComponentKey: string): void {
+    super.onComponentKeyChanged(newComponentKey);
+    const newFullKey = this.key.fullKey;
+
+    // Update all nested components to have the new parent full key
+    this.items?.forEach(item => {
+      item.onParentComponentKeyChanged(newFullKey);
     });
   }
 }
@@ -163,7 +153,7 @@ export class DisplayComponent extends ItemComponent {
     );
   }
 
-  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): DisplayComponent {
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): DisplayComponent {
     return initDisplayComponentBasedOnType(json, parentFullKey, parentItemKey);
   }
 
@@ -243,9 +233,9 @@ export abstract class ResponseConfigComponent extends ItemComponent {
 // ========================================
 // SCG/MCG COMPONENTS
 // ========================================
-export class ScgMcgChoiceResponseConfig extends ResponseConfigComponent {
+export class ScgMcgChoiceResponseConfig extends GroupComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
-  options: Array<ScgMcgOptionBase>;
+  items: Array<ScgMcgOptionBase>;
   shuffleItems?: boolean;
 
 
@@ -256,14 +246,14 @@ export class ScgMcgChoiceResponseConfig extends ResponseConfigComponent {
       parentFullKey,
       parentItemKey,
     );
-    this.options = [];
+    this.items = [];
   }
 
-  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgChoiceResponseConfig {
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): ScgMcgChoiceResponseConfig {
     // Extract component key from full key
-    const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
+    const componentKey = ItemComponentKey.fromFullKey(json.key, parentItemKey).componentKey;
     const singleChoice = new ScgMcgChoiceResponseConfig(componentKey, parentFullKey, parentItemKey);
-    singleChoice.options = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
+    singleChoice.items = json.items?.map(item => ScgMcgOptionBase.fromJson(item, singleChoice.key.fullKey, singleChoice.key.parentItemKey.fullKey)) ?? [];
     singleChoice.styles = json.styles;
     singleChoice.shuffleItems = json.properties?.shuffleItems as boolean | undefined;
     return singleChoice;
@@ -273,30 +263,14 @@ export class ScgMcgChoiceResponseConfig extends ResponseConfigComponent {
     return {
       key: this.key.fullKey,
       type: ItemComponentType.SingleChoice,
-      items: this.options.map(option => option.toJson()),
+      items: this.items.map(option => option.toJson()),
       styles: this.styles,
       properties: this.shuffleItems !== undefined ? { shuffleItems: this.shuffleItems } : undefined,
     }
   }
 
-  onSubComponentDeleted(componentKey: string): void {
-    this.options = this.options?.filter(option => option.key.fullKey !== componentKey);
-    this.options?.forEach(option => {
-      if (componentKey.startsWith(option.key.fullKey)) {
-        option.onSubComponentDeleted?.(componentKey);
-      }
-    });
-  }
-
-  onItemKeyChanged(newFullKey: string): void {
-    super.onItemKeyChanged(newFullKey);
-    this.options?.forEach(option => {
-      option.onItemKeyChanged(newFullKey);
-    });
-  }
-
   get valueReferences(): ValueRefTypeLookup {
-    const subSlots = this.options?.reduce((acc, option) => {
+    const subSlots = this.items?.reduce((acc, option) => {
       const optionValueRefs = option.valueReferences;
       Object.keys(optionValueRefs).forEach(key => {
         acc[key] = optionValueRefs[key];
@@ -315,7 +289,7 @@ export class ScgMcgChoiceResponseConfig extends ResponseConfigComponent {
 export abstract class ScgMcgOptionBase extends ItemComponent {
   componentType!: ScgMcgOptionTypes;
 
-  static fromJson(item: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOptionBase {
+  static fromJson(item: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): ScgMcgOptionBase {
     switch (item.type) {
       case ItemComponentType.ScgMcgOption:
         return ScgMcgOption.fromJson(item, parentFullKey, parentItemKey);
@@ -337,8 +311,8 @@ export class ScgMcgOption extends ScgMcgOptionBase {
     super(compKey, parentFullKey, ItemComponentType.ScgMcgOption, parentItemKey);
   }
 
-  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOption {
-    const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): ScgMcgOption {
+    const componentKey = ItemComponentKey.fromFullKey(json.key, parentItemKey).componentKey;
     const option = new ScgMcgOption(componentKey, parentFullKey, parentItemKey);
     option.styles = json.styles;
     return option;
@@ -365,8 +339,8 @@ export class ScgMcgOptionWithTextInput extends ScgMcgOptionBase {
     super(compKey, parentFullKey, ItemComponentType.ScgMcgOptionWithTextInput, parentItemKey);
   }
 
-  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined): ScgMcgOptionWithTextInput {
-    const componentKey = ItemComponentKey.fromFullKey(json.key).componentKey;
+  static fromJson(json: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): ScgMcgOptionWithTextInput {
+    const componentKey = ItemComponentKey.fromFullKey(json.key, parentItemKey).componentKey;
     const option = new ScgMcgOptionWithTextInput(componentKey, parentFullKey, parentItemKey);
     option.styles = json.styles;
     return option;

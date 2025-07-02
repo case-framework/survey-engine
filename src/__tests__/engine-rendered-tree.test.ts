@@ -472,7 +472,7 @@ describe('Single Choice Question Option Shuffling', () => {
     const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
     const option3 = new ScgMcgOption('option3', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
 
-    questionItem.responseConfig.options = [option1, option2, option3];
+    questionItem.responseConfig.items = [option1, option2, option3];
     questionItem.responseConfig.shuffleItems = false;
 
     survey.surveyItems['test-survey.question1'] = questionItem;
@@ -510,7 +510,7 @@ describe('Single Choice Question Option Shuffling', () => {
     const option3 = new ScgMcgOption('option3', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
     const option4 = new ScgMcgOption('option4', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
 
-    questionItem.responseConfig.options = [option1, option2, option3, option4];
+    questionItem.responseConfig.items = [option1, option2, option3, option4];
     questionItem.responseConfig.shuffleItems = true;
 
     survey.surveyItems['test-survey.question1'] = questionItem;
@@ -552,7 +552,7 @@ describe('Single Choice Question Option Shuffling', () => {
 
     // Create a single choice question with no options
     const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
-    questionItem.responseConfig.options = [];
+    questionItem.responseConfig.items = [];
     questionItem.responseConfig.shuffleItems = true;
 
     survey.surveyItems['test-survey.question1'] = questionItem;
@@ -580,7 +580,7 @@ describe('Single Choice Question Option Shuffling', () => {
     const questionItem = new SingleChoiceQuestionItem('test-survey.question1');
 
     const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-    questionItem.responseConfig.options = [option1];
+    questionItem.responseConfig.items = [option1];
     questionItem.responseConfig.shuffleItems = true;
 
     survey.surveyItems['test-survey.question1'] = questionItem;

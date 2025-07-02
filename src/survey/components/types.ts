@@ -6,8 +6,6 @@ export enum ItemComponentType {
   Warning = 'warning',
   Error = 'error',
 
-  Group = 'group',
-
   // RESPONSE CONFIG COMPONENTS
   SingleChoice = 'scg',
   MultipleChoice = 'mcg',
@@ -46,3 +44,6 @@ export type ScgMcgOptionTypes =
   | ItemComponentType.ScgMcgOptionWithDropdown
   | ItemComponentType.ScgMcgOptionWithCloze;
 
+export type GroupComponentTypes =
+  | ItemComponentType.SingleChoice
+  | ItemComponentType.MultipleChoice;

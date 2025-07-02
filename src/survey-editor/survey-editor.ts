@@ -444,8 +444,14 @@ export class SurveyEditor {
 
   onComponentKeyChanged(itemKey: string, oldKey: string, newKey: string): void {
     this.commitIfNeeded();
-    // TODO: update references to the component in other items (e.g., expressions)
-    // TODO: recursively, if the component is a group, update all its component references in other items
+
+    const item = this._survey.surveyItems[itemKey];
+    if (!item) {
+      throw new Error(`Item with key '${itemKey}' not found`);
+    }
+
+    // Find and update the component in the item
+    this._survey.surveyItems[itemKey].onComponentKeyChanged(oldKey, newKey);
     this._survey.translations.onComponentKeyChanged(itemKey, oldKey, newKey);
 
     this.commit(`Renamed component ${oldKey} to ${newKey} in ${itemKey}`);
