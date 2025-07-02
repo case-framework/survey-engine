@@ -106,6 +106,25 @@ export abstract class SurveyItemEditor {
     return this._currentItem.templateValues?.[templateValueKey]?.expression?.clone();
   }
 
+  getSiblingKeys(): SurveyItemKey[] {
+    const parentKey = this._currentItem.key.parentFullKey;
+    const currentFullKey = this._currentItem.key.fullKey;
+
+    // Find all items with the same parent key (excluding current item)
+    const siblingKeys: SurveyItemKey[] = [];
+
+    for (const itemFullKey of Object.keys(this._editor.survey.surveyItems)) {
+      const item = this._editor.survey.surveyItems[itemFullKey];
+
+      // Check if this item has the same parent and is not the current item
+      if (item.key.parentFullKey === parentKey && item.key.fullKey !== currentFullKey) {
+        siblingKeys.push(item.key);
+      }
+    }
+
+    return siblingKeys;
+  }
+
   abstract convertToType(type: SurveyItemType): void;
 }
 
