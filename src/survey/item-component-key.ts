@@ -1,7 +1,7 @@
 abstract class Key {
   protected _key: string;
-  protected _fullKey: string;
-  protected _keyParts: Array<string>;
+  protected _fullKey!: string;
+  protected _keyParts!: Array<string>;
 
   protected _parentFullKey?: string;
   protected _parentKey?: string;
@@ -16,10 +16,9 @@ abstract class Key {
       }
     }
     this._key = key;
-    this._fullKey = `${parentFullKey ? parentFullKey + '.' : ''}${key}`;
-    this._keyParts = this._fullKey.split('.');
     this._parentFullKey = parentFullKey;
-    this._parentKey = parentFullKey ? parentFullKey.split('.').pop() : undefined;
+    this.computeFullKey();
+    this.computeParentKey();
   }
 
   get isRoot(): boolean {
@@ -42,9 +41,31 @@ abstract class Key {
     return this._parentKey;
   }
 
-  setParentFullKey(newFullKey: string): void {
+  private validateKey(key: string): void {
+    if (key.includes('.')) {
+      throw new Error('Key must not contain a dot (.)');
+    }
+  }
+
+  private computeFullKey(): void {
+    this._fullKey = `${this._parentFullKey ? this._parentFullKey + '.' : ''}${this._key}`;
+    this._keyParts = this._fullKey.split('.');
+  }
+
+  private computeParentKey(): void {
+    this._parentKey = this._parentFullKey ? this._parentFullKey.split('.').pop() : undefined;
+  }
+
+  setParentFullKey(newFullKey: string | undefined): void {
     this._parentFullKey = newFullKey;
-    this._parentKey = newFullKey.split('.').pop();
+    this.computeParentKey();
+    this.computeFullKey();
+  }
+
+  protected setKey(newKey: string): void {
+    this.validateKey(newKey);
+    this._key = newKey;
+    this.computeFullKey();
   }
 }
 
@@ -107,6 +128,14 @@ export class ItemComponentKey extends Key {
 
   setParentItemKey(newFullKey: string): void {
     this._parentItemKey = SurveyItemKey.fromFullKey(newFullKey);
+  }
+
+  setComponentKey(newComponentKey: string): void {
+    this.setKey(newComponentKey);
+  }
+
+  setParentComponentFullKey(newParentFullKey: string | undefined): void {
+    this.setParentFullKey(newParentFullKey);
   }
 
   static fromFullKey(fullKey: string): ItemComponentKey {
