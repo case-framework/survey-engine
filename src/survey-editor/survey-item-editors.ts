@@ -125,6 +125,36 @@ export abstract class SurveyItemEditor {
     return siblingKeys;
   }
 
+  changeItemKey(newItemKey: string): void {
+    // Validate that newItemKey doesn't contain dots
+    if (newItemKey.includes('.')) {
+      throw new Error('Item key must not contain a dot (.)');
+    }
+
+    // If the new key is the same as current key, do nothing
+    if (this._currentItem.key.itemKey === newItemKey) {
+      return;
+    }
+
+    // Check if a sibling with the same key already exists
+    const siblingKeys = this.getSiblingKeys();
+    const siblingKeyExists = siblingKeys.some(siblingKey => siblingKey.itemKey === newItemKey);
+
+    if (siblingKeyExists) {
+      throw new Error(`A sibling item with key '${newItemKey}' already exists`);
+    }
+
+    // Construct the new full key
+    const currentParentKey = this._currentItem.key.parentFullKey;
+    const newFullKey = currentParentKey ? `${currentParentKey}.${newItemKey}` : newItemKey;
+
+    // Call the editor's key changing method
+    this._editor.onItemKeyChanged(this._currentItem.key.fullKey, newFullKey);
+
+    // Update our reference to the current item
+    this._currentItem = this._editor.survey.surveyItems[newFullKey];
+  }
+
   abstract convertToType(type: SurveyItemType): void;
 }
 
