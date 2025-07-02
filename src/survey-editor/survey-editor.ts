@@ -298,48 +298,77 @@ export class SurveyEditor {
     index?: number;
   }): boolean {
     this.commitIfNeeded();
-    // TODO: implement
-    return false;
 
-    /* const item = this._survey.surveyItems[itemKey];
+    // Check if item exists
+    const item = this._survey.surveyItems[itemKey];
     if (!item) {
-      return false;
+      throw new Error(`Item with key '${itemKey}' not found`);
     }
 
-    // Remove from current position
+    // Check if new target exists and is a group
+    const targetItem = this._survey.surveyItems[newTarget.parentKey];
+    if (!targetItem) {
+      throw new Error(`Target parent with key '${newTarget.parentKey}' not found`);
+    }
+
+    if (targetItem.itemType !== SurveyItemType.Group) {
+      throw new Error(`Target parent '${newTarget.parentKey}' is not a group item`);
+    }
+
+    // Check if new target is not a child of the current item (prevent circular reference)
+    if (this.isDescendantOf(newTarget.parentKey, itemKey)) {
+      throw new Error(`Cannot move item '${itemKey}' to its descendant '${newTarget.parentKey}'`);
+    }
+
+    // If the item is already in the target parent
     const currentParentKey = item.key.parentFullKey;
+    if (currentParentKey === newTarget.parentKey) {
+      throw new Error(`Item '${itemKey}' is already in the target parent '${newTarget.parentKey}'`);
+    }
+
+    // Remove item from current parent's items array
     if (currentParentKey) {
-      const currentParent = this._survey.surveyItems[currentParentKey];
-      if (currentParent && currentParent.itemType === SurveyItemType.Group) {
-        const currentParentGroup = currentParent as GroupItem;
+      const currentParentItem = this._survey.surveyItems[currentParentKey];
+      if (currentParentItem && currentParentItem.itemType === SurveyItemType.Group) {
+        const currentParentGroup = currentParentItem as GroupItem;
         if (currentParentGroup.items) {
-          const currentIndex = currentParentGroup.items.indexOf(itemKey);
-          if (currentIndex > -1) {
-            currentParentGroup.items.splice(currentIndex, 1);
+          const index = currentParentGroup.items.indexOf(itemKey);
+          if (index > -1) {
+            currentParentGroup.items.splice(index, 1);
           }
         }
       }
     }
 
-    // Add to new position
-    const newParent = this._survey.surveyItems[newTarget.parentKey];
-    if (!newParent || newParent.itemType !== SurveyItemType.Group) {
-      return false;
+    // Create new key with new parent
+    const itemKeyObject = SurveyItemKey.fromFullKey(itemKey);
+    const newItemKey = new SurveyItemKey(itemKeyObject.itemKey, newTarget.parentKey);
+
+    // Use onItemKeyChanged to rename the item and its subtree (this updates all references)
+    this.onItemKeyChanged(itemKey, newItemKey.fullKey, true);
+
+    // Add item to new parent's items array
+    const targetGroup = targetItem as GroupItem;
+    if (!targetGroup.items) {
+      targetGroup.items = [];
     }
 
-    const newParentGroup = newParent as GroupItem;
-    if (!newParentGroup.items) {
-      newParentGroup.items = [];
-    }
+    const insertIndex = newTarget.index !== undefined ?
+      Math.min(newTarget.index, targetGroup.items.length) :
+      targetGroup.items.length;
 
-    const insertIndex = newTarget.index !== undefined
-      ? Math.min(newTarget.index, newParentGroup.items.length)
-      : newParentGroup.items.length;
-
-    newParentGroup.items.splice(insertIndex, 0, itemKey); */
+    targetGroup.items.splice(insertIndex, 0, newItemKey.fullKey);
 
     this.commit(`Moved ${itemKey} to ${newTarget.parentKey}`);
     return true;
+  }
+
+  // Helper method to check if targetKey is a descendant of ancestorKey
+  private isDescendantOf(targetKey: string, ancestorKey: string): boolean {
+    if (targetKey === ancestorKey || targetKey.startsWith(ancestorKey + '.')) {
+      return true;
+    }
+    return false;
   }
 
   onItemKeyChanged(oldFullKey: string, newFullKey: string, skipCommit: boolean = false): void {
@@ -416,7 +445,7 @@ export class SurveyEditor {
   onComponentKeyChanged(itemKey: string, oldKey: string, newKey: string): void {
     this.commitIfNeeded();
     // TODO: update references to the component in other items (e.g., expressions)
-    // TODO: recursively, if the item is a group, update all its component references in other items
+    // TODO: recursively, if the component is a group, update all its component references in other items
     this._survey.translations.onComponentKeyChanged(itemKey, oldKey, newKey);
 
     this.commit(`Renamed component ${oldKey} to ${newKey} in ${itemKey}`);

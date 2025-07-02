@@ -488,25 +488,179 @@ describe('SurveyEditor', () => {
   });
 
   describe('Moving Items', () => {
-    test('should return false for moveItem (not implemented)', () => {
+    test('should throw error when moving non-existent item', () => {
+      expect(() => {
+        editor.moveItem('non-existent-item', {
+          parentKey: 'test-survey.page1'
+        });
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should throw error when target parent does not exist', () => {
       const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'non-existent-parent'
+        });
+      }).toThrow("Target parent with key 'non-existent-parent' not found");
+    });
+
+    test('should throw error when target parent is not a group', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
       const testTranslations = createTestTranslations();
 
       editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
 
-      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
-        parentKey: 'test-survey.page1',
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'test-survey.page1.display2' // display item, not group
+        });
+      }).toThrow("Target parent 'test-survey.page1.display2' is not a group item");
+    });
+
+    test('should throw error when trying to move item to its descendant', () => {
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const subGroupItem = new GroupItem('test-survey.page1.group1.subgroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroupItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.group1', {
+          parentKey: 'test-survey.page1.group1.subgroup'
+        });
+      }).toThrow("Cannot move item 'test-survey.page1.group1' to its descendant 'test-survey.page1.group1.subgroup'");
+    });
+
+    test('should prevent moving item to itself', () => {
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.group1', {
+          parentKey: 'test-survey.page1.group1'
+        });
+      }).toThrow("Cannot move item 'test-survey.page1.group1' to its descendant 'test-survey.page1.group1'");
+    });
+
+    test('should move item between different parents and update keys', () => {
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const group2 = new GroupItem('test-survey.page1.group2');
+      const displayItem = new DisplayItem('test-survey.page1.group1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, displayItem, testTranslations);
+
+      // Verify initial state
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.display1']).toBeUndefined();
+      expect((group1 as GroupItem).items).toContain('test-survey.page1.group1.display1');
+      expect((group2 as GroupItem).items || []).not.toContain('test-survey.page1.group2.display1');
+
+      const moveSuccess = editor.moveItem('test-survey.page1.group1.display1', {
+        parentKey: 'test-survey.page1.group2',
         index: 0
       });
 
-      expect(moveSuccess).toBe(false);
+      expect(moveSuccess).toBe(true);
+
+      // Verify item was moved and key updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.display1']).toBeDefined();
+
+      const movedItem = editor.survey.surveyItems['test-survey.page1.group2.display1'];
+      expect(movedItem.key.fullKey).toBe('test-survey.page1.group2.display1');
+      expect(movedItem.key.parentFullKey).toBe('test-survey.page1.group2');
+
+      // Verify parent items arrays are updated
+      expect((group1 as GroupItem).items).not.toContain('test-survey.page1.group1.display1');
+      expect((group2 as GroupItem).items).toContain('test-survey.page1.group2.display1');
     });
 
-    test('should commit changes when attempting to move', () => {
+    test('should move item with nested children and update all keys correctly', () => {
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const group2 = new GroupItem('test-survey.page1.group2');
+      const subGroup = new GroupItem('test-survey.page1.group1.subgroup');
+      const nestedItem = new DisplayItem('test-survey.page1.group1.subgroup.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1.subgroup' }, nestedItem, testTranslations);
+
+      const moveSuccess = editor.moveItem('test-survey.page1.group1.subgroup', {
+        parentKey: 'test-survey.page1.group2'
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      // Verify subgroup was moved
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.subgroup']).toBeDefined();
+
+      // Verify nested item key was updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.subgroup.display1']).toBeDefined();
+
+      const movedNestedItem = editor.survey.surveyItems['test-survey.page1.group2.subgroup.display1'];
+      expect(movedNestedItem.key.fullKey).toBe('test-survey.page1.group2.subgroup.display1');
+      expect(movedNestedItem.key.parentFullKey).toBe('test-survey.page1.group2.subgroup');
+    });
+
+    test('should throw error when moving item to same parent', () => {
+      const display1 = new DisplayItem('test-survey.page1.display1');
+      const display2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, display1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, display2, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'test-survey.page1',
+          index: 1
+        });
+      }).toThrow("Item 'test-survey.page1.display1' is already in the target parent 'test-survey.page1'");
+    });
+
+    test('should move item to end when no index specified', () => {
+      const display1 = new DisplayItem('test-survey.page1.display1');
+      const display2 = new DisplayItem('test-survey.page1.display2');
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, display1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, display2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+
+      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.group1'
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      const group1Items = (group1 as GroupItem).items;
+      expect(group1Items).toBeDefined();
+      expect(group1Items![group1Items!.length - 1]).toBe('test-survey.page1.group1.display1');
+    });
+
+    test('should commit changes when moving item', () => {
       const testItem = new DisplayItem('test-survey.page1.display1');
+      const group1 = new GroupItem('test-survey.page1.group1');
       const testTranslations = createTestTranslations();
 
       editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
 
       // Make an uncommitted change
       const updatedTranslations = createTestTranslations();
@@ -515,12 +669,32 @@ describe('SurveyEditor', () => {
       expect(editor.hasUncommittedChanges).toBe(true);
 
       editor.moveItem('test-survey.page1.display1', {
-        parentKey: 'test-survey.page1',
+        parentKey: 'test-survey.page1.group1',
         index: 0
       });
 
       // Should have committed the changes
       expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.getUndoDescription()).toBe('Moved test-survey.page1.display1 to test-survey.page1.group1');
+    });
+
+    test('should handle moving to parent with no existing items', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const emptyGroup = new GroupItem('test-survey.page1.emptygroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, emptyGroup, testTranslations);
+
+      // Ensure the empty group has no items
+      expect((emptyGroup as GroupItem).items).toBeUndefined();
+
+      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.emptygroup'
+      });
+
+      expect(moveSuccess).toBe(true);
+      expect((emptyGroup as GroupItem).items).toEqual(['test-survey.page1.emptygroup.display1']);
     });
   });
 
