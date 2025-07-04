@@ -5,6 +5,7 @@ import { Expression } from '../../expressions';
 import { DisabledConditions, disabledConditionsFromJson, disabledConditionsToJson, DisplayConditions, displayConditionsFromJson, displayConditionsToJson } from './utils';
 import { DisplayComponent, ItemComponent, TextComponent, ScgMcgChoiceResponseConfig } from '../components';
 import { ConfidentialMode, SurveyItemType } from './types';
+import { ReferenceUsage, ReferenceUsageType } from '../utils';
 
 
 // ========================================
@@ -33,10 +34,82 @@ export abstract class SurveyItem {
 
   abstract toJson(): JsonSurveyItem
 
-  onComponentDeleted?(componentKey: string): void;
+  abstract onComponentKeyChanged(oldKey: string, newKey: string): void;
+  onComponentDeleted?(componentFullKey: string): void;
+  onItemKeyChanged(newFullKey: string): void {
+    this.key = SurveyItemKey.fromFullKey(newFullKey);
+  }
 
   static fromJson(key: string, json: JsonSurveyItem): SurveyItem {
     return initItemClassBasedOnType(key, json);
+  }
+
+  getReferenceUsages(): ReferenceUsage[] {
+    const usages: ReferenceUsage[] = [];
+
+    if (this.displayConditions) {
+      // root
+      for (const ref of this.displayConditions.root?.responseVariableRefs || []) {
+        usages.push({
+          fullItemKey: this.key.fullKey,
+          usageType: ReferenceUsageType.displayConditions,
+          valueReference: ref,
+        });
+      }
+
+      // components
+      for (const [componentKey, expression] of Object.entries(this.displayConditions.components || {})) {
+        for (const ref of expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: componentKey,
+            usageType: ReferenceUsageType.displayConditions,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    if (this.templateValues) {
+      for (const [templateValueKey, templateValue] of Object.entries(this.templateValues)) {
+        for (const ref of templateValue.expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: templateValueKey,
+            usageType: ReferenceUsageType.templateValues,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    if (this.disabledConditions) {
+      for (const [componentKey, expression] of Object.entries(this.disabledConditions.components || {})) {
+        for (const ref of expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: componentKey,
+            usageType: ReferenceUsageType.disabledConditions,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    if (this.validations) {
+      for (const [validationKey, expression] of Object.entries(this.validations)) {
+        for (const ref of expression?.responseVariableRefs || []) {
+          usages.push({
+            fullItemKey: this.key.fullKey,
+            fullComponentKey: validationKey,
+            usageType: ReferenceUsageType.validations,
+            valueReference: ref,
+          });
+        }
+      }
+    }
+
+    return usages;
   }
 
 }
@@ -103,6 +176,10 @@ export class GroupItem extends SurveyItem {
   onComponentDeleted(_componentKey: string): void {
     // can be ignored for group item
   }
+
+  onComponentKeyChanged(_componentKey: string, _newKey: string): void {
+    // can be ignored for group item
+  }
 }
 
 
@@ -137,8 +214,28 @@ export class DisplayItem extends SurveyItem {
     }
   }
 
+  onComponentKeyChanged(oldKey: string, newKey: string): void {
+    if (this.components) {
+      for (const component of this.components) {
+        if (component.key.fullKey === oldKey) {
+          component.onComponentKeyChanged(newKey);
+          break;
+        }
+      }
+    }
+  }
+
   onComponentDeleted(componentKey: string): void {
     this.components = this.components?.filter(c => c.key.fullKey !== componentKey);
+  }
+
+  onItemKeyChanged(newFullKey: string): void {
+    this.key = SurveyItemKey.fromFullKey(newFullKey);
+    if (this.components) {
+      for (const component of this.components) {
+        component.onItemKeyChanged(newFullKey);
+      }
+    }
   }
 }
 
@@ -162,6 +259,10 @@ export class PageBreakItem extends SurveyItem {
       metadata: this.metadata,
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
     }
+  }
+
+  onComponentKeyChanged(_componentKey: string, _newKey: string): void {
+    // can be ignored for page break item
   }
 }
 
@@ -187,6 +288,10 @@ export class SurveyEndItem extends SurveyItem {
       displayConditions: this.displayConditions ? displayConditionsToJson(this.displayConditions) : undefined,
       templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
     }
+  }
+
+  onComponentKeyChanged(_componentKey: string, _newKey: string): void {
+    // can be ignored for survey end item
   }
 }
 
@@ -270,6 +375,54 @@ export abstract class QuestionItem extends SurveyItem {
     return json;
   }
 
+  onComponentKeyChanged(oldKey: string, newKey: string): void {
+    if (this.disabledConditions?.components?.[oldKey]) {
+      this.disabledConditions.components[newKey] = this.disabledConditions.components[oldKey];
+      delete this.disabledConditions.components[oldKey];
+    }
+
+    if (this.displayConditions?.components?.[oldKey]) {
+      this.displayConditions.components[newKey] = this.displayConditions.components[oldKey];
+      delete this.displayConditions.components[oldKey];
+    }
+
+    if (this.header?.title?.key.fullKey === oldKey) {
+      this.header.title.onComponentKeyChanged(newKey);
+      return;
+    }
+    if (this.header?.subtitle?.key.fullKey === oldKey) {
+      this.header.subtitle.onComponentKeyChanged(newKey);
+      return;
+    }
+    if (this.header?.helpPopover?.key.fullKey === oldKey) {
+      this.header.helpPopover.onComponentKeyChanged(newKey);
+      return;
+    }
+
+    for (const component of this.body?.topContent || []) {
+      if (component.key.fullKey === oldKey) {
+        component.onComponentKeyChanged(newKey);
+        break;
+      }
+    }
+    for (const component of this.body?.bottomContent || []) {
+      if (component.key.fullKey === oldKey) {
+        component.onComponentKeyChanged(newKey);
+        break;
+      }
+    }
+
+    if (this.footer?.key.fullKey === oldKey) {
+      this.footer.onComponentKeyChanged(newKey);
+      return;
+    }
+
+    if (this.responseConfig.key.fullKey === oldKey) {
+      this.responseConfig.onComponentKeyChanged(newKey);
+      return;
+    }
+  }
+
 
   onComponentDeleted(componentKey: string): void {
     if (this.header?.title?.key.fullKey === componentKey) {
@@ -303,6 +456,33 @@ export abstract class QuestionItem extends SurveyItem {
       delete this.disabledConditions.components[componentKey];
     }
   }
+
+  onItemKeyChanged(newFullKey: string): void {
+    super.onItemKeyChanged(newFullKey);
+    this.responseConfig.onItemKeyChanged(newFullKey);
+    if (this.header?.title) {
+      this.header.title.onItemKeyChanged(newFullKey);
+    }
+    if (this.header?.subtitle) {
+      this.header.subtitle.onItemKeyChanged(newFullKey);
+    }
+    if (this.header?.helpPopover) {
+      this.header.helpPopover.onItemKeyChanged(newFullKey);
+    }
+    if (this.body?.topContent) {
+      for (const component of this.body.topContent) {
+        component.onItemKeyChanged(newFullKey);
+      }
+    }
+    if (this.body?.bottomContent) {
+      for (const component of this.body.bottomContent) {
+        component.onItemKeyChanged(newFullKey);
+      }
+    }
+    if (this.footer) {
+      this.footer.onItemKeyChanged(newFullKey);
+    }
+  }
 }
 
 abstract class ScgMcgQuestionItem extends QuestionItem {
@@ -311,6 +491,19 @@ abstract class ScgMcgQuestionItem extends QuestionItem {
   constructor(itemFullKey: string, itemType: SurveyItemType.SingleChoiceQuestion | SurveyItemType.MultipleChoiceQuestion) {
     super(itemFullKey, itemType);
     this.responseConfig = new ScgMcgChoiceResponseConfig(itemType === SurveyItemType.SingleChoiceQuestion ? 'scg' : 'mcg', undefined, this.key.fullKey);
+  }
+
+  onComponentKeyChanged(oldKey: string, newKey: string): void {
+    super.onComponentKeyChanged(oldKey, newKey);
+
+    if (oldKey.startsWith(this.responseConfig.key.fullKey)) {
+      for (const comp of this.responseConfig.items || []) {
+        if (comp.key.fullKey === oldKey) {
+          comp.onComponentKeyChanged(newKey);
+          break;
+        }
+      }
+    }
   }
 }
 

@@ -362,9 +362,9 @@ describe('Data Parsing', () => {
       // Verify response config was parsed correctly
       expect(questionItem.responseConfig).toBeDefined();
       expect(questionItem.responseConfig.componentType).toBe(ItemComponentType.SingleChoice);
-      expect(questionItem.responseConfig.options).toHaveLength(2);
-      expect(questionItem.responseConfig.options[0].key.componentKey).toBe('option1');
-      expect(questionItem.responseConfig.options[1].key.componentKey).toBe('option2');
+      expect(questionItem.responseConfig.items).toHaveLength(2);
+      expect(questionItem.responseConfig.items[0].key.componentKey).toBe('option1');
+      expect(questionItem.responseConfig.items[1].key.componentKey).toBe('option2');
     });
 
     test('should maintain data integrity in round-trip parsing (JSON -> Survey -> JSON)', () => {

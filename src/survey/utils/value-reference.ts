@@ -25,7 +25,7 @@ export class ValueReference {
     }
     this._name = parts[1] as ValueReferenceMethod;
     if (parts.length > 2) {
-      this._slotKey = ItemComponentKey.fromFullKey(parts[2]);
+      this._slotKey = ItemComponentKey.fromFullKey(parts[2], this._itemKey.fullKey);
     }
   }
 
@@ -41,6 +41,10 @@ export class ValueReference {
     return this._slotKey;
   }
 
+  set itemKey(itemKey: SurveyItemKey) {
+    this._itemKey = itemKey;
+  }
+
   toString(): string {
     return `${this._itemKey.fullKey}${SEPARATOR}${this._name}${this._slotKey ? SEPARATOR + this._slotKey.fullKey : ''}`;
   }
@@ -48,4 +52,19 @@ export class ValueReference {
   static fromParts(itemKey: SurveyItemKey, name: ValueReferenceMethod, slotKey?: ItemComponentKey): ValueReference {
     return new ValueReference(`${itemKey.fullKey}${SEPARATOR}${name}${slotKey ? SEPARATOR + slotKey.fullKey : ''}`);
   }
+}
+
+
+export enum ReferenceUsageType {
+  displayConditions = 'displayConditions',
+  templateValues = 'templateValues',
+  validations = 'validations',
+  disabledConditions = 'disabledConditions',
+}
+
+export interface ReferenceUsage {
+  fullItemKey: string;
+  fullComponentKey?: string;
+  usageType?: ReferenceUsageType;
+  valueReference: ValueReference;
 }

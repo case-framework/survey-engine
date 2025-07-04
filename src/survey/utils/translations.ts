@@ -173,6 +173,26 @@ export class SurveyTranslations {
   }
 
   /**
+   * Rename a component key (within an item) - update key in all translations and remove old key
+   * @param itemKey - The key of the item
+   * @param oldKey - The old key of the component
+   * @param newKey - The new key of the component
+   */
+  onComponentKeyChanged(itemKey: string, oldKey: string, newKey: string): void {
+    for (const locale of this.locales) {
+      const itemTranslations = this._translations?.[locale]?.[itemKey] as JsonComponentContent;
+      if (itemTranslations) {
+        for (const key of Object.keys(itemTranslations)) {
+          if (key.startsWith(oldKey + '.') || key === oldKey) {
+            itemTranslations[key.replace(oldKey, newKey)] = { ...itemTranslations[key] };
+            delete itemTranslations[key];
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Remove all translations for a component
    * @param fullItemKey - The full key of the item
    * @param componentKey - The key of the component
@@ -191,13 +211,30 @@ export class SurveyTranslations {
   }
 
   /**
-   * Remove all translations for an item
+   * Rename an item key - update key in all translations and remove old key
+   * @param oldKey - The old key
+   * @param newKey - The new key
+   */
+  onItemKeyChanged(oldKey: string, newKey: string): void {
+    for (const locale of this.locales) {
+      const itemTranslations = this._translations?.[locale]?.[oldKey];
+      if (itemTranslations) {
+        this._translations![locale][newKey] = { ...itemTranslations };
+        delete this._translations![locale][oldKey];
+      }
+    }
+  }
+
+  /**
+   * Remove all translations for an item and all its children
    * @param fullItemKey - The full key of the item
    */
   onItemDeleted(fullItemKey: string): void {
     for (const locale of this.locales) {
-      if (this._translations?.[locale]?.[fullItemKey]) {
-        delete this._translations![locale][fullItemKey];
+      for (const key of Object.keys(this._translations?.[locale] || {})) {
+        if (key.startsWith(fullItemKey + '.') || key === fullItemKey) {
+          delete this._translations![locale][key];
+        }
       }
     }
   }

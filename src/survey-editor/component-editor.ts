@@ -28,6 +28,23 @@ abstract class ComponentEditor {
   getDisplayCondition(): Expression | undefined {
     return this._itemEditor.getDisplayCondition(this._component.key.fullKey);
   }
+
+  changeKey(newKey: string, isFullKey: boolean = false): void {
+    const oldKey = this._component.key.fullKey;
+
+    // Update through the item editor which will handle the survey editor
+    let newFullKey = newKey;
+    if (!isFullKey) {
+      // Handle case where component has no parent component (direct child of survey item)
+      if (this._component.key.parentFullKey) {
+        newFullKey = this._component.key.parentFullKey + '.' + newKey;
+      } else {
+        newFullKey = newKey; // Component is direct child of survey item
+      }
+    }
+
+    this._itemEditor.changeComponentKey(oldKey, newFullKey);
+  }
 }
 
 

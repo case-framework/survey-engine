@@ -3,9 +3,9 @@ import { SurveyEditor } from '../survey-editor/survey-editor';
 import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from '../survey/items';
 import { SurveyItemTranslations } from '../survey/utils';
 import { Content, ContentType } from '../survey/utils/content';
-import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components';
+import { DisplayComponent, ItemComponentType, ScgMcgOption, TextComponent } from '../survey/components';
 import { Expression, ConstExpression, ResponseVariableExpression, FunctionExpression, FunctionExpressionNames } from '../expressions';
-import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
+import { SingleChoiceQuestionEditor, SurveyItemEditor } from '../survey-editor/survey-item-editors';
 
 // Helper function to create a test survey
 const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
@@ -408,28 +408,259 @@ describe('SurveyEditor', () => {
         'test-survey.page1.display3'
       ]);
     });
+
+    test('should remove group with all nested items and translations as single operation', () => {
+      const testGroup = new GroupItem('test-survey.page1.subgroup1');
+      const testItem1 = new DisplayItem('test-survey.page1.subgroup1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.subgroup1.display2');
+      const nestedGroup = new GroupItem('test-survey.page1.subgroup1.nestedgroup');
+      const nestedItem = new DisplayItem('test-survey.page1.subgroup1.nestedgroup.display1');
+      const testTranslations = createTestTranslations();
+
+      // Build nested structure
+      editor.addItem({ parentKey: 'test-survey.page1' }, testGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, nestedGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1.nestedgroup' }, nestedItem, testTranslations);
+
+      // Verify all items exist
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeDefined();
+
+      // Verify translations exist for all items
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.display1')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.display2')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup.display1')).toBeDefined();
+
+      const initialUndoCount = editor.canUndo() ? 1 : 0; // Check how many operations we can undo
+      let undoCount = 0;
+      while (editor.canUndo()) {
+        undoCount++;
+        editor.undo();
+      }
+      // Redo all to get back to initial state
+      for (let i = 0; i < undoCount; i++) {
+        editor.redo();
+      }
+
+      // Remove the group with all nested items
+      const removeSuccess = editor.removeItem('test-survey.page1.subgroup1');
+
+      expect(removeSuccess).toBe(true);
+
+      // Verify all nested items and the group are removed from survey items
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeUndefined();
+
+      // Verify the group is removed from parent's items array
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).not.toContain('test-survey.page1.subgroup1');
+
+      // Verify all translations are removed
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.display1')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.display2')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup.display1')).toThrow();
+
+      // Verify this created only ONE undo operation
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Removed test-survey.page1.subgroup1');
+
+      // Undo should restore all items
+      editor.undo();
+
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeDefined();
+    });
   });
 
   describe('Moving Items', () => {
-    test('should return false for moveItem (not implemented)', () => {
+    test('should throw error when moving non-existent item', () => {
+      expect(() => {
+        editor.moveItem('non-existent-item', {
+          parentKey: 'test-survey.page1'
+        });
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should throw error when target parent does not exist', () => {
       const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'non-existent-parent'
+        });
+      }).toThrow("Target parent with key 'non-existent-parent' not found");
+    });
+
+    test('should throw error when target parent is not a group', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
       const testTranslations = createTestTranslations();
 
       editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
 
-      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
-        parentKey: 'test-survey.page1',
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'test-survey.page1.display2' // display item, not group
+        });
+      }).toThrow("Target parent 'test-survey.page1.display2' is not a group item");
+    });
+
+    test('should throw error when trying to move item to its descendant', () => {
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const subGroupItem = new GroupItem('test-survey.page1.group1.subgroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroupItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.group1', {
+          parentKey: 'test-survey.page1.group1.subgroup'
+        });
+      }).toThrow("Cannot move item 'test-survey.page1.group1' to its descendant 'test-survey.page1.group1.subgroup'");
+    });
+
+    test('should prevent moving item to itself', () => {
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.group1', {
+          parentKey: 'test-survey.page1.group1'
+        });
+      }).toThrow("Cannot move item 'test-survey.page1.group1' to its descendant 'test-survey.page1.group1'");
+    });
+
+    test('should move item between different parents and update keys', () => {
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const group2 = new GroupItem('test-survey.page1.group2');
+      const displayItem = new DisplayItem('test-survey.page1.group1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, displayItem, testTranslations);
+
+      // Verify initial state
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.display1']).toBeUndefined();
+      expect((group1 as GroupItem).items).toContain('test-survey.page1.group1.display1');
+      expect((group2 as GroupItem).items || []).not.toContain('test-survey.page1.group2.display1');
+
+      const moveSuccess = editor.moveItem('test-survey.page1.group1.display1', {
+        parentKey: 'test-survey.page1.group2',
         index: 0
       });
 
-      expect(moveSuccess).toBe(false);
+      expect(moveSuccess).toBe(true);
+
+      // Verify item was moved and key updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.display1']).toBeDefined();
+
+      const movedItem = editor.survey.surveyItems['test-survey.page1.group2.display1'];
+      expect(movedItem.key.fullKey).toBe('test-survey.page1.group2.display1');
+      expect(movedItem.key.parentFullKey).toBe('test-survey.page1.group2');
+
+      // Verify parent items arrays are updated
+      expect((group1 as GroupItem).items).not.toContain('test-survey.page1.group1.display1');
+      expect((group2 as GroupItem).items).toContain('test-survey.page1.group2.display1');
     });
 
-    test('should commit changes when attempting to move', () => {
+    test('should move item with nested children and update all keys correctly', () => {
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const group2 = new GroupItem('test-survey.page1.group2');
+      const subGroup = new GroupItem('test-survey.page1.group1.subgroup');
+      const nestedItem = new DisplayItem('test-survey.page1.group1.subgroup.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1.subgroup' }, nestedItem, testTranslations);
+
+      const moveSuccess = editor.moveItem('test-survey.page1.group1.subgroup', {
+        parentKey: 'test-survey.page1.group2'
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      // Verify subgroup was moved
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.subgroup']).toBeDefined();
+
+      // Verify nested item key was updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.subgroup.display1']).toBeDefined();
+
+      const movedNestedItem = editor.survey.surveyItems['test-survey.page1.group2.subgroup.display1'];
+      expect(movedNestedItem.key.fullKey).toBe('test-survey.page1.group2.subgroup.display1');
+      expect(movedNestedItem.key.parentFullKey).toBe('test-survey.page1.group2.subgroup');
+    });
+
+    test('should throw error when moving item to same parent', () => {
+      const display1 = new DisplayItem('test-survey.page1.display1');
+      const display2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, display1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, display2, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'test-survey.page1',
+          index: 1
+        });
+      }).toThrow("Item 'test-survey.page1.display1' is already in the target parent 'test-survey.page1'");
+    });
+
+    test('should move item to end when no index specified', () => {
+      const display1 = new DisplayItem('test-survey.page1.display1');
+      const display2 = new DisplayItem('test-survey.page1.display2');
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, display1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, display2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+
+      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.group1'
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      const group1Items = (group1 as GroupItem).items;
+      expect(group1Items).toBeDefined();
+      expect(group1Items![group1Items!.length - 1]).toBe('test-survey.page1.group1.display1');
+    });
+
+    test('should commit changes when moving item', () => {
       const testItem = new DisplayItem('test-survey.page1.display1');
+      const group1 = new GroupItem('test-survey.page1.group1');
       const testTranslations = createTestTranslations();
 
       editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
 
       // Make an uncommitted change
       const updatedTranslations = createTestTranslations();
@@ -438,12 +669,32 @@ describe('SurveyEditor', () => {
       expect(editor.hasUncommittedChanges).toBe(true);
 
       editor.moveItem('test-survey.page1.display1', {
-        parentKey: 'test-survey.page1',
+        parentKey: 'test-survey.page1.group1',
         index: 0
       });
 
       // Should have committed the changes
       expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.getUndoDescription()).toBe('Moved test-survey.page1.display1 to test-survey.page1.group1');
+    });
+
+    test('should handle moving to parent with no existing items', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const emptyGroup = new GroupItem('test-survey.page1.emptygroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, emptyGroup, testTranslations);
+
+      // Ensure the empty group has no items
+      expect((emptyGroup as GroupItem).items).toBeUndefined();
+
+      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.emptygroup'
+      });
+
+      expect(moveSuccess).toBe(true);
+      expect((emptyGroup as GroupItem).items).toEqual(['test-survey.page1.emptygroup.display1']);
     });
   });
 
@@ -897,6 +1148,451 @@ describe('SurveyEditor', () => {
       expect(() => {
         new SingleChoiceQuestionEditor(editor, 'non-existent-item');
       }).toThrow('Item non-existent-item not found in survey');
+    });
+  });
+
+  describe('getSiblingKeys', () => {
+    test('should return empty array when item has no siblings', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toEqual([]);
+    });
+
+    test('should return sibling keys when item has siblings', () => {
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question2');
+      const testItem3 = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(2);
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.question2');
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.display1');
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey.page1.question1');
+    });
+
+    test('should not include items from different parent groups as siblings', () => {
+      // Add items to page1
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      // Add a new group and items to it
+      const subGroup2 = new GroupItem('test-survey.page2');
+      editor.addItem({ parentKey: 'test-survey' }, subGroup2, testTranslations);
+
+      const testItem3 = new SingleChoiceQuestionItem('test-survey.page2.question1');
+      editor.addItem({ parentKey: 'test-survey.page2' }, testItem3, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(1);
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.question2');
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey.page2.question1');
+    });
+
+    test('should work correctly with nested survey structure', () => {
+      // Create a nested structure: survey > page1 > subgroup > questions
+      const subGroup = new GroupItem('test-survey.page1.subgroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, subGroup, testTranslations);
+
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.subgroup.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.subgroup.question2');
+      const testItem3 = new DisplayItem('test-survey.page1.subgroup.display1');
+
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup' }, testItem3, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.subgroup.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(2);
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.subgroup.question2');
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.subgroup.display1');
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey.page1.subgroup.question1');
+    });
+
+    test('should work with root level items by testing through a child item', () => {
+      // Add another root level group
+      const rootGroup2 = new GroupItem('test-survey2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem(undefined, rootGroup2, testTranslations);
+
+      // Add a page to the new root group
+      const subGroup = new GroupItem('test-survey2.page1');
+      editor.addItem({ parentKey: 'test-survey2' }, subGroup, testTranslations);
+
+      // Add a question to each root group's subpage
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey2.page1.question1');
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey2.page1' }, testItem2, testTranslations);
+
+      // Test that items in different root groups are not siblings
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      // Should have no siblings since it's the only item in test-survey.page1
+      expect(siblingKeys).toHaveLength(0);
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey2.page1.question1');
+    });
+
+    test('should return keys with correct properties', () => {
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(1);
+      const siblingKey = siblingKeys[0];
+
+      expect(siblingKey.fullKey).toBe('test-survey.page1.question2');
+      expect(siblingKey.itemKey).toBe('question2');
+      expect(siblingKey.parentFullKey).toBe('test-survey.page1');
+      expect(siblingKey.isRoot).toBe(false);
+    });
+  });
+});
+
+
+// Helper function to create a test survey with nested structure
+const createTestSurveyWithNestedItems = (surveyKey: string = 'test-survey'): Survey => {
+  const survey = new Survey(surveyKey);
+
+  // Add a sub-group to the root
+  const subGroup = new GroupItem(`${surveyKey}.page1`);
+  survey.surveyItems[`${surveyKey}.page1`] = subGroup;
+
+  // Add the sub-group to the root group's items
+  const rootGroup = survey.surveyItems[surveyKey] as GroupItem;
+  rootGroup.items = [`${surveyKey}.page1`];
+
+  return survey;
+};
+
+
+
+// Mock SurveyItemEditor class for testing (since it's abstract)
+class TestSurveyItemEditor extends SurveyItemEditor {
+  convertToType(type: SurveyItemType): void {
+    // Mock implementation
+  }
+}
+
+describe('SurveyItemEditor', () => {
+  let survey: Survey;
+  let editor: SurveyEditor;
+
+  beforeEach(() => {
+    survey = createTestSurveyWithNestedItems();
+    editor = new SurveyEditor(survey);
+  });
+
+  describe('changeItemKey method', () => {
+    test('should successfully change item key', () => {
+      // Add a display item
+      const displayItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+
+      // Create item editor
+      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+
+      // Verify item exists with original key
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display1-renamed']).toBeUndefined();
+
+      // Change the key
+      itemEditor.changeItemKey('display1-renamed');
+
+      // Verify item exists with new key
+      expect(editor.survey.surveyItems['test-survey.page1.display1-renamed']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeUndefined();
+
+      // Verify item's internal key is updated
+      expect(displayItem.key.fullKey).toBe('test-survey.page1.display1-renamed');
+      expect(displayItem.key.itemKey).toBe('display1-renamed');
+
+      // Verify parent's items array is updated
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).toContain('test-survey.page1.display1-renamed');
+      expect(parentGroup.items).not.toContain('test-survey.page1.display1');
+    });
+
+    test('should throw error if sibling key already exists', () => {
+      // Add two display items
+      const displayItem1 = new DisplayItem('test-survey.page1.display1');
+      const displayItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem2, testTranslations);
+
+      // Create item editor for first item
+      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+
+      // Try to change key to the same as the sibling
+      expect(() => {
+        itemEditor.changeItemKey('display2');
+      }).toThrow(`A sibling item with key 'display2' already exists`);
+
+      // Verify original items still exist unchanged
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+    });
+
+    test('should throw error if new item key contains dots', () => {
+      // Add a display item
+      const displayItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+
+      // Create item editor
+      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+
+      // Try to change key to one containing dots
+      expect(() => {
+        itemEditor.changeItemKey('display1.invalid');
+      }).toThrow('Item key must not contain a dot (.)');
+
+      // Verify original item still exists unchanged
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(displayItem.key.fullKey).toBe('test-survey.page1.display1');
+    });
+
+    test('should change key in nested items when changing a group key', () => {
+      // Add a group with nested items
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const groupTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, groupTranslations);
+
+      // Add a single choice question inside the group
+      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.group1.question1');
+      const questionTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, questionItem, questionTranslations);
+
+      // Add components to the question for more comprehensive testing
+      const titleComponent = new TextComponent('title', undefined, 'test-survey.page1.group1.question1');
+      questionItem.header = { title: titleComponent };
+
+      // Add some options for testing
+      const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+      const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
+      questionItem.responseConfig.items = [option1, option2];
+
+      // Create group item editor
+      const groupEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.group1', SurveyItemType.Group);
+
+      // Verify initial state
+      expect(editor.survey.surveyItems['test-survey.page1.group1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1.question1']).toBeDefined();
+      expect(titleComponent.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
+      expect(option1.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
+      expect(option2.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
+
+      // Change the group key
+      groupEditor.changeItemKey('group1-renamed');
+
+      // Verify group key is updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1-renamed']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1']).toBeUndefined();
+
+      // Verify nested question key is updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1-renamed.question1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1.question1']).toBeUndefined();
+
+      // Verify nested item's parent key is updated
+      const renamedQuestionItem = editor.survey.surveyItems['test-survey.page1.group1-renamed.question1'];
+      expect(renamedQuestionItem.key.parentFullKey).toBe('test-survey.page1.group1-renamed');
+
+      // Verify all component parent keys are updated
+      expect(titleComponent.key.parentItemKey.fullKey).toBe('test-survey.page1.group1-renamed.question1');
+      expect(option1.key.parentItemKey.fullKey).toBe('test-survey.page1.group1-renamed.question1');
+      expect(option2.key.parentItemKey.fullKey).toBe('test-survey.page1.group1-renamed.question1');
+
+      // Verify parent's items array is updated
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).toContain('test-survey.page1.group1-renamed');
+      expect(parentGroup.items).not.toContain('test-survey.page1.group1');
+
+      // Verify group's items array is updated
+      const renamedGroup = editor.survey.surveyItems['test-survey.page1.group1-renamed'] as GroupItem;
+      expect(renamedGroup.items).toContain('test-survey.page1.group1-renamed.question1');
+    });
+
+    test('should change key in deeply nested items when changing a parent group key', () => {
+      // Create a deeply nested structure: root -> page1 -> group1 -> subgroup -> question
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const groupTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, groupTranslations);
+
+      const subGroupItem = new GroupItem('test-survey.page1.group1.subgroup');
+      const subGroupTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroupItem, subGroupTranslations);
+
+      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.group1.subgroup.question1');
+      const questionTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1.group1.subgroup' }, questionItem, questionTranslations);
+
+      // Create group item editor for the top-level group
+      const groupEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.group1', SurveyItemType.Group);
+
+      // Verify initial parent keys
+      expect(subGroupItem.key.parentFullKey).toBe('test-survey.page1.group1');
+      expect(questionItem.key.parentFullKey).toBe('test-survey.page1.group1.subgroup');
+
+      // Change the top-level group key
+      groupEditor.changeItemKey('group1-renamed');
+
+      // Verify all nested items have updated parent keys
+      const renamedSubGroup = editor.survey.surveyItems['test-survey.page1.group1-renamed.subgroup'];
+      const renamedQuestion = editor.survey.surveyItems['test-survey.page1.group1-renamed.subgroup.question1'];
+
+      expect(renamedSubGroup).toBeDefined();
+      expect(renamedQuestion).toBeDefined();
+
+      // Check parent keys are correctly updated
+      expect(renamedSubGroup.key.parentFullKey).toBe('test-survey.page1.group1-renamed');
+      expect(renamedQuestion.key.parentFullKey).toBe('test-survey.page1.group1-renamed.subgroup');
+
+      // Verify old keys are removed
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup.question1']).toBeUndefined();
+    });
+
+    test('should update internal item reference after key change', () => {
+      // Add a single choice question
+      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const questionTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, questionItem, questionTranslations);
+
+      // Create question editor
+      const questionEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+
+      // Verify initial internal reference
+      expect(questionEditor['_currentItem']).toBe(questionItem);
+      expect(questionEditor['_currentItem'].key.fullKey).toBe('test-survey.page1.question1');
+
+      // Change the key
+      questionEditor.changeItemKey('question1-renamed');
+
+      // Verify internal reference is updated
+      expect(questionEditor['_currentItem']).toBe(editor.survey.surveyItems['test-survey.page1.question1-renamed']);
+      expect(questionEditor['_currentItem'].key.fullKey).toBe('test-survey.page1.question1-renamed');
+      expect(questionEditor['_currentItem']).toBe(questionItem); // Should be the same object, just updated
+    });
+
+    test('should handle root item key change', () => {
+      // Add a new root item to test (since we can't change the survey root itself)
+      const newRootSurvey = new Survey('new-survey');
+      const newEditor = new SurveyEditor(newRootSurvey);
+
+      // Add a page to the root
+      const pageItem = new GroupItem('new-survey.page1');
+      const pageTranslations = createTestTranslations();
+      newEditor.addItem({ parentKey: 'new-survey' }, pageItem, pageTranslations);
+
+      // Create item editor for the page (which is directly under root)
+      const pageEditor = new TestSurveyItemEditor(newEditor, 'new-survey.page1', SurveyItemType.Group);
+
+      // Change the page key
+      pageEditor.changeItemKey('page1-renamed');
+
+      // Verify page key is updated
+      expect(newEditor.survey.surveyItems['new-survey.page1-renamed']).toBeDefined();
+      expect(newEditor.survey.surveyItems['new-survey.page1']).toBeUndefined();
+
+      // Verify parent's items array is updated
+      const rootGroup = newEditor.survey.surveyItems['new-survey'] as GroupItem;
+      expect(rootGroup.items).toContain('new-survey.page1-renamed');
+      expect(rootGroup.items).not.toContain('new-survey.page1');
+    });
+
+    test('should allow changing to the same key (no-op)', () => {
+      // Add a display item
+      const displayItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+
+      // Create item editor
+      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+
+      // Change to the same key should work (no-op)
+      expect(() => {
+        itemEditor.changeItemKey('display1');
+      }).not.toThrow();
+
+      // Verify item still exists with same key
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(displayItem.key.fullKey).toBe('test-survey.page1.display1');
+    });
+  });
+
+  describe('getSiblingKeys method', () => {
+    test('should return sibling keys correctly', () => {
+      // Add multiple items to the same parent
+      const displayItem1 = new DisplayItem('test-survey.page1.display1');
+      const displayItem2 = new DisplayItem('test-survey.page1.display2');
+      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, questionItem, testTranslations);
+
+      // Create item editor for first item
+      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+
+      // Get sibling keys
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      // Should have 2 siblings (display2 and question1)
+      expect(siblingKeys).toHaveLength(2);
+      expect(siblingKeys.map(key => key.itemKey)).toContain('display2');
+      expect(siblingKeys.map(key => key.itemKey)).toContain('question1');
+      expect(siblingKeys.map(key => key.itemKey)).not.toContain('display1'); // Should not include self
+    });
+
+    test('should return empty array when no siblings exist', () => {
+      // Add only one item to the parent
+      const displayItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+
+      // Create item editor
+      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+
+      // Get sibling keys
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      // Should have no siblings
+      expect(siblingKeys).toHaveLength(0);
     });
   });
 });

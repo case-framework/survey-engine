@@ -1,5 +1,4 @@
 import { Expression } from "./expression";
-import { SurveyContextDef } from "../survey/utils/context";
 import { ExpressionArg } from "./expression";
 
 // ----------------------------------------------------------------------
@@ -56,7 +55,7 @@ export interface LegacySurvey {
   id?: string;
   props?: LegacySurveyProps;
   prefillRules?: Expression[];
-  contextRules?: SurveyContextDef;
+  //contextRules?: SurveyContextDef;
   maxItemsPerPage?: { large: number, small: number };
   availableFor?: string;
   requireLoginBeforeSubmission?: boolean;

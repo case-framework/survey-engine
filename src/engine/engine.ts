@@ -514,12 +514,12 @@ export class SurveyEngineCore {
         responseCompOrder = [];
 
         if ((itemDef as SingleChoiceQuestionItem).responseConfig.shuffleItems) {
-          responseCompOrderIndexes = shuffleIndices((itemDef as SingleChoiceQuestionItem).responseConfig.options.length);
+          responseCompOrderIndexes = shuffleIndices((itemDef as SingleChoiceQuestionItem).responseConfig.items.length);
         } else {
-          responseCompOrderIndexes = Array.from({ length: (itemDef as SingleChoiceQuestionItem).responseConfig.options.length }, (_, i) => i);
+          responseCompOrderIndexes = Array.from({ length: (itemDef as SingleChoiceQuestionItem).responseConfig.items.length }, (_, i) => i);
         }
         responseCompOrderIndexes.forEach(index => {
-          const option = (itemDef as SingleChoiceQuestionItem).responseConfig.options[index];
+          const option = (itemDef as SingleChoiceQuestionItem).responseConfig.items[index];
           if (this.shouldRender(option.key.parentItemKey.fullKey, option.key.fullKey)) {
             responseCompOrder?.push(option);
           }
@@ -528,12 +528,12 @@ export class SurveyEngineCore {
       case SurveyItemType.MultipleChoiceQuestion:
         responseCompOrder = [];
         if ((itemDef as MultipleChoiceQuestionItem).responseConfig.shuffleItems) {
-          responseCompOrderIndexes = shuffleIndices((itemDef as MultipleChoiceQuestionItem).responseConfig.options.length);
+          responseCompOrderIndexes = shuffleIndices((itemDef as MultipleChoiceQuestionItem).responseConfig.items.length);
         } else {
-          responseCompOrderIndexes = Array.from({ length: (itemDef as MultipleChoiceQuestionItem).responseConfig.options.length }, (_, i) => i);
+          responseCompOrderIndexes = Array.from({ length: (itemDef as MultipleChoiceQuestionItem).responseConfig.items.length }, (_, i) => i);
         }
         responseCompOrderIndexes.forEach(index => {
-          const option = (itemDef as MultipleChoiceQuestionItem).responseConfig.options[index];
+          const option = (itemDef as MultipleChoiceQuestionItem).responseConfig.items[index];
           if (this.shouldRender(option.key.parentItemKey.fullKey, option.key.fullKey)) {
             responseCompOrder?.push(option);
           }

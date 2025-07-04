@@ -106,6 +106,59 @@ export abstract class SurveyItemEditor {
     return this._currentItem.templateValues?.[templateValueKey]?.expression?.clone();
   }
 
+  getSiblingKeys(): SurveyItemKey[] {
+    const parentKey = this._currentItem.key.parentFullKey;
+    const currentFullKey = this._currentItem.key.fullKey;
+
+    // Find all items with the same parent key (excluding current item)
+    const siblingKeys: SurveyItemKey[] = [];
+
+    for (const itemFullKey of Object.keys(this._editor.survey.surveyItems)) {
+      const item = this._editor.survey.surveyItems[itemFullKey];
+
+      // Check if this item has the same parent and is not the current item
+      if (item.key.parentFullKey === parentKey && item.key.fullKey !== currentFullKey) {
+        siblingKeys.push(item.key);
+      }
+    }
+
+    return siblingKeys;
+  }
+
+  changeItemKey(newItemKey: string): void {
+    // Validate that newItemKey doesn't contain dots
+    if (newItemKey.includes('.')) {
+      throw new Error('Item key must not contain a dot (.)');
+    }
+
+    // If the new key is the same as current key, do nothing
+    if (this._currentItem.key.itemKey === newItemKey) {
+      return;
+    }
+
+    // Check if a sibling with the same key already exists
+    const siblingKeys = this.getSiblingKeys();
+    const siblingKeyExists = siblingKeys.some(siblingKey => siblingKey.itemKey === newItemKey);
+
+    if (siblingKeyExists) {
+      throw new Error(`A sibling item with key '${newItemKey}' already exists`);
+    }
+
+    // Construct the new full key
+    const currentParentKey = this._currentItem.key.parentFullKey;
+    const newFullKey = currentParentKey ? `${currentParentKey}.${newItemKey}` : newItemKey;
+
+    // Call the editor's key changing method
+    this._editor.onItemKeyChanged(this._currentItem.key.fullKey, newFullKey);
+
+    // Update our reference to the current item
+    this._currentItem = this._editor.survey.surveyItems[newFullKey];
+  }
+
+  changeComponentKey(oldComponentKey: string, newComponentKey: string): void {
+    this._editor.onComponentKeyChanged(this._currentItem.key.fullKey, oldComponentKey, newComponentKey);
+  }
+
   abstract convertToType(type: SurveyItemType): void;
 }
 
@@ -180,7 +233,7 @@ abstract class ScgMcgEditor extends QuestionEditor {
   }
 
   get optionEditors(): Array<ScgMcgOptionBaseEditor> {
-    return this._currentItem.responseConfig.options.map(option => ScgMcgOptionBaseEditor.fromOption(this, option));
+    return this._currentItem.responseConfig.items.map(option => ScgMcgOptionBaseEditor.fromOption(this, option));
   }
 
   addNewOption(optionKey: string, optionType: ScgMcgOptionTypes, index?: number): void {
@@ -201,21 +254,21 @@ abstract class ScgMcgEditor extends QuestionEditor {
 
   addExistingOption(option: ScgMcgOptionBase, index?: number): void {
     if (index !== undefined && index >= 0) {
-      this._currentItem.responseConfig.options.splice(index, 0, option);
+      this._currentItem.responseConfig.items.splice(index, 0, option);
     } else {
-      this._currentItem.responseConfig.options.push(option);
+      this._currentItem.responseConfig.items.push(option);
     }
   }
 
   optionKeyAvailable(optionKey: string): boolean {
-    return !this._currentItem.responseConfig.options.some(option => option.key.componentKey === optionKey);
+    return !this._currentItem.responseConfig.items.some(option => option.key.componentKey === optionKey);
   }
 
   swapOptions(activeIndex: number, overIndex: number): void {
-    const newOrder = [...this._currentItem.responseConfig.options];
+    const newOrder = [...this._currentItem.responseConfig.items];
     newOrder.splice(activeIndex, 1);
-    newOrder.splice(overIndex, 0, this._currentItem.responseConfig.options[activeIndex]);
-    this._currentItem.responseConfig.options = newOrder;
+    newOrder.splice(overIndex, 0, this._currentItem.responseConfig.items[activeIndex]);
+    this._currentItem.responseConfig.items = newOrder;
   }
 }
 
