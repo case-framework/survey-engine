@@ -206,4 +206,70 @@ export class SurveyEditorUndoRedo {
     return targetIndex >= 0 && targetIndex < this.history.length && targetIndex !== this.currentIndex;
   }
 
+  /**
+   * Serialize the undo/redo state to JSON
+   * @returns A JSON-serializable object containing the complete state
+   */
+  toJSON(): {
+    history: Array<HistoryEntry>;
+    currentIndex: number;
+    config: UndoRedoConfig;
+  } {
+    return {
+      history: this.history.map(entry => ({
+        survey: entry.survey,
+        timestamp: entry.timestamp,
+        description: entry.description,
+        memorySize: entry.memorySize
+      })),
+      currentIndex: this.currentIndex,
+      config: { ...this._config }
+    };
+  }
+
+  /**
+   * Create a new SurveyEditorUndoRedo instance from JSON data
+   * @param jsonData The serialized undo/redo state
+   * @returns A new SurveyEditorUndoRedo instance with the restored state
+   */
+  static fromJSON(jsonData: {
+    history: Array<{
+      survey: JsonSurvey;
+      timestamp: number;
+      description: string;
+      memorySize: number;
+    }>;
+    currentIndex: number;
+    config: UndoRedoConfig;
+  }): SurveyEditorUndoRedo {
+    if (!jsonData.history || !Array.isArray(jsonData.history) || jsonData.history.length === 0) {
+      throw new Error('Invalid JSON data: history array is required and must not be empty');
+    }
+
+    if (typeof jsonData.currentIndex !== 'number' ||
+      jsonData.currentIndex < 0 ||
+      jsonData.currentIndex >= jsonData.history.length) {
+      throw new Error('Invalid JSON data: currentIndex must be a valid index within the history array');
+    }
+
+    if (!jsonData.config) {
+      throw new Error('Invalid JSON data: config is required');
+    }
+
+    // Create a new instance with the first survey and config
+    const instance = new SurveyEditorUndoRedo(jsonData.history[0].survey, jsonData.config);
+
+    // Clear the default initial state and restore the full history
+    instance.history = jsonData.history.map(entry => ({
+      survey: structuredCloneMethod(entry.survey),
+      timestamp: entry.timestamp,
+      description: entry.description,
+      memorySize: entry.memorySize
+    }));
+
+    instance.currentIndex = jsonData.currentIndex;
+
+    return instance;
+  }
+
 }

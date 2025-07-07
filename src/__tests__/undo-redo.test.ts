@@ -718,3 +718,404 @@ describe('Enhanced Undo/Redo Functionality', () => {
     });
   });
 });
+
+// JSON Serialization and Deserialization Tests
+describe('SurveyEditorUndoRedo JSON Serialization', () => {
+  let undoRedo: SurveyEditorUndoRedo;
+  let initialSurvey: JsonSurvey;
+  let survey1: JsonSurvey;
+  let survey2: JsonSurvey;
+
+  beforeEach(() => {
+    initialSurvey = createSurvey();
+    survey1 = createSurvey('survey1', 'Survey 1');
+    survey2 = createSurvey('survey2', 'Survey 2');
+
+    undoRedo = new SurveyEditorUndoRedo(initialSurvey, {
+      maxTotalMemoryMB: 25,
+      minHistorySize: 5,
+      maxHistorySize: 100
+    });
+
+    // Build some history
+    undoRedo.commit(survey1, 'Added survey 1');
+    undoRedo.commit(survey2, 'Added survey 2');
+  });
+
+  describe('toJSON method', () => {
+    test('should serialize complete state to JSON', () => {
+      const jsonData = undoRedo.toJSON();
+
+      expect(jsonData).toBeDefined();
+      expect(jsonData.history).toBeDefined();
+      expect(jsonData.currentIndex).toBeDefined();
+      expect(jsonData.config).toBeDefined();
+    });
+
+    test('should include all history entries', () => {
+      const jsonData = undoRedo.toJSON();
+
+      expect(jsonData.history).toHaveLength(3); // initial + 2 commits
+      expect(jsonData.history[0].description).toBe('Initial state');
+      expect(jsonData.history[1].description).toBe('Added survey 1');
+      expect(jsonData.history[2].description).toBe('Added survey 2');
+    });
+
+    test('should include current index', () => {
+      const jsonData = undoRedo.toJSON();
+      expect(jsonData.currentIndex).toBe(2);
+
+      undoRedo.undo();
+      const jsonDataAfterUndo = undoRedo.toJSON();
+      expect(jsonDataAfterUndo.currentIndex).toBe(1);
+    });
+
+    test('should include configuration', () => {
+      const jsonData = undoRedo.toJSON();
+
+      expect(jsonData.config).toEqual({
+        maxTotalMemoryMB: 25,
+        minHistorySize: 5,
+        maxHistorySize: 100
+      });
+    });
+
+    test('should include all history entry properties', () => {
+      const jsonData = undoRedo.toJSON();
+
+      jsonData.history.forEach((entry, index) => {
+        expect(entry.survey).toBeDefined();
+        expect(typeof entry.timestamp).toBe('number');
+        expect(typeof entry.description).toBe('string');
+        expect(typeof entry.memorySize).toBe('number');
+        expect(entry.timestamp).toBeGreaterThan(0);
+        expect(entry.memorySize).toBeGreaterThan(0);
+      });
+    });
+
+    test('should create deep copies of survey data', () => {
+      const jsonData = undoRedo.toJSON();
+
+      // Modify the original survey
+      initialSurvey.surveyItems.survey = {
+        itemType: SurveyItemType.Display,
+        components: []
+      };
+
+      // JSON data should be unchanged
+      expect(jsonData.history[0].survey.surveyItems.survey.itemType).toBe(SurveyItemType.Group);
+    });
+
+    test('should work with different history positions', () => {
+      undoRedo.undo(); // Move to position 1
+      const jsonData1 = undoRedo.toJSON();
+      expect(jsonData1.currentIndex).toBe(1);
+
+      undoRedo.undo(); // Move to position 0
+      const jsonData2 = undoRedo.toJSON();
+      expect(jsonData2.currentIndex).toBe(0);
+
+      undoRedo.redo(); // Move back to position 1
+      const jsonData3 = undoRedo.toJSON();
+      expect(jsonData3.currentIndex).toBe(1);
+    });
+  });
+
+  describe('fromJSON method', () => {
+    test('should recreate instance from JSON data', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      expect(restored).toBeInstanceOf(SurveyEditorUndoRedo);
+      expect(restored.getCurrentIndex()).toBe(undoRedo.getCurrentIndex());
+      expect(restored.getHistoryLength()).toBe(undoRedo.getHistoryLength());
+      expect(restored.getCurrentState()).toEqual(undoRedo.getCurrentState());
+    });
+
+    test('should restore configuration correctly', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      expect(restored.getConfig()).toEqual(undoRedo.getConfig());
+    });
+
+    test('should restore complete history', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      const originalHistory = undoRedo.getHistory();
+      const restoredHistory = restored.getHistory();
+
+      expect(restoredHistory).toHaveLength(originalHistory.length);
+
+      restoredHistory.forEach((entry, index) => {
+        expect(entry.description).toBe(originalHistory[index].description);
+        expect(entry.timestamp).toBe(originalHistory[index].timestamp);
+        expect(entry.memorySize).toBe(originalHistory[index].memorySize);
+        expect(entry.isCurrent).toBe(originalHistory[index].isCurrent);
+      });
+    });
+
+    test('should restore undo/redo functionality', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      expect(restored.canUndo()).toBe(undoRedo.canUndo());
+      expect(restored.canRedo()).toBe(undoRedo.canRedo());
+      expect(restored.getUndoDescription()).toBe(undoRedo.getUndoDescription());
+      expect(restored.getRedoDescription()).toBe(undoRedo.getRedoDescription());
+    });
+
+    test('should maintain data integrity after restoration', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Test undo functionality
+      const originalUndo = undoRedo.undo();
+      const restoredUndo = restored.undo();
+      expect(restoredUndo).toEqual(originalUndo);
+
+      // Test redo functionality
+      const originalRedo = undoRedo.redo();
+      const restoredRedo = restored.redo();
+      expect(restoredRedo).toEqual(originalRedo);
+    });
+
+    test('should work with different history positions', () => {
+      undoRedo.undo(); // Move to position 1
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      expect(restored.getCurrentIndex()).toBe(1);
+      expect(restored.getCurrentState()).toEqual(survey1);
+      expect(restored.canUndo()).toBe(true);
+      expect(restored.canRedo()).toBe(true);
+    });
+
+    test('should create independent instances', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Modify original
+      undoRedo.commit(createSurvey('new-survey'), 'New survey');
+
+      // Restored should be unaffected
+      expect(restored.getHistoryLength()).toBe(3);
+      expect(undoRedo.getHistoryLength()).toBe(4);
+    });
+
+    test('should handle memory usage correctly', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      const originalMemory = undoRedo.getMemoryUsage();
+      const restoredMemory = restored.getMemoryUsage();
+
+      expect(restoredMemory.entries).toBe(originalMemory.entries);
+      expect(restoredMemory.totalMB).toBeCloseTo(originalMemory.totalMB, 2);
+    });
+  });
+
+  describe('Error handling', () => {
+    test('should throw error for missing history', () => {
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          history: [],
+          currentIndex: 0,
+          config: undoRedo.getConfig()
+        });
+      }).toThrow('Invalid JSON data: history array is required and must not be empty');
+
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          // @ts-expect-error Testing invalid input
+          history: null,
+          currentIndex: 0,
+          config: undoRedo.getConfig()
+        });
+      }).toThrow('Invalid JSON data: history array is required and must not be empty');
+    });
+
+    test('should throw error for invalid current index', () => {
+      const jsonData = undoRedo.toJSON();
+
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          ...jsonData,
+          currentIndex: -1
+        });
+      }).toThrow('Invalid JSON data: currentIndex must be a valid index within the history array');
+
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          ...jsonData,
+          currentIndex: jsonData.history.length
+        });
+      }).toThrow('Invalid JSON data: currentIndex must be a valid index within the history array');
+
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          ...jsonData,
+          // @ts-expect-error Testing invalid input
+          currentIndex: 'invalid'
+        });
+      }).toThrow('Invalid JSON data: currentIndex must be a valid index within the history array');
+    });
+
+    test('should throw error for missing config', () => {
+      const jsonData = undoRedo.toJSON();
+
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          ...jsonData,
+          // @ts-expect-error Testing invalid input
+          config: null
+        });
+      }).toThrow('Invalid JSON data: config is required');
+
+      expect(() => {
+        SurveyEditorUndoRedo.fromJSON({
+          history: jsonData.history,
+          currentIndex: jsonData.currentIndex,
+          // @ts-expect-error Testing invalid input
+          config: undefined
+        });
+      }).toThrow('Invalid JSON data: config is required');
+    });
+  });
+
+  describe('Round-trip serialization', () => {
+    test('should maintain identical state after round-trip', () => {
+      // Create a complex state
+      const survey3 = createSurvey('survey3', 'Survey 3');
+      undoRedo.commit(survey3, 'Added survey 3');
+      undoRedo.undo();
+      undoRedo.undo();
+
+      // Round-trip serialization
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Verify complete state equality
+      expect(restored.getCurrentIndex()).toBe(undoRedo.getCurrentIndex());
+      expect(restored.getHistoryLength()).toBe(undoRedo.getHistoryLength());
+      expect(restored.getCurrentState()).toEqual(undoRedo.getCurrentState());
+      expect(restored.canUndo()).toBe(undoRedo.canUndo());
+      expect(restored.canRedo()).toBe(undoRedo.canRedo());
+      expect(restored.getUndoDescription()).toBe(undoRedo.getUndoDescription());
+      expect(restored.getRedoDescription()).toBe(undoRedo.getRedoDescription());
+      expect(restored.getConfig()).toEqual(undoRedo.getConfig());
+
+      // Verify history matches
+      const originalHistory = undoRedo.getHistory();
+      const restoredHistory = restored.getHistory();
+      expect(restoredHistory).toEqual(originalHistory);
+    });
+
+    test('should work with JSON.stringify and JSON.parse', () => {
+      const jsonData = undoRedo.toJSON();
+      const jsonString = JSON.stringify(jsonData);
+      const parsedData = JSON.parse(jsonString);
+      const restored = SurveyEditorUndoRedo.fromJSON(parsedData);
+
+      expect(restored.getCurrentState()).toEqual(undoRedo.getCurrentState());
+      expect(restored.getHistoryLength()).toBe(undoRedo.getHistoryLength());
+      expect(restored.getCurrentIndex()).toBe(undoRedo.getCurrentIndex());
+    });
+
+    test('should handle large surveys correctly', () => {
+      const largeSurvey = createLargeSurvey(10);
+      undoRedo.commit(largeSurvey, 'Added large survey');
+
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      expect(restored.getCurrentState()).toEqual(undoRedo.getCurrentState());
+
+      const originalMemory = undoRedo.getMemoryUsage();
+      const restoredMemory = restored.getMemoryUsage();
+      expect(restoredMemory.totalMB).toBeCloseTo(originalMemory.totalMB, 1);
+    });
+
+    test('should preserve functionality after multiple round-trips', () => {
+      // First round-trip
+      let jsonData = undoRedo.toJSON();
+      let restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Second round-trip
+      jsonData = restored.toJSON();
+      restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Third round-trip
+      jsonData = restored.toJSON();
+      restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Should still work correctly
+      expect(restored.getCurrentState()).toEqual(undoRedo.getCurrentState());
+      expect(restored.getHistoryLength()).toBe(undoRedo.getHistoryLength());
+
+      // Test functionality
+      const undoResult = restored.undo();
+      expect(undoResult).toEqual(survey1);
+
+      const redoResult = restored.redo();
+      expect(redoResult).toEqual(survey2);
+    });
+  });
+
+  describe('Integration with existing functionality', () => {
+    test('should work with jumpToIndex after restoration', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      const jumpResult = restored.jumpToIndex(0);
+      expect(jumpResult).toEqual(initialSurvey);
+      expect(restored.getCurrentIndex()).toBe(0);
+
+      expect(restored.canJumpToIndex(1)).toBe(true);
+      expect(restored.canJumpToIndex(2)).toBe(true);
+    });
+
+    test('should work with memory cleanup after restoration', () => {
+      // Create instance with small memory limit
+      const limitedUndoRedo = new SurveyEditorUndoRedo(initialSurvey, {
+        maxTotalMemoryMB: 0.001,
+        minHistorySize: 2,
+        maxHistorySize: 5
+      });
+
+      // Add several large surveys
+      for (let i = 0; i < 5; i++) {
+        limitedUndoRedo.commit(createLargeSurvey(5), `Large survey ${i}`);
+      }
+
+      const jsonData = limitedUndoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Should maintain the same memory characteristics
+      const originalMemory = limitedUndoRedo.getMemoryUsage();
+      const restoredMemory = restored.getMemoryUsage();
+
+      expect(restoredMemory.entries).toBe(originalMemory.entries);
+      expect(restoredMemory.entries).toBeGreaterThanOrEqual(2); // Minimum history size
+    });
+
+    test('should continue working after restoration and new commits', () => {
+      const jsonData = undoRedo.toJSON();
+      const restored = SurveyEditorUndoRedo.fromJSON(jsonData);
+
+      // Add new state to restored instance
+      const newSurvey = createSurvey('new-after-restore', 'New After Restore');
+      restored.commit(newSurvey, 'Added after restoration');
+
+      expect(restored.getCurrentState()).toEqual(newSurvey);
+      expect(restored.getHistoryLength()).toBe(4);
+      expect(restored.canUndo()).toBe(true);
+
+      // Should be able to undo to previous states
+      expect(restored.undo()).toEqual(survey2);
+      expect(restored.undo()).toEqual(survey1);
+      expect(restored.undo()).toEqual(initialSurvey);
+    });
+  });
+});
