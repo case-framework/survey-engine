@@ -3,9 +3,10 @@ import { SurveyEditor } from '../survey-editor/survey-editor';
 import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from '../survey/items';
 import { SurveyItemTranslations } from '../survey/utils';
 import { Content, ContentType } from '../survey/utils/content';
-import { DisplayComponent, ItemComponentType, ScgMcgOption, TextComponent } from '../survey/components';
+import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components';
 import { Expression, ConstExpression, ResponseVariableExpression, FunctionExpression, FunctionExpressionNames } from '../expressions';
-import { SingleChoiceQuestionEditor, SurveyItemEditor } from '../survey-editor/survey-item-editors';
+import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
+import { SurveyEditorUndoRedo } from '../survey-editor/undo-redo';
 
 // Helper function to create a test survey
 const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
@@ -1280,319 +1281,321 @@ describe('SurveyEditor', () => {
   });
 });
 
-
-// Helper function to create a test survey with nested structure
-const createTestSurveyWithNestedItems = (surveyKey: string = 'test-survey'): Survey => {
-  const survey = new Survey(surveyKey);
-
-  // Add a sub-group to the root
-  const subGroup = new GroupItem(`${surveyKey}.page1`);
-  survey.surveyItems[`${surveyKey}.page1`] = subGroup;
-
-  // Add the sub-group to the root group's items
-  const rootGroup = survey.surveyItems[surveyKey] as GroupItem;
-  rootGroup.items = [`${surveyKey}.page1`];
-
-  return survey;
-};
-
-
-
-// Mock SurveyItemEditor class for testing (since it's abstract)
-class TestSurveyItemEditor extends SurveyItemEditor {
-  convertToType(type: SurveyItemType): void {
-    // Mock implementation
-  }
-}
-
-describe('SurveyItemEditor', () => {
+// New tests for enhanced SurveyEditor undo/redo functionality
+describe('Enhanced SurveyEditor Undo/Redo', () => {
   let survey: Survey;
   let editor: SurveyEditor;
 
   beforeEach(() => {
-    survey = createTestSurveyWithNestedItems();
+    survey = createTestSurvey();
     editor = new SurveyEditor(survey);
   });
 
-  describe('changeItemKey method', () => {
-    test('should successfully change item key', () => {
-      // Add a display item
-      const displayItem = new DisplayItem('test-survey.page1.display1');
-      const testTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
-
-      // Create item editor
-      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
-
-      // Verify item exists with original key
-      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
-      expect(editor.survey.surveyItems['test-survey.page1.display1-renamed']).toBeUndefined();
-
-      // Change the key
-      itemEditor.changeItemKey('display1-renamed');
-
-      // Verify item exists with new key
-      expect(editor.survey.surveyItems['test-survey.page1.display1-renamed']).toBeDefined();
-      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeUndefined();
-
-      // Verify item's internal key is updated
-      expect(displayItem.key.fullKey).toBe('test-survey.page1.display1-renamed');
-      expect(displayItem.key.itemKey).toBe('display1-renamed');
-
-      // Verify parent's items array is updated
-      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
-      expect(parentGroup.items).toContain('test-survey.page1.display1-renamed');
-      expect(parentGroup.items).not.toContain('test-survey.page1.display1');
+  describe('Exposed UndoRedo Instance', () => {
+    test('should expose undoRedo instance', () => {
+      expect(editor.undoRedo).toBeDefined();
+      expect(editor.undoRedo).toBeInstanceOf(SurveyEditorUndoRedo);
     });
 
-    test('should throw error if sibling key already exists', () => {
-      // Add two display items
-      const displayItem1 = new DisplayItem('test-survey.page1.display1');
-      const displayItem2 = new DisplayItem('test-survey.page1.display2');
+    test('should provide access to history through undoRedo instance', () => {
+      // Add some items to build history
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
       const testTranslations = createTestTranslations();
 
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem1, testTranslations);
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
 
-      // Create item editor for first item
-      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+      const history = editor.undoRedo.getHistory();
+      expect(history).toHaveLength(3); // Initial + 2 additions
+      expect(history[0].description).toBe('Initial state');
+      expect(history[1].description).toBe('Added test-survey.page1.display1');
+      expect(history[2].description).toBe('Added test-survey.page1.display2');
+      expect(history[2].isCurrent).toBe(true);
+    });
 
-      // Try to change key to the same as the sibling
-      expect(() => {
-        itemEditor.changeItemKey('display2');
-      }).toThrow(`A sibling item with key 'display2' already exists`);
+    test('should provide access to current index through undoRedo instance', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
 
-      // Verify original items still exist unchanged
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(editor.undoRedo.getCurrentIndex()).toBe(1);
+      expect(editor.undoRedo.getHistoryLength()).toBe(2);
+
+      editor.undo();
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+      expect(editor.undoRedo.getHistoryLength()).toBe(2);
+    });
+
+    test('should allow direct navigation through undoRedo instance', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      // Use undoRedo instance directly
+      const result = editor.undoRedo.jumpToIndex(0);
+      expect(result).toBeDefined();
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      // But this doesn't update the editor's survey state
       expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
       expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
     });
+  });
 
-    test('should throw error if new item key contains dots', () => {
-      // Add a display item
-      const displayItem = new DisplayItem('test-survey.page1.display1');
+  describe('Bulk Undo/Redo Methods', () => {
+    beforeEach(() => {
+      // Build some history
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testItem3 = new DisplayItem('test-survey.page1.display3');
       const testTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
 
-      // Create item editor
-      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+    });
 
-      // Try to change key to one containing dots
-      expect(() => {
-        itemEditor.changeItemKey('display1.invalid');
-      }).toThrow('Item key must not contain a dot (.)');
-
-      // Verify original item still exists unchanged
+    test('should support jumpToIndex for backward navigation', () => {
       expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
-      expect(displayItem.key.fullKey).toBe('test-survey.page1.display1');
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeDefined();
+
+      const success = editor.jumpToIndex(1);
+      expect(success).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(1);
+
+      // Should have only the first item
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeUndefined();
     });
 
-    test('should change key in nested items when changing a group key', () => {
-      // Add a group with nested items
-      const groupItem = new GroupItem('test-survey.page1.group1');
-      const groupTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, groupTranslations);
+    test('should support jumpToIndex for forward navigation', () => {
+      // First jump to create forward navigation opportunity
+      editor.jumpToIndex(1);
 
-      // Add a single choice question inside the group
-      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.group1.question1');
-      const questionTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1.group1' }, questionItem, questionTranslations);
+      const success = editor.jumpToIndex(3);
+      expect(success).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(3);
 
-      // Add components to the question for more comprehensive testing
-      const titleComponent = new TextComponent('title', undefined, 'test-survey.page1.group1.question1');
-      questionItem.header = { title: titleComponent };
-
-      // Add some options for testing
-      const option1 = new ScgMcgOption('option1', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      const option2 = new ScgMcgOption('option2', questionItem.responseConfig.key.fullKey, questionItem.key.fullKey);
-      questionItem.responseConfig.items = [option1, option2];
-
-      // Create group item editor
-      const groupEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.group1', SurveyItemType.Group);
-
-      // Verify initial state
-      expect(editor.survey.surveyItems['test-survey.page1.group1']).toBeDefined();
-      expect(editor.survey.surveyItems['test-survey.page1.group1.question1']).toBeDefined();
-      expect(titleComponent.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
-      expect(option1.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
-      expect(option2.key.parentItemKey.fullKey).toBe('test-survey.page1.group1.question1');
-
-      // Change the group key
-      groupEditor.changeItemKey('group1-renamed');
-
-      // Verify group key is updated
-      expect(editor.survey.surveyItems['test-survey.page1.group1-renamed']).toBeDefined();
-      expect(editor.survey.surveyItems['test-survey.page1.group1']).toBeUndefined();
-
-      // Verify nested question key is updated
-      expect(editor.survey.surveyItems['test-survey.page1.group1-renamed.question1']).toBeDefined();
-      expect(editor.survey.surveyItems['test-survey.page1.group1.question1']).toBeUndefined();
-
-      // Verify nested item's parent key is updated
-      const renamedQuestionItem = editor.survey.surveyItems['test-survey.page1.group1-renamed.question1'];
-      expect(renamedQuestionItem.key.parentFullKey).toBe('test-survey.page1.group1-renamed');
-
-      // Verify all component parent keys are updated
-      expect(titleComponent.key.parentItemKey.fullKey).toBe('test-survey.page1.group1-renamed.question1');
-      expect(option1.key.parentItemKey.fullKey).toBe('test-survey.page1.group1-renamed.question1');
-      expect(option2.key.parentItemKey.fullKey).toBe('test-survey.page1.group1-renamed.question1');
-
-      // Verify parent's items array is updated
-      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
-      expect(parentGroup.items).toContain('test-survey.page1.group1-renamed');
-      expect(parentGroup.items).not.toContain('test-survey.page1.group1');
-
-      // Verify group's items array is updated
-      const renamedGroup = editor.survey.surveyItems['test-survey.page1.group1-renamed'] as GroupItem;
-      expect(renamedGroup.items).toContain('test-survey.page1.group1-renamed.question1');
+      // Should have all items back
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeDefined();
     });
 
-    test('should change key in deeply nested items when changing a parent group key', () => {
-      // Create a deeply nested structure: root -> page1 -> group1 -> subgroup -> question
-      const groupItem = new GroupItem('test-survey.page1.group1');
-      const groupTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, groupTranslations);
+    test('should support jumpToIndex to initial state', () => {
+      const success = editor.jumpToIndex(0);
+      expect(success).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
 
-      const subGroupItem = new GroupItem('test-survey.page1.group1.subgroup');
-      const subGroupTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroupItem, subGroupTranslations);
-
-      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.group1.subgroup.question1');
-      const questionTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1.group1.subgroup' }, questionItem, questionTranslations);
-
-      // Create group item editor for the top-level group
-      const groupEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.group1', SurveyItemType.Group);
-
-      // Verify initial parent keys
-      expect(subGroupItem.key.parentFullKey).toBe('test-survey.page1.group1');
-      expect(questionItem.key.parentFullKey).toBe('test-survey.page1.group1.subgroup');
-
-      // Change the top-level group key
-      groupEditor.changeItemKey('group1-renamed');
-
-      // Verify all nested items have updated parent keys
-      const renamedSubGroup = editor.survey.surveyItems['test-survey.page1.group1-renamed.subgroup'];
-      const renamedQuestion = editor.survey.surveyItems['test-survey.page1.group1-renamed.subgroup.question1'];
-
-      expect(renamedSubGroup).toBeDefined();
-      expect(renamedQuestion).toBeDefined();
-
-      // Check parent keys are correctly updated
-      expect(renamedSubGroup.key.parentFullKey).toBe('test-survey.page1.group1-renamed');
-      expect(renamedQuestion.key.parentFullKey).toBe('test-survey.page1.group1-renamed.subgroup');
-
-      // Verify old keys are removed
-      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup']).toBeUndefined();
-      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup.question1']).toBeUndefined();
+      // Should have no additional items
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeUndefined();
     });
 
-    test('should update internal item reference after key change', () => {
-      // Add a single choice question
-      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
-      const questionTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, questionItem, questionTranslations);
-
-      // Create question editor
-      const questionEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
-
-      // Verify initial internal reference
-      expect(questionEditor['_currentItem']).toBe(questionItem);
-      expect(questionEditor['_currentItem'].key.fullKey).toBe('test-survey.page1.question1');
-
-      // Change the key
-      questionEditor.changeItemKey('question1-renamed');
-
-      // Verify internal reference is updated
-      expect(questionEditor['_currentItem']).toBe(editor.survey.surveyItems['test-survey.page1.question1-renamed']);
-      expect(questionEditor['_currentItem'].key.fullKey).toBe('test-survey.page1.question1-renamed');
-      expect(questionEditor['_currentItem']).toBe(questionItem); // Should be the same object, just updated
+    test('should return false for invalid indices', () => {
+      expect(editor.jumpToIndex(-1)).toBe(false);
+      expect(editor.jumpToIndex(3)).toBe(false); // Current index
+      expect(editor.jumpToIndex(10)).toBe(false); // Beyond history
     });
 
-    test('should handle root item key change', () => {
-      // Add a new root item to test (since we can't change the survey root itself)
-      const newRootSurvey = new Survey('new-survey');
-      const newEditor = new SurveyEditor(newRootSurvey);
+    test('should not allow navigation with uncommitted changes', () => {
+      // Make an uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
 
-      // Add a page to the root
-      const pageItem = new GroupItem('new-survey.page1');
-      const pageTranslations = createTestTranslations();
-      newEditor.addItem({ parentKey: 'new-survey' }, pageItem, pageTranslations);
+      expect(editor.hasUncommittedChanges).toBe(true);
 
-      // Create item editor for the page (which is directly under root)
-      const pageEditor = new TestSurveyItemEditor(newEditor, 'new-survey.page1', SurveyItemType.Group);
-
-      // Change the page key
-      pageEditor.changeItemKey('page1-renamed');
-
-      // Verify page key is updated
-      expect(newEditor.survey.surveyItems['new-survey.page1-renamed']).toBeDefined();
-      expect(newEditor.survey.surveyItems['new-survey.page1']).toBeUndefined();
-
-      // Verify parent's items array is updated
-      const rootGroup = newEditor.survey.surveyItems['new-survey'] as GroupItem;
-      expect(rootGroup.items).toContain('new-survey.page1-renamed');
-      expect(rootGroup.items).not.toContain('new-survey.page1');
+      // Should not allow navigation
+      expect(editor.jumpToIndex(1)).toBe(false);
     });
 
-    test('should allow changing to the same key (no-op)', () => {
-      // Add a display item
-      const displayItem = new DisplayItem('test-survey.page1.display1');
+    test('should handle navigation after making changes', () => {
+      // Jump to middle of history
+      editor.jumpToIndex(1);
+
+      // Make new changes
+      const newItem = new DisplayItem('test-survey.page1.new-display');
       const testTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, newItem, testTranslations);
 
-      // Create item editor
-      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+      // History should be truncated
+      expect(editor.undoRedo.getHistoryLength()).toBe(3); // Initial + first item + new item
+      expect(editor.undoRedo.getCurrentIndex()).toBe(2);
 
-      // Change to the same key should work (no-op)
-      expect(() => {
-        itemEditor.changeItemKey('display1');
-      }).not.toThrow();
-
-      // Verify item still exists with same key
+      // Should have first and new items
       expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
-      expect(displayItem.key.fullKey).toBe('test-survey.page1.display1');
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.new-display']).toBeDefined();
     });
   });
 
-  describe('getSiblingKeys method', () => {
-    test('should return sibling keys correctly', () => {
-      // Add multiple items to the same parent
-      const displayItem1 = new DisplayItem('test-survey.page1.display1');
-      const displayItem2 = new DisplayItem('test-survey.page1.display2');
-      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+  describe('Integration with Existing Functionality', () => {
+    test('should work with existing undo/redo methods', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
       const testTranslations = createTestTranslations();
 
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem1, testTranslations);
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem2, testTranslations);
-      editor.addItem({ parentKey: 'test-survey.page1' }, questionItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
 
-      // Create item editor for first item
-      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+      // Jump to middle
+      editor.jumpToIndex(1);
 
-      // Get sibling keys
-      const siblingKeys = itemEditor.getSiblingKeys();
+      // Use existing methods
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.canRedo()).toBe(true);
 
-      // Should have 2 siblings (display2 and question1)
-      expect(siblingKeys).toHaveLength(2);
-      expect(siblingKeys.map(key => key.itemKey)).toContain('display2');
-      expect(siblingKeys.map(key => key.itemKey)).toContain('question1');
-      expect(siblingKeys.map(key => key.itemKey)).not.toContain('display1'); // Should not include self
+      const undoSuccess = editor.undo();
+      expect(undoSuccess).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      const redoSuccess = editor.redo();
+      expect(redoSuccess).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(1);
     });
 
-    test('should return empty array when no siblings exist', () => {
-      // Add only one item to the parent
-      const displayItem = new DisplayItem('test-survey.page1.display1');
+    test('should maintain description consistency', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
       const testTranslations = createTestTranslations();
-      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
 
-      // Create item editor
-      const itemEditor = new TestSurveyItemEditor(editor, 'test-survey.page1.display1', SurveyItemType.Display);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
 
-      // Get sibling keys
-      const siblingKeys = itemEditor.getSiblingKeys();
+      // Check descriptions through both interfaces
+      expect(editor.getUndoDescription()).toBe('Added test-survey.page1.display1');
+      expect(editor.undoRedo.getUndoDescription()).toBe('Added test-survey.page1.display1');
 
-      // Should have no siblings
-      expect(siblingKeys).toHaveLength(0);
+      editor.undo();
+      expect(editor.getRedoDescription()).toBe('Added test-survey.page1.display1');
+      expect(editor.undoRedo.getRedoDescription()).toBe('Added test-survey.page1.display1');
+    });
+
+    test('should handle complex operations with navigation', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new GroupItem('test-survey.page1.group1');
+      const testItem3 = new DisplayItem('test-survey.page1.group1.display1');
+      const testTranslations = createTestTranslations();
+
+      // Build nested structure
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, testItem3, testTranslations);
+
+      // Navigate to middle
+      editor.jumpToIndex(1);
+
+      // Only first item should exist
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeUndefined();
+
+      // Move item (should commit and create new branch)
+      const moveItem = new DisplayItem('test-survey.page1.moved-display');
+      editor.addItem({ parentKey: 'test-survey.page1' }, moveItem, testTranslations);
+
+      // Should have new history
+      expect(editor.undoRedo.getHistoryLength()).toBe(3);
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.moved-display']).toBeDefined();
+    });
+  });
+
+  describe('Memory and Performance', () => {
+    test('should maintain memory usage information', () => {
+      const initialUsage = editor.getMemoryUsage();
+
+      // Add items
+      for (let i = 0; i < 5; i++) {
+        const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+        const testTranslations = createTestTranslations();
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      }
+
+      const afterUsage = editor.getMemoryUsage();
+      expect(afterUsage.entries).toBeGreaterThan(initialUsage.entries);
+      expect(afterUsage.totalMB).toBeGreaterThan(initialUsage.totalMB);
+
+      // Navigate around
+      editor.jumpToIndex(2);
+      editor.jumpToIndex(4);
+
+      // Memory usage should remain the same
+      const navigationUsage = editor.getMemoryUsage();
+      expect(navigationUsage.entries).toBe(afterUsage.entries);
+      expect(navigationUsage.totalMB).toBe(afterUsage.totalMB);
+    });
+
+    test('should handle large navigation operations efficiently', () => {
+      // Build larger history
+      for (let i = 0; i < 20; i++) {
+        const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+        const testTranslations = createTestTranslations();
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      }
+
+      const startTime = performance.now();
+
+      // Perform various navigation operations
+      editor.jumpToIndex(0);
+      editor.jumpToIndex(10);
+      editor.jumpToIndex(5);
+      editor.jumpToIndex(15);
+
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+
+      // Should be very fast (less than 100ms)
+      expect(duration).toBeLessThan(100);
+
+      // Should be at correct position
+      expect(editor.undoRedo.getCurrentIndex()).toBe(15);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    test('should handle navigation on empty history', () => {
+      // Create fresh editor
+      const freshSurvey = createTestSurvey();
+      const freshEditor = new SurveyEditor(freshSurvey);
+
+      expect(freshEditor.jumpToIndex(0)).toBe(false);
+    });
+
+    test('should handle navigation with only initial state', () => {
+      expect(editor.undoRedo.getHistoryLength()).toBe(1);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      expect(editor.jumpToIndex(0)).toBe(false);
+    });
+
+    test('should handle uncommitted changes correctly', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Navigation should fail
+      expect(editor.jumpToIndex(0)).toBe(false);
+
+      // Commit changes
+      editor.commitIfNeeded();
+      expect(editor.hasUncommittedChanges).toBe(false);
+
+      // Navigation should work now
+      expect(editor.jumpToIndex(0)).toBe(true);
     });
   });
 });

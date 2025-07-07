@@ -22,6 +22,11 @@ export class SurveyEditor {
     return this._hasUncommittedChanges;
   }
 
+  // Expose the undo-redo instance directly
+  get undoRedo(): SurveyEditorUndoRedo {
+    return this._undoRedo;
+  }
+
   // Commit current changes to undo/redo history
   commit(description: string): void {
     this._undoRedo.commit(this._survey.toJson(), description);
@@ -63,6 +68,26 @@ export class SurveyEditor {
     const nextState = this._undoRedo.redo();
     if (nextState) {
       this._survey = Survey.fromJson(nextState);
+      this._hasUncommittedChanges = false;
+      return true;
+    }
+    return false;
+  }
+
+  // Enhanced undo/redo methods that use the exposed instance
+
+  /**
+   * Jump to a specific index in the history (can go forward or backward)
+   */
+  jumpToIndex(targetIndex: number): boolean {
+    if (this._hasUncommittedChanges) {
+      // Cannot jump to specific index with uncommitted changes
+      return false;
+    }
+
+    const targetState = this._undoRedo.jumpToIndex(targetIndex);
+    if (targetState) {
+      this._survey = Survey.fromJson(targetState);
       this._hasUncommittedChanges = false;
       return true;
     }

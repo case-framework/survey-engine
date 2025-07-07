@@ -152,4 +152,58 @@ export class SurveyEditorUndoRedo {
     return { ...this._config };
   }
 
+  /**
+   * Get the full history list with metadata
+   */
+  getHistory(): Array<{
+    index: number;
+    description: string;
+    timestamp: number;
+    memorySize: number;
+    isCurrent: boolean;
+  }> {
+    return this.history.map((entry, index) => ({
+      index,
+      description: entry.description,
+      timestamp: entry.timestamp,
+      memorySize: entry.memorySize,
+      isCurrent: index === this.currentIndex
+    }));
+  }
+
+  /**
+   * Get the current index in the history
+   */
+  getCurrentIndex(): number {
+    return this.currentIndex;
+  }
+
+  /**
+   * Get the total number of history entries
+   */
+  getHistoryLength(): number {
+    return this.history.length;
+  }
+
+  /**
+   * Jump to a specific index in the history (can go forward or backward)
+   * @param targetIndex The index to jump to
+   * @returns The survey state at the target index, or null if invalid
+   */
+  jumpToIndex(targetIndex: number): JsonSurvey | null {
+    if (targetIndex < 0 || targetIndex >= this.history.length || targetIndex === this.currentIndex) {
+      return null;
+    }
+
+    this.currentIndex = targetIndex;
+    return this.getCurrentState();
+  }
+
+  /**
+   * Check if we can jump to a specific index
+   */
+  canJumpToIndex(targetIndex: number): boolean {
+    return targetIndex >= 0 && targetIndex < this.history.length && targetIndex !== this.currentIndex;
+  }
+
 }

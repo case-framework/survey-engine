@@ -472,3 +472,249 @@ describe('SurveyEditorUndoRedo', () => {
     });
   });
 });
+
+// New tests for enhanced undo/redo functionality
+describe('Enhanced Undo/Redo Functionality', () => {
+  let undoRedo: SurveyEditorUndoRedo;
+  let initialSurvey: JsonSurvey;
+  let surveys: JsonSurvey[];
+
+  beforeEach(() => {
+    initialSurvey = createSurvey();
+    undoRedo = new SurveyEditorUndoRedo(initialSurvey);
+
+    // Create a set of test surveys
+    surveys = [
+      createSurvey('survey1', 'Survey 1'),
+      createSurvey('survey2', 'Survey 2'),
+      createSurvey('survey3', 'Survey 3'),
+      createSurvey('survey4', 'Survey 4'),
+    ];
+
+    // Commit all surveys to build history
+    surveys.forEach((survey, index) => {
+      undoRedo.commit(survey, `Operation ${index + 1}`);
+    });
+  });
+
+  describe('History Information', () => {
+    test('should return complete history list', () => {
+      const history = undoRedo.getHistory();
+
+      expect(history).toHaveLength(5); // initial + 4 surveys
+      expect(history[0].description).toBe('Initial state');
+      expect(history[1].description).toBe('Operation 1');
+      expect(history[2].description).toBe('Operation 2');
+      expect(history[3].description).toBe('Operation 3');
+      expect(history[4].description).toBe('Operation 4');
+
+      // Check that current index is marked correctly
+      expect(history[4].isCurrent).toBe(true);
+      expect(history[0].isCurrent).toBe(false);
+      expect(history[1].isCurrent).toBe(false);
+      expect(history[2].isCurrent).toBe(false);
+      expect(history[3].isCurrent).toBe(false);
+
+      // Check that all entries have required properties
+      history.forEach((entry, index) => {
+        expect(entry.index).toBe(index);
+        expect(typeof entry.description).toBe('string');
+        expect(typeof entry.timestamp).toBe('number');
+        expect(typeof entry.memorySize).toBe('number');
+        expect(typeof entry.isCurrent).toBe('boolean');
+        expect(entry.timestamp).toBeGreaterThan(0);
+        expect(entry.memorySize).toBeGreaterThan(0);
+      });
+    });
+
+    test('should track current index correctly', () => {
+      expect(undoRedo.getCurrentIndex()).toBe(4);
+      expect(undoRedo.getHistoryLength()).toBe(5);
+
+      undoRedo.undo();
+      expect(undoRedo.getCurrentIndex()).toBe(3);
+      expect(undoRedo.getHistoryLength()).toBe(5);
+
+      undoRedo.undo();
+      expect(undoRedo.getCurrentIndex()).toBe(2);
+      expect(undoRedo.getHistoryLength()).toBe(5);
+
+      undoRedo.redo();
+      expect(undoRedo.getCurrentIndex()).toBe(3);
+      expect(undoRedo.getHistoryLength()).toBe(5);
+    });
+
+    test('should update isCurrent flag when navigating', () => {
+      undoRedo.undo(); // Move to index 3
+
+      const history = undoRedo.getHistory();
+      expect(history[3].isCurrent).toBe(true);
+      expect(history[4].isCurrent).toBe(false);
+
+      undoRedo.redo(); // Move back to index 4
+
+      const updatedHistory = undoRedo.getHistory();
+      expect(updatedHistory[4].isCurrent).toBe(true);
+      expect(updatedHistory[3].isCurrent).toBe(false);
+    });
+  });
+
+  describe('Jump to Index', () => {
+    test('should jump forward to specific index', () => {
+      const result = undoRedo.jumpToIndex(2);
+
+      expect(result).toEqual(surveys[1]);
+      expect(undoRedo.getCurrentIndex()).toBe(2);
+      expect(undoRedo.getCurrentState()).toEqual(surveys[1]);
+    });
+
+    test('should jump backward to specific index', () => {
+      undoRedo.jumpToIndex(1);
+
+      const result = undoRedo.jumpToIndex(3);
+
+      expect(result).toEqual(surveys[2]);
+      expect(undoRedo.getCurrentIndex()).toBe(3);
+      expect(undoRedo.getCurrentState()).toEqual(surveys[2]);
+    });
+
+    test('should handle jumping to initial state', () => {
+      const result = undoRedo.jumpToIndex(0);
+
+      expect(result).toEqual(initialSurvey);
+      expect(undoRedo.getCurrentIndex()).toBe(0);
+      expect(undoRedo.getCurrentState()).toEqual(initialSurvey);
+    });
+
+    test('should return null for invalid indices', () => {
+      expect(undoRedo.jumpToIndex(4)).toBeNull(); // Current index
+      expect(undoRedo.jumpToIndex(5)).toBeNull(); // Beyond history
+      expect(undoRedo.jumpToIndex(-1)).toBeNull(); // Invalid index
+    });
+
+    test('should handle multiple jumps', () => {
+      // Jump to index 1
+      undoRedo.jumpToIndex(1);
+      expect(undoRedo.getCurrentState()).toEqual(surveys[0]);
+
+      // Jump to index 3
+      undoRedo.jumpToIndex(3);
+      expect(undoRedo.getCurrentState()).toEqual(surveys[2]);
+
+      // Jump to index 0
+      undoRedo.jumpToIndex(0);
+      expect(undoRedo.getCurrentState()).toEqual(initialSurvey);
+    });
+
+    test('should validate canJumpToIndex correctly', () => {
+      expect(undoRedo.canJumpToIndex(0)).toBe(true);
+      expect(undoRedo.canJumpToIndex(1)).toBe(true);
+      expect(undoRedo.canJumpToIndex(2)).toBe(true);
+      expect(undoRedo.canJumpToIndex(3)).toBe(true);
+      expect(undoRedo.canJumpToIndex(4)).toBe(false); // Current index
+      expect(undoRedo.canJumpToIndex(5)).toBe(false); // Beyond history
+      expect(undoRedo.canJumpToIndex(-1)).toBe(false); // Invalid index
+
+      // After jumping to index 2
+      undoRedo.jumpToIndex(2);
+      expect(undoRedo.canJumpToIndex(0)).toBe(true);
+      expect(undoRedo.canJumpToIndex(1)).toBe(true);
+      expect(undoRedo.canJumpToIndex(2)).toBe(false); // Current index
+      expect(undoRedo.canJumpToIndex(3)).toBe(true);
+      expect(undoRedo.canJumpToIndex(4)).toBe(true);
+    });
+  });
+
+  describe('History Navigation Integration', () => {
+    test('should maintain history integrity during navigation', () => {
+      const originalHistory = undoRedo.getHistory();
+
+      // Navigate around
+      undoRedo.jumpToIndex(1);
+      undoRedo.jumpToIndex(3);
+      undoRedo.jumpToIndex(0);
+      undoRedo.jumpToIndex(2);
+
+      // History should remain the same
+      const currentHistory = undoRedo.getHistory();
+      expect(currentHistory).toHaveLength(originalHistory.length);
+
+      // Only the current flag should change
+      currentHistory.forEach((entry, index) => {
+        expect(entry.description).toBe(originalHistory[index].description);
+        expect(entry.timestamp).toBe(originalHistory[index].timestamp);
+        expect(entry.memorySize).toBe(originalHistory[index].memorySize);
+        expect(entry.index).toBe(originalHistory[index].index);
+        expect(entry.isCurrent).toBe(index === 2); // Current index is 2
+      });
+    });
+
+    test('should work correctly with normal undo/redo after navigation', () => {
+      undoRedo.jumpToIndex(2);
+
+      // Normal undo should work
+      const undoResult = undoRedo.undo();
+      expect(undoResult).toEqual(surveys[0]);
+      expect(undoRedo.getCurrentIndex()).toBe(1);
+
+      // Normal redo should work
+      const redoResult = undoRedo.redo();
+      expect(redoResult).toEqual(surveys[1]);
+      expect(undoRedo.getCurrentIndex()).toBe(2);
+    });
+
+    test('should handle navigation after committing new changes', () => {
+      undoRedo.jumpToIndex(2);
+
+      // Commit new change (should clear future history)
+      const newSurvey = createSurvey('new-survey', 'New Survey');
+      undoRedo.commit(newSurvey, 'New operation');
+
+      expect(undoRedo.getHistoryLength()).toBe(4); // Initial + 2 surveys + new survey
+      expect(undoRedo.getCurrentIndex()).toBe(3);
+
+      // Can still navigate within new history
+      expect(undoRedo.canJumpToIndex(0)).toBe(true);
+      expect(undoRedo.canJumpToIndex(1)).toBe(true);
+      expect(undoRedo.canJumpToIndex(2)).toBe(true);
+      expect(undoRedo.canJumpToIndex(3)).toBe(false); // Current index
+      expect(undoRedo.canJumpToIndex(4)).toBe(false); // Beyond new history
+    });
+  });
+
+  describe('Edge Cases and Error Handling', () => {
+    test('should handle empty history navigation', () => {
+      const emptyUndoRedo = new SurveyEditorUndoRedo(initialSurvey);
+
+      expect(emptyUndoRedo.getHistoryLength()).toBe(1);
+      expect(emptyUndoRedo.getCurrentIndex()).toBe(0);
+
+      expect(emptyUndoRedo.canJumpToIndex(0)).toBe(false); // Current index
+      expect(emptyUndoRedo.jumpToIndex(0)).toBeNull();
+    });
+
+    test('should handle boundary conditions', () => {
+      // Test at the start of history
+      undoRedo.jumpToIndex(0);
+
+      expect(undoRedo.canJumpToIndex(0)).toBe(false); // Current index
+      expect(undoRedo.jumpToIndex(0)).toBeNull();
+
+      // Test at the end of history
+      undoRedo.jumpToIndex(4);
+
+      expect(undoRedo.canJumpToIndex(4)).toBe(false); // Current index
+      expect(undoRedo.jumpToIndex(4)).toBeNull();
+    });
+
+    test('should handle navigation with large indices', () => {
+      expect(undoRedo.jumpToIndex(1000)).toBeNull();
+      expect(undoRedo.canJumpToIndex(1000)).toBe(false);
+    });
+
+    test('should handle navigation with negative indices', () => {
+      expect(undoRedo.jumpToIndex(-1)).toBeNull();
+      expect(undoRedo.canJumpToIndex(-1)).toBe(false);
+    });
+  });
+});
