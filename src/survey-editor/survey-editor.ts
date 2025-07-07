@@ -3,6 +3,15 @@ import { SurveyItem, GroupItem, SurveyItemType, SingleChoiceQuestionItem } from 
 import { SurveyEditorUndoRedo, type UndoRedoConfig } from "./undo-redo";
 import { SurveyItemTranslations } from "../survey/utils";
 import { SurveyItemKey } from "../survey/item-component-key";
+import { JsonSurvey } from "../survey/survey-file-schema";
+
+// Interface for serializing SurveyEditor state
+export interface SurveyEditorJson {
+  version: string;
+  survey: JsonSurvey;
+  undoRedo: ReturnType<SurveyEditorUndoRedo['toJSON']>;
+  hasUncommittedChanges: boolean;
+}
 
 export class SurveyEditor {
   private _survey: Survey;
@@ -124,6 +133,57 @@ export class SurveyEditor {
   // Get undo/redo configuration
   getUndoRedoConfig(): UndoRedoConfig {
     return this._undoRedo.getConfig();
+  }
+
+  /**
+   * Serialize the SurveyEditor state to JSON
+   * @returns A JSON-serializable object containing the complete editor state
+   */
+  toJson(): SurveyEditorJson {
+    return {
+      version: '1.0.0',
+      survey: this._survey.toJson(),
+      undoRedo: this._undoRedo.toJSON(),
+      hasUncommittedChanges: this._hasUncommittedChanges
+    };
+  }
+
+  /**
+   * Create a new SurveyEditor instance from JSON data
+   * @param jsonData The serialized editor state
+   * @returns A new SurveyEditor instance with the restored state
+   */
+  static fromJson(jsonData: SurveyEditorJson): SurveyEditor {
+    if (!jsonData.survey) {
+      throw new Error('Invalid JSON data: survey is required');
+    }
+
+    if (!jsonData.undoRedo) {
+      throw new Error('Invalid JSON data: undoRedo is required');
+    }
+
+    if (typeof jsonData.hasUncommittedChanges !== 'boolean') {
+      throw new Error('Invalid JSON data: hasUncommittedChanges must be a boolean');
+    }
+
+    // Validate version (for future compatibility)
+    if (jsonData.version && !jsonData.version.startsWith('1.')) {
+      console.warn(`Warning: Loading SurveyEditor with version ${jsonData.version}, current version is 1.0.0`);
+    }
+
+    // Create survey from JSON
+    const survey = Survey.fromJson(jsonData.survey);
+
+    // Create a new editor instance
+    const editor = new SurveyEditor(survey);
+
+    // Restore undo/redo state
+    editor._undoRedo = SurveyEditorUndoRedo.fromJSON(jsonData.undoRedo);
+
+    // Restore uncommitted changes flag
+    editor._hasUncommittedChanges = jsonData.hasUncommittedChanges;
+
+    return editor;
   }
 
   private markAsModified(): void {

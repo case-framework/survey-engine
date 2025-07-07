@@ -1598,4 +1598,330 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
       expect(editor.jumpToIndex(0)).toBe(true);
     });
   });
+
+  describe('Serialization (toJson/fromJson)', () => {
+    test('should serialize basic editor state', () => {
+      const jsonData = editor.toJson();
+
+      expect(jsonData.version).toBe('1.0.0');
+      expect(jsonData.survey).toBeDefined();
+      expect(jsonData.undoRedo).toBeDefined();
+      expect(jsonData.hasUncommittedChanges).toBe(false);
+    });
+
+    test('should preserve survey data in serialization', () => {
+      const jsonData = editor.toJson();
+
+      expect(jsonData.survey.surveyItems).toBeDefined();
+      expect(jsonData.survey.surveyItems['test-survey']).toBeDefined();
+      expect(jsonData.survey.surveyItems['test-survey.page1']).toBeDefined();
+      expect(jsonData.survey.$schema).toBeDefined();
+    });
+
+    test('should preserve undo/redo state in serialization', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const jsonData = editor.toJson();
+
+      expect(jsonData.undoRedo.history).toBeDefined();
+      expect(jsonData.undoRedo.currentIndex).toBeDefined();
+      expect(jsonData.undoRedo.config).toBeDefined();
+      expect(jsonData.undoRedo.history.length).toBeGreaterThan(1);
+    });
+
+    test('should preserve uncommitted changes flag', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted changes
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      const jsonData = editor.toJson();
+      expect(jsonData.hasUncommittedChanges).toBe(true);
+    });
+
+    test('should deserialize and create equivalent editor', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+      expect(restoredEditor.hasUncommittedChanges).toBe(editor.hasUncommittedChanges);
+      expect(restoredEditor.canUndo()).toBe(editor.canUndo());
+      expect(restoredEditor.canRedo()).toBe(editor.canRedo());
+    });
+
+    test('should preserve all survey items during round-trip', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem3 = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      // Check all items are preserved
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.question1']).toBeDefined();
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.group1']).toBeDefined();
+
+      // Check item types are preserved
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display1'].itemType).toBe(SurveyItemType.Display);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.question1'].itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.group1'].itemType).toBe(SurveyItemType.Group);
+    });
+
+    test('should preserve complete undo/redo history', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const originalHistoryLength = editor.undoRedo.getHistoryLength();
+      const originalCurrentIndex = editor.undoRedo.getCurrentIndex();
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.undoRedo.getHistoryLength()).toBe(originalHistoryLength);
+      expect(restoredEditor.undoRedo.getCurrentIndex()).toBe(originalCurrentIndex);
+
+      // Test that undo/redo still works
+      expect(restoredEditor.undo()).toBe(true);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+
+      expect(restoredEditor.redo()).toBe(true);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+    });
+
+    test('should preserve uncommitted changes state', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted changes
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.hasUncommittedChanges).toBe(true);
+      expect(restoredEditor.canRedo()).toBe(false); // Should not be able to redo with uncommitted changes
+    });
+
+    test('should handle round-trip consistency', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const originalJson = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(originalJson);
+      const secondJson = restoredEditor.toJson();
+
+      // The JSON should be identical (except for potential timestamp differences in history)
+      expect(secondJson.version).toBe(originalJson.version);
+      expect(secondJson.hasUncommittedChanges).toBe(originalJson.hasUncommittedChanges);
+      expect(secondJson.undoRedo.currentIndex).toBe(originalJson.undoRedo.currentIndex);
+      expect(secondJson.undoRedo.history.length).toBe(originalJson.undoRedo.history.length);
+
+      // Survey data should be identical
+      expect(JSON.stringify(secondJson.survey)).toBe(JSON.stringify(originalJson.survey));
+    });
+
+    test('should handle empty editor serialization', () => {
+      const freshSurvey = createTestSurvey();
+      const freshEditor = new SurveyEditor(freshSurvey);
+
+      const jsonData = freshEditor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.survey.surveyKey).toBe(freshEditor.survey.surveyKey);
+      expect(restoredEditor.hasUncommittedChanges).toBe(false);
+      expect(restoredEditor.canUndo()).toBe(false);
+      expect(restoredEditor.canRedo()).toBe(false);
+    });
+
+    test('should handle editor with complex expressions', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      // Add item with complex expression
+      testItem.displayConditions = {
+        root: createComplexTestExpression()
+      };
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      const restoredItem = restoredEditor.survey.surveyItems['test-survey.page1.display1'] as DisplayItem;
+      expect(restoredItem.displayConditions?.root).toBeDefined();
+      expect(restoredItem.displayConditions?.root?.toJson()).toEqual(createComplexTestExpression().toJson());
+    });
+
+    describe('Error Handling', () => {
+      test('should throw error for missing survey data', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        } as any;
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: survey is required');
+      });
+
+      test('should throw error for missing undo/redo data', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: editor.survey.toJson(),
+          hasUncommittedChanges: false
+        } as any;
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: undoRedo is required');
+      });
+
+      test('should throw error for invalid hasUncommittedChanges', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: 'invalid' as any
+        };
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: hasUncommittedChanges must be a boolean');
+      });
+
+      test('should handle invalid survey data gracefully', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: { invalid: 'data' } as any,
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        };
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow();
+      });
+
+      test('should handle invalid undo/redo data gracefully', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: editor.survey.toJson(),
+          undoRedo: { invalid: 'data' } as any,
+          hasUncommittedChanges: false
+        };
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow();
+      });
+    });
+
+    describe('Version Compatibility', () => {
+      test('should warn for future version but still load', () => {
+        const futureVersionJson = {
+          version: '2.0.0',
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        };
+
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        const restoredEditor = SurveyEditor.fromJson(futureVersionJson);
+
+        expect(consoleSpy).toHaveBeenCalledWith('Warning: Loading SurveyEditor with version 2.0.0, current version is 1.0.0');
+        expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+
+        consoleSpy.mockRestore();
+      });
+
+      test('should handle missing version gracefully', () => {
+        const noVersionJson = {
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        } as any;
+
+        const restoredEditor = SurveyEditor.fromJson(noVersionJson);
+        expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+      });
+
+      test('should handle compatible version without warning', () => {
+        const compatibleVersionJson = {
+          version: '1.1.0',
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        };
+
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        const restoredEditor = SurveyEditor.fromJson(compatibleVersionJson);
+
+        expect(consoleSpy).not.toHaveBeenCalled();
+        expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+
+        consoleSpy.mockRestore();
+      });
+    });
+
+    describe('Memory and Performance', () => {
+      test('should handle large editor state serialization', () => {
+        // Create large editor state
+        for (let i = 0; i < 50; i++) {
+          const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+          const testTranslations = createTestTranslations();
+          editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        }
+
+        const startTime = performance.now();
+        const jsonData = editor.toJson();
+        const serializationTime = performance.now() - startTime;
+
+        const deserializationStartTime = performance.now();
+        const restoredEditor = SurveyEditor.fromJson(jsonData);
+        const deserializationTime = performance.now() - deserializationStartTime;
+
+        // Should be reasonably fast (less than 1 second each)
+        expect(serializationTime).toBeLessThan(1000);
+        expect(deserializationTime).toBeLessThan(1000);
+
+        // Should preserve all items
+        expect(Object.keys(restoredEditor.survey.surveyItems)).toHaveLength(Object.keys(editor.survey.surveyItems).length);
+      });
+
+      test('should handle memory usage information preservation', () => {
+        // Add some items to increase memory usage
+        for (let i = 0; i < 10; i++) {
+          const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+          const testTranslations = createTestTranslations();
+          editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        }
+
+        const originalMemoryUsage = editor.getMemoryUsage();
+        const jsonData = editor.toJson();
+        const restoredEditor = SurveyEditor.fromJson(jsonData);
+        const restoredMemoryUsage = restoredEditor.getMemoryUsage();
+
+        expect(restoredMemoryUsage.entries).toBe(originalMemoryUsage.entries);
+        expect(restoredMemoryUsage.totalMB).toBeCloseTo(originalMemoryUsage.totalMB, 2);
+      });
+    });
+  });
 });
