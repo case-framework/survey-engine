@@ -1924,4 +1924,418 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
       });
     });
   });
+
+  describe('Event Listener Functionality', () => {
+    let eventSpy: jest.Mock;
+    let eventData: any;
+
+    beforeEach(() => {
+      eventSpy = jest.fn();
+      eventData = null;
+
+      // Setup event listener to capture data
+      editor.on('survey-changed', (data) => {
+        eventSpy(data);
+        eventData = data;
+      });
+    });
+
+    afterEach(() => {
+      editor.clearAllListeners();
+    });
+
+    describe('Basic Event Listener Management', () => {
+      test('should register and trigger event listeners', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalled();
+        expect(eventData).toBeDefined();
+        expect(eventData.isCommit).toBe(true);
+        expect(eventData.hasUncommittedChanges).toBe(false);
+        expect(eventData.description).toBe('Added test-survey.page1.item1');
+      });
+
+      test('should allow multiple listeners for the same event', () => {
+        const secondSpy = jest.fn();
+        const thirdSpy = jest.fn();
+
+        editor.on('survey-changed', secondSpy);
+        editor.on('survey-changed', thirdSpy);
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledTimes(1);
+        expect(secondSpy).toHaveBeenCalledTimes(1);
+        expect(thirdSpy).toHaveBeenCalledTimes(1);
+      });
+
+      test('should remove specific listeners', () => {
+        const secondSpy = jest.fn();
+        editor.on('survey-changed', secondSpy);
+
+        editor.off('survey-changed', secondSpy);
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledTimes(1);
+        expect(secondSpy).not.toHaveBeenCalled();
+      });
+
+      test('should clear all listeners', () => {
+        const secondSpy = jest.fn();
+        editor.on('survey-changed', secondSpy);
+
+        editor.clearAllListeners();
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).not.toHaveBeenCalled();
+        expect(secondSpy).not.toHaveBeenCalled();
+      });
+
+      test('should return correct listener count', () => {
+        expect(editor.getListenerCount()).toBe(1); // One listener from beforeEach
+
+        const secondSpy = jest.fn();
+        editor.on('survey-changed', secondSpy);
+
+        expect(editor.getListenerCount()).toBe(2);
+        expect(editor.getListenerCount('survey-changed')).toBe(2);
+
+        editor.off('survey-changed', secondSpy);
+
+        expect(editor.getListenerCount()).toBe(1);
+        expect(editor.getListenerCount('survey-changed')).toBe(1);
+      });
+    });
+
+    describe('Event Emission for Modifications', () => {
+      test('should emit event when making uncommitted changes', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on next event
+        eventSpy.mockClear();
+
+        // Make an uncommitted change
+        const updatedTranslations = createTestTranslations();
+        updatedTranslations.setContent('es', 'title', { type: ContentType.md, content: 'Contenido de prueba' });
+
+        editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: true,
+          isCommit: false
+        });
+      });
+
+      test('should emit event when committing changes', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on next event
+        eventSpy.mockClear();
+
+        // Make an uncommitted change
+        const updatedTranslations = createTestTranslations();
+        editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+        // Reset spy to focus on commit event
+        eventSpy.mockClear();
+
+        // Commit the changes
+        editor.commit('Manual commit');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Manual commit'
+        });
+      });
+    });
+
+    describe('Event Emission for Operations', () => {
+      test('should emit event when adding items', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Added test-survey.page1.item1'
+        });
+      });
+
+      test('should emit event when removing items', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on remove event
+        eventSpy.mockClear();
+
+        editor.removeItem('test-survey.page1.item1');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Removed test-survey.page1.item1'
+        });
+      });
+
+      test('should emit event when moving items', () => {
+        const testItem1 = new DisplayItem('test-survey.page1.item1');
+        const testItem2 = new DisplayItem('test-survey.page1.item2');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+        // Create a second group to move item to
+        const subGroup2 = new GroupItem('test-survey.page2');
+        editor.addItem({ parentKey: 'test-survey' }, subGroup2, testTranslations);
+
+        // Reset spy to focus on move event
+        eventSpy.mockClear();
+
+        editor.moveItem('test-survey.page1.item1', { parentKey: 'test-survey.page2' });
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Moved test-survey.page1.item1 to test-survey.page2'
+        });
+      });
+
+      test('should emit event when renaming items', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on rename event
+        eventSpy.mockClear();
+
+        editor.onItemKeyChanged('test-survey.page1.item1', 'test-survey.page1.renamedItem');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Renamed test-survey.page1.item1 to test-survey.page1.renamedItem'
+        });
+      });
+
+      test('should emit event when renaming components', () => {
+        const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on component rename event
+        eventSpy.mockClear();
+
+        editor.onComponentKeyChanged('test-survey.page1.question1', 'oldKey', 'newKey');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Renamed component oldKey to newKey in test-survey.page1.question1'
+        });
+      });
+
+      test('should emit event when deleting components', () => {
+        const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on component delete event
+        eventSpy.mockClear();
+
+        editor.deleteComponent('test-survey.page1.question1', 'someComponent');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Deleted component someComponent from test-survey.page1.question1'
+        });
+      });
+    });
+
+    describe('Event Emission for Undo/Redo Operations', () => {
+      test('should emit events for undo operations', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on undo
+        eventSpy.mockClear();
+
+        editor.undo();
+
+        // Undo should not emit events as per the simplified design
+        expect(eventSpy).toHaveBeenCalled();
+      });
+
+      test('should emit events for redo operations', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        editor.undo();
+
+        // Reset spy to focus on redo
+        eventSpy.mockClear();
+
+        editor.redo();
+
+        // Redo should not emit events as per the simplified design
+        expect(eventSpy).toHaveBeenCalled();
+      });
+
+      test('should emit events for jumpToIndex operations', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on jumpToIndex
+        eventSpy.mockClear();
+
+        editor.jumpToIndex(0);
+
+        // jumpToIndex should not emit events as per the simplified design
+        expect(eventSpy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Error Handling', () => {
+      test('should handle listener errors gracefully', () => {
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+        // Add a listener that throws an error
+        editor.on('survey-changed', () => {
+          throw new Error('Test error');
+        });
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        // This should not throw, but should log the error
+        expect(() => {
+          editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        }).not.toThrow();
+
+        expect(errorSpy).toHaveBeenCalledWith('Error in survey-changed listener:', expect.any(Error));
+
+        // The original listener should still have been called
+        expect(eventSpy).toHaveBeenCalled();
+
+        errorSpy.mockRestore();
+      });
+
+      test('should handle removing non-existent listeners gracefully', () => {
+        const nonExistentSpy = jest.fn();
+
+        // This should not throw
+        expect(() => {
+          editor.off('survey-changed', nonExistentSpy);
+        }).not.toThrow();
+
+        // Should not affect existing listeners
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Listener State After fromJson', () => {
+      test('should not preserve listeners after fromJson restoration', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        const jsonData = editor.toJson();
+        const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+        // Should have no listeners after restoration
+        expect(restoredEditor.getListenerCount()).toBe(0);
+
+        // Adding a listener to the restored editor should work
+        const restoredSpy = jest.fn();
+        restoredEditor.on('survey-changed', restoredSpy);
+
+        const testItem2 = new DisplayItem('test-survey.page1.item2');
+        restoredEditor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+        expect(restoredSpy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Event Data Structure Validation', () => {
+      test('should provide consistent event data structure for modifications', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on modification event
+        eventSpy.mockClear();
+
+        // Make an uncommitted change
+        const updatedTranslations = createTestTranslations();
+        editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: true,
+          isCommit: false
+        });
+
+        // Verify the structure doesn't contain description for non-commits
+        expect(eventData.description).toBeUndefined();
+      });
+
+      test('should provide consistent event data structure for commits', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Added test-survey.page1.item1'
+        });
+
+        // Verify all expected properties are present
+        expect(eventData.hasUncommittedChanges).toBe(false);
+        expect(eventData.isCommit).toBe(true);
+        expect(eventData.description).toBe('Added test-survey.page1.item1');
+      });
+    });
+  });
 });

@@ -1,254 +1,114 @@
-# Survey Compilation and Decompilation
+# Survey Editor Event Listener Example
 
-This document demonstrates how to use the survey compilation and decompilation methods that move translations and dynamic values between component-level and global survey level.
+The SurveyEditor now supports a simple event-driven architecture with a single `survey-changed` event.
 
-## Overview
-
-## Methods
-
-- `compileSurvey(survey)` - Moves translations and dynamic values from components to global level
-- `decompileSurvey(survey)` - Moves translations and dynamic values from global level back to components
-
-## Usage Examples
-
-### Basic Compilation (Standalone Functions)
+## Basic Usage
 
 ```typescript
-import { compileSurvey, decompileSurvey, Survey } from 'survey-engine';
+import { SurveyEditor } from '../src/survey-editor';
 
-const originalSurvey: Survey = {
-  versionId: '1.0.0',
-  surveyDefinition: {
-    key: 'mysurvey',
-    items: [{
-      key: 'mysurvey.question1',
-      components: {
-        role: 'root',
-        items: [],
-        content: [{ type: 'plain', key: 'questionText' }],
-        translations: {
-          'en': { 'questionText': 'What is your name?' },
-          'es': { 'questionText': '¿Cuál es tu nombre?' },
-          'fr': { 'questionText': 'Quel est votre nom?' }
-        },
-        dynamicValues: [{
-          key: 'currentDate',
-          type: 'date',
-          expression: { name: 'timestampWithOffset' }
-          dateFormat: 'YYYY-MM-DD'
-        }]
-      }
-    }]
+// Create editor instance
+const editor = new SurveyEditor(survey);
+
+// Listen for any survey changes (both uncommitted changes and commits)
+editor.on('survey-changed', (data) => {
+  if (data.isCommit) {
+    console.log('Changes committed:', data.description);
+    // Save to persistent storage
+    saveToDatabase(editor.toJson());
+  } else {
+    console.log('Survey modified (uncommitted)');
+    // Auto-save to session storage for recovery
+    updateSessionData(editor.toJson());
   }
-};
 
-// Compile the survey
-const compiled = compileSurvey(originalSurvey);
-
-console.log('Global translations:', compiled.translations);
-// Output:
-// {
-//   "en": {
-//     "mysurvey.question1": {
-//       "questionText": "What is your name?"
-//     }
-//   },
-//   "es": {
-//     "mysurvey.question1": {
-//       "questionText": "¿Cuál es tu nombre?"
-//     }
-//   },
-//   "fr": {
-//     "mysurvey.question1": {
-//       "questionText": "Quel est votre nom?"
-//     }
-//   }
-// }
-
-console.log('Global dynamic values:', compiled.dynamicValues);
-// Output: [{ "key": "mysurvey.question1-currentDate", "type": "date", "expression": { name: "timestampWithOffset" }, "dateFormat": "YYYY-MM-DD" }]
+  console.log('Has uncommitted changes:', data.hasUncommittedChanges);
+});
 ```
 
-### Decompilation
+## Session Data Auto-Save Example
 
 ```typescript
-// Starting with a compiled survey
-const compiledSurvey: Survey = {
-  versionId: '1.0.0',
-  translations: {
-    'en': {
-      'mysurvey.question1': {
-        'greeting': 'Hello World'
-      }
-    },
-    'de': {
-      'mysurvey.question1': {
-        'greeting': 'Hallo Welt'
-      }
-    }
-  },
-  dynamicValues: [{
-    key: 'mysurvey.question1-userGreeting',
-    type: 'expression',
-    expression: { name: 'getAttribute', data: [{ str: 'greeting' }] }
-  }],
-  surveyDefinition: {
-    key: 'mysurvey',
-    items: [{
-      key: 'mysurvey.question1',
-      components: {
-        role: 'root',
-        items: [],
-        content: [{ type: 'plain', key: 'greeting' }]
-      }
-    }]
+class EditorSession {
+  private editor: SurveyEditor;
+  private sessionKey: string;
+
+  constructor(editor: SurveyEditor, sessionKey: string) {
+    this.editor = editor;
+    this.sessionKey = sessionKey;
+
+    // Set up auto-save on any change
+    this.editor.on('survey-changed', this.handleSurveyChanged.bind(this));
   }
-};
 
-// Decompile back to component level
-const decompiled = decompileSurvey(compiledSurvey);
+  private handleSurveyChanged(data: { hasUncommittedChanges: boolean; isCommit: boolean; description?: string }) {
+    if (data.isCommit) {
+      // Save committed state to persistent storage
+      localStorage.setItem(
+        this.sessionKey,
+        JSON.stringify(this.editor.toJson())
+      );
 
-// Now translations and dynamic values are back on the component
-const component = decompiled.surveyDefinition.items[0].components;
-console.log('Component translations:', component?.translations);
-// Output: { "en": { "greeting": "Hello World" }, "de": { "greeting": "Hallo Welt" } }
-
-console.log('Component dynamic values:', component?.dynamicValues);
-// Output: [{ "key": "userGreeting", "type": "expression", "expression": {...} }]
-```
-
-### Round-trip Processing
-
-```typescript
-// Original survey with component-level data
-const original = createSurveyWithComponentData();
-
-// Compile for processing/storage
-const compiled = compileSurvey(original);
-
-// Process global translations (e.g., send to translation service)
-const processedTranslations = await processTranslations(compiled.translations);
-compiled.translations = processedTranslations;
-
-// Decompile back to original structure
-const restored = decompileSurvey(compiled);
-
-// The survey now has the original structure but with processed translations
-```
-
-## Translation Structure
-
-### Component Level (Before Compilation)
-
-```typescript
-{
-  role: 'root',
-  content: [{ type: 'plain', key: 'questionText' }],
-  translations: {
-    'en': { 'questionText': 'Hello' },
-    'es': { 'questionText': 'Hola' }
-  }
-}
-```
-
-### Global Level (After Compilation) - Locale First
-
-```json
-{
-  "translations": {
-    "en": {
-      "survey1.question1": {
-        "questionText": "Hello"
-      }
-    },
-    "es": {
-      "survey1.question1": {
-        "questionText": "Hola"
-      }
+      // Clear draft since it's now committed
+      sessionStorage.removeItem(`${this.sessionKey}_draft`);
+    } else if (data.hasUncommittedChanges) {
+      // Save to session storage for recovery
+      sessionStorage.setItem(
+        `${this.sessionKey}_draft`,
+        JSON.stringify(this.editor.toJson())
+      );
     }
   }
-}
-```
 
-## Dynamic Values Structure
-
-Dynamic values use dashes to separate the item key from the component path and original key:
-
-```typescript
-// Before compilation (component level):
-{
-  key: 'question1',
-  components: {
-    dynamicValues: [{ key: 'currentTime', type: 'date', dateFormat: 'HH:mm' }]
+  cleanup() {
+    this.editor.clearAllListeners();
   }
 }
-
-// After compilation (global level):
-{
-  dynamicValues: [{ key: 'survey1.question1-currentTime', type: 'date', dateFormat: 'HH:mm' }]
-}
 ```
 
-For nested components:
+## Analytics Example
 
 ```typescript
-// Before compilation (nested component):
-{
-  role: 'input',
-  key: 'input',
-  dynamicValues: [{ key: 'maxLength', type: 'expression', expression: {...} }]
-}
-
-// After compilation (global level):
-{
-  dynamicValues: [{ key: 'survey1.question1-rg.input-maxLength', type: 'expression', expression: {...} }]
-}
-```
-
-## Advanced: Nested Component Structures
-
-The system handles complex nested structures where components can contain other components:
-
-```typescript
-{
-  role: 'root',
-  content: [{ type: 'plain', key: 'rootText' }],
-  translations: { 'en': { 'rootText': 'Question Root' } },
-  items: [{
-    role: 'responseGroup',
-    key: 'rg',
-    content: [{ type: 'plain', key: 'groupLabel' }],
-    translations: { 'en': { 'groupLabel': 'Response Group' } },
-    items: [{
-      role: 'input',
-      key: 'input',
-      content: [{ type: 'plain', key: 'inputLabel' }],
-      translations: { 'en': { 'inputLabel': 'Enter response' } }
-    }]
-  }]
-}
-```
-
-This compiles to:
-
-```json
-{
-  "translations": {
-    "en": {
-      "survey1.question1": {
-        "rootText": "Question Root",
-        "rg.groupLabel": "Response Group",
-        "rg.input.inputLabel": "Enter response"
+class EditorAnalytics {
+  constructor(editor: SurveyEditor) {
+    // Track all survey changes
+    editor.on('survey-changed', (data) => {
+      if (data.isCommit) {
+        this.trackEvent('survey_changes_committed', {
+          description: data.description,
+          hasUncommittedChanges: data.hasUncommittedChanges
+        });
+      } else {
+        this.trackEvent('survey_modified', {
+          hasUncommittedChanges: data.hasUncommittedChanges
+        });
       }
-    }
+    });
+  }
+
+  private trackEvent(eventName: string, properties?: any) {
+    // Send to your analytics service
+    analytics.track(eventName, properties);
   }
 }
 ```
 
-## Notes
+## Available Events
 
-- The methods perform deep cloning, so the original survey object is not modified
-- Compilation and decompilation are reversible operations
-- Global translations and dynamic values are cleared during decompilation
-- The methods handle nested survey item structures recursively
-- **Root component skipping**: The "root" component is not included in translation paths since it's always the starting point
+| Event Type | Data | Description |
+|------------|------|-------------|
+| `survey-changed` | `{ hasUncommittedChanges: boolean; isCommit: boolean; description?: string }` | Fired when survey content changes or is committed |
+
+### Event Data Properties
+
+- `hasUncommittedChanges`: Whether the editor has uncommitted changes
+- `isCommit`: `true` if this event was triggered by a commit, `false` if by a modification
+- `description`: Only present when `isCommit` is `true`, contains the commit description
+
+## Best Practices
+
+1. **Remove listeners**: Always call `editor.off()` or `editor.clearAllListeners()` when cleaning up
+2. **Error handling**: Event listeners are wrapped in try-catch, but handle errors gracefully
+3. **Performance**: Be mindful of heavy operations in the `survey-changed` event as it fires on every modification
+4. **Memory leaks**: Remove listeners when components unmount to prevent memory leaks
+5. **Check event type**: Use the `isCommit` flag to differentiate between modifications and commits

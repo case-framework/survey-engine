@@ -13,14 +13,78 @@ export interface SurveyEditorJson {
   hasUncommittedChanges: boolean;
 }
 
+// Event types for the editor
+export type SurveyEditorEventType = 'survey-changed';
+
+// Event data interfaces
+export interface SurveyEditorEventData {
+  'survey-changed': {
+    hasUncommittedChanges: boolean;
+    isCommit: boolean;
+    description?: string;
+  };
+}
+
+export type SurveyEditorEventListener<T extends SurveyEditorEventType> = (data: SurveyEditorEventData[T]) => void;
+
+// Since we only have one event type, we can be specific about the listener type
+type AnyEventListener = SurveyEditorEventListener<SurveyEditorEventType>;
+
 export class SurveyEditor {
   private _survey: Survey;
   private _undoRedo: SurveyEditorUndoRedo;
   private _hasUncommittedChanges: boolean = false;
+  private _listeners: Map<SurveyEditorEventType, Set<AnyEventListener>> = new Map();
 
   constructor(survey: Survey) {
     this._survey = survey;
     this._undoRedo = new SurveyEditorUndoRedo(survey.toJson());
+  }
+
+  // Event listener management
+  on<T extends SurveyEditorEventType>(event: T, listener: SurveyEditorEventListener<T>): void {
+    if (!this._listeners.has(event)) {
+      this._listeners.set(event, new Set());
+    }
+    this._listeners.get(event)!.add(listener as AnyEventListener);
+  }
+
+  off<T extends SurveyEditorEventType>(event: T, listener: SurveyEditorEventListener<T>): void {
+    const eventListeners = this._listeners.get(event);
+    if (eventListeners) {
+      eventListeners.delete(listener as AnyEventListener);
+      if (eventListeners.size === 0) {
+        this._listeners.delete(event);
+      }
+    }
+  }
+
+  // Clear all listeners for cleanup
+  clearAllListeners(): void {
+    this._listeners.clear();
+  }
+
+  // Get listener count for debugging
+  getListenerCount(event?: SurveyEditorEventType): number {
+    if (event) {
+      return this._listeners.get(event)?.size || 0;
+    }
+    let total = 0;
+    this._listeners.forEach(listeners => total += listeners.size);
+    return total;
+  }
+
+  private emit<T extends SurveyEditorEventType>(event: T, data: SurveyEditorEventData[T]): void {
+    const eventListeners = this._listeners.get(event);
+    if (eventListeners) {
+      eventListeners.forEach(listener => {
+        try {
+          (listener as SurveyEditorEventListener<T>)(data);
+        } catch (error) {
+          console.error(`Error in ${event} listener:`, error);
+        }
+      });
+    }
   }
 
   get survey(): Survey {
@@ -40,6 +104,11 @@ export class SurveyEditor {
   commit(description: string): void {
     this._undoRedo.commit(this._survey.toJson(), description);
     this._hasUncommittedChanges = false;
+    this.emit('survey-changed', {
+      hasUncommittedChanges: this._hasUncommittedChanges,
+      isCommit: true,
+      description
+    });
   }
 
   commitIfNeeded(): void {
@@ -61,6 +130,10 @@ export class SurveyEditor {
       if (previousState) {
         this._survey = Survey.fromJson(previousState);
         this._hasUncommittedChanges = false;
+        this.emit('survey-changed', {
+          hasUncommittedChanges: this._hasUncommittedChanges,
+          isCommit: false
+        });
         return true;
       }
       return false;
@@ -78,6 +151,10 @@ export class SurveyEditor {
     if (nextState) {
       this._survey = Survey.fromJson(nextState);
       this._hasUncommittedChanges = false;
+      this.emit('survey-changed', {
+        hasUncommittedChanges: this._hasUncommittedChanges,
+        isCommit: false
+      });
       return true;
     }
     return false;
@@ -98,6 +175,10 @@ export class SurveyEditor {
     if (targetState) {
       this._survey = Survey.fromJson(targetState);
       this._hasUncommittedChanges = false;
+      this.emit('survey-changed', {
+        hasUncommittedChanges: this._hasUncommittedChanges,
+        isCommit: false
+      });
       return true;
     }
     return false;
@@ -188,6 +269,10 @@ export class SurveyEditor {
 
   private markAsModified(): void {
     this._hasUncommittedChanges = true;
+    this.emit('survey-changed', {
+      hasUncommittedChanges: this._hasUncommittedChanges,
+      isCommit: false
+    });
   }
 
   private updateItemKeyReferencesInSurvey(oldFullKey: string, newFullKey: string): void {
@@ -518,7 +603,6 @@ export class SurveyEditor {
 
     // Update references to the item in other items (e.g., expressions)
     this.updateItemKeyReferencesInSurvey(oldFullKey, newFullKey);
-
 
     if (!skipCommit) {
       this.commit(`Renamed ${oldFullKey} to ${newFullKey}`);
