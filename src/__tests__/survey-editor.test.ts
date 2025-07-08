@@ -1,0 +1,2341 @@
+import { Survey } from '../survey/survey';
+import { SurveyEditor } from '../survey-editor/survey-editor';
+import { DisplayItem, GroupItem, SingleChoiceQuestionItem, SurveyItemType } from '../survey/items';
+import { SurveyItemTranslations } from '../survey/utils';
+import { Content, ContentType } from '../survey/utils/content';
+import { DisplayComponent, ItemComponentType, TextComponent } from '../survey/components';
+import { Expression, ConstExpression, ResponseVariableExpression, FunctionExpression, FunctionExpressionNames } from '../expressions';
+import { SingleChoiceQuestionEditor } from '../survey-editor/survey-item-editors';
+import { SurveyEditorUndoRedo } from '../survey-editor/undo-redo';
+
+// Helper function to create a test survey
+const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
+  const survey = new Survey(surveyKey);
+
+  // Add a sub-group to the root
+  const subGroup = new GroupItem(`${surveyKey}.page1`);
+  survey.surveyItems[`${surveyKey}.page1`] = subGroup;
+
+  // Add the sub-group to the root group's items
+  const rootGroup = survey.surveyItems[surveyKey] as GroupItem;
+  rootGroup.items = [`${surveyKey}.page1`];
+
+  return survey;
+};
+
+const enLocale = 'en';
+const deLocale = 'de';
+
+// Helper function to create test translations
+const createTestTranslations = (): SurveyItemTranslations => {
+  const translations = new SurveyItemTranslations();
+  const testContent: Content = {
+    type: ContentType.md,
+    content: 'Test content'
+  };
+  translations.setContent(enLocale, 'title', testContent);
+  translations.setContent(deLocale, 'title', { type: ContentType.md, content: 'Test Inhalt' });
+  return translations;
+};
+
+// Helper function to create test expressions
+const createTestExpression = (): Expression => {
+  return new ConstExpression(true);
+};
+
+const createComplexTestExpression = (): Expression => {
+  return new FunctionExpression(
+    FunctionExpressionNames.eq,
+    [
+      new ResponseVariableExpression('test-survey.page1.question1...get'),
+      new ConstExpression('option1')
+    ]
+  );
+};
+
+describe('SurveyEditor', () => {
+  let survey: Survey;
+  let editor: SurveyEditor;
+
+  beforeEach(() => {
+    survey = createTestSurvey();
+    editor = new SurveyEditor(survey);
+  });
+
+  describe('Constructor and Basic Properties', () => {
+    test('should initialize with a survey', () => {
+      expect(editor.survey).toBe(survey);
+      expect(editor.hasUncommittedChanges).toBe(false);
+    });
+
+    test('should provide access to survey items', () => {
+      expect(editor.survey.surveyItems).toBeDefined();
+      expect(Object.keys(editor.survey.surveyItems)).toContain('test-survey');
+      expect(Object.keys(editor.survey.surveyItems)).toContain('test-survey.page1');
+    });
+
+    test('should initialize undo/redo functionality', () => {
+      expect(editor.canUndo()).toBe(false);
+      expect(editor.canRedo()).toBe(false);
+    });
+  });
+
+  describe('Commit and Uncommitted Changes', () => {
+    test('should track uncommitted changes after modifications', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // addItem automatically commits, so hasUncommittedChanges should be false
+      expect(editor.hasUncommittedChanges).toBe(false);
+    });
+
+    test('should commit changes with description', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Added test-survey.page1.item1');
+    });
+
+    test('should track uncommitted changes when updating item translations', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Now update translations (this should mark as modified without committing)
+      const updatedTranslations = createTestTranslations();
+      updatedTranslations.setContent('es', 'title', { type: ContentType.md, content: 'Contenido de prueba' });
+
+      editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+    });
+
+    test('should commit if needed when starting new operations', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Update translations to create uncommitted changes
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Adding a new item should commit the previous changes
+      const testItem2 = new DisplayItem('test-survey.page1.item2');
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(false);
+    });
+  });
+
+  describe('Undo/Redo Functionality', () => {
+    test('should support undo after adding items', () => {
+      const initialItemCount = Object.keys(editor.survey.surveyItems).length;
+
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(Object.keys(editor.survey.surveyItems)).toHaveLength(initialItemCount + 1);
+      expect(editor.canUndo()).toBe(true);
+
+      const undoSuccess = editor.undo();
+      expect(undoSuccess).toBe(true);
+      expect(Object.keys(editor.survey.surveyItems)).toHaveLength(initialItemCount);
+      expect(editor.survey.surveyItems['test-survey.page1.item1']).toBeUndefined();
+    });
+
+    test('should support redo after undo', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      editor.undo();
+      expect(editor.canRedo()).toBe(true);
+
+      const redoSuccess = editor.redo();
+      expect(redoSuccess).toBe(true);
+      expect(editor.survey.surveyItems['test-survey.page1.item1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.item1'].itemType).toBe(SurveyItemType.Display);
+    });
+
+    test('should handle undo with uncommitted changes', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make an uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Undo should revert to last committed state
+      const undoSuccess = editor.undo();
+      expect(undoSuccess).toBe(true);
+      expect(editor.hasUncommittedChanges).toBe(false);
+    });
+
+    test('should not allow redo with uncommitted changes', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.undo();
+
+      // Redo first to restore the item
+      editor.redo();
+
+      // Make an uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+      expect(editor.canRedo()).toBe(false);
+
+      const redoSuccess = editor.redo();
+      expect(redoSuccess).toBe(false);
+    });
+
+    test('should provide undo/redo descriptions', () => {
+      const testItem = new DisplayItem('test-survey.page1.item1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(editor.getUndoDescription()).toBe('Added test-survey.page1.item1');
+      expect(editor.getRedoDescription()).toBeNull();
+
+      editor.undo();
+      expect(editor.getUndoDescription()).toBeNull();
+      expect(editor.getRedoDescription()).toBe('Added test-survey.page1.item1');
+    });
+  });
+
+  describe('Adding Items', () => {
+    test('should add item to specified parent group', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBe(testItem);
+
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).toContain('test-survey.page1.display1');
+    });
+
+    test('should add item at specified index', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testItem3 = new DisplayItem('test-survey.page1.display3');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+
+      // Insert at index 1 (between item1 and item3)
+      editor.addItem({ parentKey: 'test-survey.page1', index: 1 }, testItem2, testTranslations);
+
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).toEqual([
+        'test-survey.page1.display1',
+        'test-survey.page1.display2',
+        'test-survey.page1.display3'
+      ]);
+    });
+
+    test('should add item to root when no target specified', () => {
+      // Create a survey with only root group
+      const rootOnlySurvey = new Survey('root-survey');
+      const rootEditor = new SurveyEditor(rootOnlySurvey);
+
+      const testItem = new DisplayItem('root-survey.display1');
+      const testTranslations = createTestTranslations();
+
+      rootEditor.addItem(undefined, testItem, testTranslations);
+
+      expect(rootEditor.survey.surveyItems['root-survey.display1']).toBeDefined();
+
+      const rootGroup = rootEditor.survey.surveyItems['root-survey'] as GroupItem;
+      expect(rootGroup.items).toContain('root-survey.display1');
+    });
+
+    test('should set item translations when adding', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const retrievedTranslations = editor.survey.getItemTranslations('test-survey.page1.display1');
+      expect(retrievedTranslations).toBeDefined();
+
+      // Check if translations were actually set
+      const localeContent = retrievedTranslations!.getAllForLocale(enLocale);
+      expect(localeContent).toBeDefined();
+      expect(localeContent!['title']).toEqual({
+        type: ContentType.md,
+        content: 'Test content'
+      });
+    });
+
+    test('should handle adding different types of survey items', () => {
+      const displayItem = new DisplayItem('test-survey.page1.display1');
+      const questionItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, questionItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+
+      expect(editor.survey.surveyItems['test-survey.page1.display1'].itemType).toBe(SurveyItemType.Display);
+      expect(editor.survey.surveyItems['test-survey.page1.question1'].itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+      expect(editor.survey.surveyItems['test-survey.page1.group1'].itemType).toBe(SurveyItemType.Group);
+    });
+
+    test('should throw error when parent group not found', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      expect(() => {
+        editor.addItem({ parentKey: 'non-existent-parent' }, testItem, testTranslations);
+      }).toThrow("Parent item with key 'non-existent-parent' not found");
+    });
+
+    test('should throw error when parent is not a group item', () => {
+      // First add a display item
+      const displayItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, displayItem, testTranslations);
+
+      // Try to add an item to the display item (which is not a group)
+      const testItem = new DisplayItem('test-survey.page1.display1.invalid');
+
+      expect(() => {
+        editor.addItem({ parentKey: 'test-survey.page1.display1' }, testItem, testTranslations);
+      }).toThrow("Parent item 'test-survey.page1.display1' is not a group item");
+    });
+
+    test('should throw error when no root group found', () => {
+      // Create a survey with no root group (edge case)
+      const emptySurvey = new Survey();
+      emptySurvey.surveyItems = {}; // Remove the default root group
+      const emptyEditor = new SurveyEditor(emptySurvey);
+
+      const testItem = new DisplayItem('display1');
+      const testTranslations = createTestTranslations();
+
+      expect(() => {
+        emptyEditor.addItem(undefined, testItem, testTranslations);
+      }).toThrow('No root group found in survey');
+    });
+  });
+
+  describe('Removing Items', () => {
+    test('should remove item and update parent group', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+
+      const removeSuccess = editor.removeItem('test-survey.page1.display1');
+
+      expect(removeSuccess).toBe(true);
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeUndefined();
+
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).not.toContain('test-survey.page1.display1');
+    });
+
+    test('should remove item translations when removing item', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Verify translations exist
+      expect(editor.survey.getItemTranslations('test-survey.page1.display1')).toBeDefined();
+
+      editor.removeItem('test-survey.page1.display1');
+
+      // After removal, getting translations for non-existent item should throw error
+      expect(() => {
+        editor.survey.getItemTranslations('test-survey.page1.display1');
+      }).toThrow('Item test-survey.page1.display1 not found');
+    });
+
+    test('should return false when trying to remove non-existent item', () => {
+      const removeSuccess = editor.removeItem('non-existent-item');
+      expect(removeSuccess).toBe(false);
+    });
+
+    test('should throw error when trying to remove root item', () => {
+      expect(() => {
+        editor.removeItem('test-survey');
+      }).toThrow("Item with key 'test-survey' is the root item");
+    });
+
+    test('should handle removing items from different positions', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testItem3 = new DisplayItem('test-survey.page1.display3');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+
+      // Remove middle item
+      editor.removeItem('test-survey.page1.display2');
+
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).toEqual([
+        'test-survey.page1.display1',
+        'test-survey.page1.display3'
+      ]);
+    });
+
+    test('should remove group with all nested items and translations as single operation', () => {
+      const testGroup = new GroupItem('test-survey.page1.subgroup1');
+      const testItem1 = new DisplayItem('test-survey.page1.subgroup1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.subgroup1.display2');
+      const nestedGroup = new GroupItem('test-survey.page1.subgroup1.nestedgroup');
+      const nestedItem = new DisplayItem('test-survey.page1.subgroup1.nestedgroup.display1');
+      const testTranslations = createTestTranslations();
+
+      // Build nested structure
+      editor.addItem({ parentKey: 'test-survey.page1' }, testGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, nestedGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1.nestedgroup' }, nestedItem, testTranslations);
+
+      // Verify all items exist
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeDefined();
+
+      // Verify translations exist for all items
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.display1')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.display2')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup')).toBeDefined();
+      expect(editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup.display1')).toBeDefined();
+
+      const initialUndoCount = editor.canUndo() ? 1 : 0; // Check how many operations we can undo
+      let undoCount = 0;
+      while (editor.canUndo()) {
+        undoCount++;
+        editor.undo();
+      }
+      // Redo all to get back to initial state
+      for (let i = 0; i < undoCount; i++) {
+        editor.redo();
+      }
+
+      // Remove the group with all nested items
+      const removeSuccess = editor.removeItem('test-survey.page1.subgroup1');
+
+      expect(removeSuccess).toBe(true);
+
+      // Verify all nested items and the group are removed from survey items
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeUndefined();
+
+      // Verify the group is removed from parent's items array
+      const parentGroup = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(parentGroup.items).not.toContain('test-survey.page1.subgroup1');
+
+      // Verify all translations are removed
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.display1')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.display2')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup')).toThrow();
+      expect(() => editor.survey.getItemTranslations('test-survey.page1.subgroup1.nestedgroup.display1')).toThrow();
+
+      // Verify this created only ONE undo operation
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Removed test-survey.page1.subgroup1');
+
+      // Undo should restore all items
+      editor.undo();
+
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.nestedgroup.display1']).toBeDefined();
+    });
+  });
+
+  describe('Moving Items', () => {
+    test('should throw error when moving non-existent item', () => {
+      expect(() => {
+        editor.moveItem('non-existent-item', {
+          parentKey: 'test-survey.page1'
+        });
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should throw error when target parent does not exist', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'non-existent-parent'
+        });
+      }).toThrow("Target parent with key 'non-existent-parent' not found");
+    });
+
+    test('should throw error when target parent is not a group', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'test-survey.page1.display2' // display item, not group
+        });
+      }).toThrow("Target parent 'test-survey.page1.display2' is not a group item");
+    });
+
+    test('should throw error when trying to move item to its descendant', () => {
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const subGroupItem = new GroupItem('test-survey.page1.group1.subgroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroupItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.group1', {
+          parentKey: 'test-survey.page1.group1.subgroup'
+        });
+      }).toThrow("Cannot move item 'test-survey.page1.group1' to its descendant 'test-survey.page1.group1.subgroup'");
+    });
+
+    test('should prevent moving item to itself', () => {
+      const groupItem = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, groupItem, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.group1', {
+          parentKey: 'test-survey.page1.group1'
+        });
+      }).toThrow("Cannot move item 'test-survey.page1.group1' to its descendant 'test-survey.page1.group1'");
+    });
+
+    test('should move item between different parents and update keys', () => {
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const group2 = new GroupItem('test-survey.page1.group2');
+      const displayItem = new DisplayItem('test-survey.page1.group1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, displayItem, testTranslations);
+
+      // Verify initial state
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.display1']).toBeUndefined();
+      expect((group1 as GroupItem).items).toContain('test-survey.page1.group1.display1');
+      expect((group2 as GroupItem).items || []).not.toContain('test-survey.page1.group2.display1');
+
+      const moveSuccess = editor.moveItem('test-survey.page1.group1.display1', {
+        parentKey: 'test-survey.page1.group2',
+        index: 0
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      // Verify item was moved and key updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.display1']).toBeDefined();
+
+      const movedItem = editor.survey.surveyItems['test-survey.page1.group2.display1'];
+      expect(movedItem.key.fullKey).toBe('test-survey.page1.group2.display1');
+      expect(movedItem.key.parentFullKey).toBe('test-survey.page1.group2');
+
+      // Verify parent items arrays are updated
+      expect((group1 as GroupItem).items).not.toContain('test-survey.page1.group1.display1');
+      expect((group2 as GroupItem).items).toContain('test-survey.page1.group2.display1');
+    });
+
+    test('should move item with nested children and update all keys correctly', () => {
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const group2 = new GroupItem('test-survey.page1.group2');
+      const subGroup = new GroupItem('test-survey.page1.group1.subgroup');
+      const nestedItem = new DisplayItem('test-survey.page1.group1.subgroup.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, subGroup, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1.subgroup' }, nestedItem, testTranslations);
+
+      const moveSuccess = editor.moveItem('test-survey.page1.group1.subgroup', {
+        parentKey: 'test-survey.page1.group2'
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      // Verify subgroup was moved
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.subgroup']).toBeDefined();
+
+      // Verify nested item key was updated
+      expect(editor.survey.surveyItems['test-survey.page1.group1.subgroup.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group2.subgroup.display1']).toBeDefined();
+
+      const movedNestedItem = editor.survey.surveyItems['test-survey.page1.group2.subgroup.display1'];
+      expect(movedNestedItem.key.fullKey).toBe('test-survey.page1.group2.subgroup.display1');
+      expect(movedNestedItem.key.parentFullKey).toBe('test-survey.page1.group2.subgroup');
+    });
+
+    test('should throw error when moving item to same parent', () => {
+      const display1 = new DisplayItem('test-survey.page1.display1');
+      const display2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, display1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, display2, testTranslations);
+
+      expect(() => {
+        editor.moveItem('test-survey.page1.display1', {
+          parentKey: 'test-survey.page1',
+          index: 1
+        });
+      }).toThrow("Item 'test-survey.page1.display1' is already in the target parent 'test-survey.page1'");
+    });
+
+    test('should move item to end when no index specified', () => {
+      const display1 = new DisplayItem('test-survey.page1.display1');
+      const display2 = new DisplayItem('test-survey.page1.display2');
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, display1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, display2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+
+      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.group1'
+      });
+
+      expect(moveSuccess).toBe(true);
+
+      const group1Items = (group1 as GroupItem).items;
+      expect(group1Items).toBeDefined();
+      expect(group1Items![group1Items!.length - 1]).toBe('test-survey.page1.group1.display1');
+    });
+
+    test('should commit changes when moving item', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const group1 = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, group1, testTranslations);
+
+      // Make an uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.group1',
+        index: 0
+      });
+
+      // Should have committed the changes
+      expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.getUndoDescription()).toBe('Moved test-survey.page1.display1 to test-survey.page1.group1');
+    });
+
+    test('should handle moving to parent with no existing items', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const emptyGroup = new GroupItem('test-survey.page1.emptygroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, emptyGroup, testTranslations);
+
+      // Ensure the empty group has no items
+      expect((emptyGroup as GroupItem).items).toBeUndefined();
+
+      const moveSuccess = editor.moveItem('test-survey.page1.display1', {
+        parentKey: 'test-survey.page1.emptygroup'
+      });
+
+      expect(moveSuccess).toBe(true);
+      expect((emptyGroup as GroupItem).items).toEqual(['test-survey.page1.emptygroup.display1']);
+    });
+  });
+
+  describe('Updating Item Translations', () => {
+    test('should update item translations and mark as modified', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const updatedTranslations = new SurveyItemTranslations();
+      updatedTranslations.setContent(enLocale, 'title', { type: ContentType.md, content: 'Updated content' });
+      updatedTranslations.setContent('fr', 'title', { type: ContentType.md, content: 'Contenu mis à jour' });
+
+      const updateSuccess = editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      expect(updateSuccess).toBe(true);
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      const retrievedTranslations = editor.survey.getItemTranslations('test-survey.page1.display1');
+
+      // Check if translations were updated correctly
+      const enContent = retrievedTranslations!.getAllForLocale(enLocale);
+      const frContent = retrievedTranslations!.getAllForLocale('fr');
+
+      expect(enContent).toBeDefined();
+      expect(enContent!['title']).toEqual({
+        type: ContentType.md,
+        content: 'Updated content'
+      });
+
+      expect(frContent).toBeDefined();
+      expect(frContent!['title']).toEqual({
+        type: ContentType.md,
+        content: 'Contenu mis à jour'
+      });
+    });
+
+    test('should throw error when updating translations for non-existent item', () => {
+      const updatedTranslations = createTestTranslations();
+
+      expect(() => {
+        editor.updateItemTranslations('non-existent-item', updatedTranslations);
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should handle updating with undefined translations', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const updateSuccess = editor.updateItemTranslations('test-survey.page1.display1', undefined);
+
+      expect(updateSuccess).toBe(true);
+      expect(editor.hasUncommittedChanges).toBe(true);
+    });
+  });
+
+  describe('Deleting Components', () => {
+    test('should delete component and update item', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      testItem.components = [
+        new DisplayComponent(ItemComponentType.Text, 'title', undefined, 'test-survey.page1.display1'),
+        new DisplayComponent(ItemComponentType.Text, 'description', undefined, 'test-survey.page1.display1')
+      ];
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(testItem.components).toHaveLength(2);
+
+      editor.deleteComponent('test-survey.page1.display1', 'title');
+
+      expect(testItem.components).toHaveLength(1);
+      expect(testItem.components![0].key.componentKey).toBe('description');
+    });
+
+    test('should throw error when deleting component from non-existent item', () => {
+      expect(() => {
+        editor.deleteComponent('non-existent-item', 'component');
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should commit changes and remove translations when deleting component', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      testItem.components = [
+        new TextComponent('title', undefined, 'test-survey.page1.display1')
+      ];
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted changes first
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      editor.deleteComponent('test-survey.page1.display1', 'title');
+
+      // Should have committed the previous changes and this operation
+      expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Deleted component title from test-survey.page1.display1');
+    });
+  });
+
+  describe('Memory Usage and Configuration', () => {
+    test('should provide memory usage statistics', () => {
+      const memoryUsage = editor.getMemoryUsage();
+
+      expect(memoryUsage).toHaveProperty('totalMB');
+      expect(memoryUsage).toHaveProperty('entries');
+      expect(typeof memoryUsage.totalMB).toBe('number');
+      expect(typeof memoryUsage.entries).toBe('number');
+      expect(memoryUsage.entries).toBeGreaterThan(0);
+    });
+
+    test('should provide undo/redo configuration', () => {
+      const config = editor.getUndoRedoConfig();
+
+      expect(config).toHaveProperty('maxTotalMemoryMB');
+      expect(config).toHaveProperty('minHistorySize');
+      expect(config).toHaveProperty('maxHistorySize');
+      expect(typeof config.maxTotalMemoryMB).toBe('number');
+      expect(typeof config.minHistorySize).toBe('number');
+      expect(typeof config.maxHistorySize).toBe('number');
+    });
+
+    test('should track memory usage increase with operations', () => {
+      const initialUsage = editor.getMemoryUsage();
+
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const newUsage = editor.getMemoryUsage();
+      expect(newUsage.entries).toBeGreaterThan(initialUsage.entries);
+      expect(newUsage.totalMB).toBeGreaterThanOrEqual(initialUsage.totalMB);
+    });
+  });
+
+  describe('Complex Operations and Integration', () => {
+    test('should handle multiple operations with undo/redo', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      // Add first item
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      expect(editor.getUndoDescription()).toBe('Added test-survey.page1.display1');
+
+      // Add second item
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      expect(editor.getUndoDescription()).toBe('Added test-survey.page1.display2');
+
+      // Undo last operation
+      editor.undo();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+
+      // Undo first operation
+      editor.undo();
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeUndefined();
+
+      // Redo both operations
+      editor.redo();
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+
+      editor.redo();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+    });
+
+    test('should handle mixed operations (add, remove, update)', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      // Add item
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Update translations
+      const updatedTranslations = createTestTranslations();
+      updatedTranslations.setContent('es', 'title', { type: ContentType.md, content: 'Contenido' });
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      // Remove item (this should commit the translation update first)
+      const removeSuccess = editor.removeItem('test-survey.page1.display1');
+
+      expect(removeSuccess).toBe(true);
+      expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Removed test-survey.page1.display1');
+    });
+
+    test('should maintain survey integrity across operations', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new GroupItem('test-survey.page1.subgroup1');
+      const testItem3 = new DisplayItem('test-survey.page1.subgroup1.display1');
+      const testTranslations = createTestTranslations();
+
+      // Build a nested structure
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup1' }, testItem3, testTranslations);
+
+      // Verify structure
+      const page1Group = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(page1Group.items).toContain('test-survey.page1.display1');
+      expect(page1Group.items).toContain('test-survey.page1.subgroup1');
+
+      const subGroup = editor.survey.surveyItems['test-survey.page1.subgroup1'] as GroupItem;
+      expect(subGroup.items).toContain('test-survey.page1.subgroup1.display1');
+
+      // Undo operations and verify cleanup
+      editor.undo(); // Remove nested display item
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1.display1']).toBeUndefined();
+
+      editor.undo(); // Remove subgroup
+      expect(editor.survey.surveyItems['test-survey.page1.subgroup1']).toBeUndefined();
+
+      const page1GroupAfterUndo = editor.survey.surveyItems['test-survey.page1'] as GroupItem;
+      expect(page1GroupAfterUndo.items).not.toContain('test-survey.page1.subgroup1');
+      expect(page1GroupAfterUndo.items).toContain('test-survey.page1.display1');
+    });
+
+    test('should handle edge case with empty parent group items array', () => {
+      // Create a group with no items array
+      const emptyGroup = new GroupItem('test-survey.empty-group');
+      editor.survey.surveyItems['test-survey.empty-group'] = emptyGroup;
+
+      const rootGroup = editor.survey.surveyItems['test-survey'] as GroupItem;
+      if (!rootGroup.items) rootGroup.items = [];
+      rootGroup.items.push('test-survey.empty-group');
+
+      const testItem = new DisplayItem('test-survey.empty-group.display1');
+      const testTranslations = createTestTranslations();
+
+      // Should initialize items array and add item
+      editor.addItem({ parentKey: 'test-survey.empty-group' }, testItem, testTranslations);
+
+      expect(emptyGroup.items).toBeDefined();
+      expect(emptyGroup.items).toContain('test-survey.empty-group.display1');
+    });
+  });
+
+  describe('Display Conditions', () => {
+    test('should set and get root display condition', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Set root display condition
+      itemEditor.setDisplayCondition(testCondition);
+
+      // Get root display condition
+      const retrievedCondition = itemEditor.getDisplayCondition();
+
+      expect(retrievedCondition).toBeDefined();
+      expect(retrievedCondition).toBeInstanceOf(ConstExpression);
+      expect((retrievedCondition as ConstExpression).value).toBe(true);
+      expect(retrievedCondition).not.toBe(testCondition); // Should be a clone
+    });
+
+    test('should set and get component display condition', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createComplexTestExpression();
+      const componentKey = 'test-component';
+
+      // Set component display condition
+      itemEditor.setDisplayCondition(testCondition, componentKey);
+
+      // Get component display condition
+      const retrievedCondition = itemEditor.getDisplayCondition(componentKey);
+
+      expect(retrievedCondition).toBeDefined();
+      expect(retrievedCondition).toBeInstanceOf(FunctionExpression);
+      expect((retrievedCondition as FunctionExpression).functionName).toBe(FunctionExpressionNames.eq);
+      expect(retrievedCondition).not.toBe(testCondition); // Should be a clone
+    });
+
+    test('should remove root display condition by passing undefined', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Set root display condition
+      itemEditor.setDisplayCondition(testCondition);
+      expect(itemEditor.getDisplayCondition()).toBeDefined();
+
+      // Remove root display condition
+      itemEditor.setDisplayCondition(undefined);
+      expect(itemEditor.getDisplayCondition()).toBeUndefined();
+    });
+
+    test('should remove component display condition by passing undefined', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+      const componentKey = 'test-component';
+
+      // Set component display condition
+      itemEditor.setDisplayCondition(testCondition, componentKey);
+      expect(itemEditor.getDisplayCondition(componentKey)).toBeDefined();
+
+      // Remove component display condition
+      itemEditor.setDisplayCondition(undefined, componentKey);
+      expect(itemEditor.getDisplayCondition(componentKey)).toBeUndefined();
+    });
+
+    test('should return undefined for non-existent display conditions', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+
+      // Get non-existent root display condition
+      expect(itemEditor.getDisplayCondition()).toBeUndefined();
+
+      // Get non-existent component display condition
+      expect(itemEditor.getDisplayCondition('non-existent-component')).toBeUndefined();
+    });
+
+    test('should commit changes when setting display conditions', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Make an uncommitted change first
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.question1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Set display condition should commit changes
+      itemEditor.setDisplayCondition(testCondition);
+
+      expect(editor.hasUncommittedChanges).toBe(false);
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.getUndoDescription()).toBe('Set display condition for test-survey.page1.question1');
+    });
+
+    test('should handle multiple display conditions on same item', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const rootCondition = createTestExpression();
+      const componentCondition = createComplexTestExpression();
+
+      // Set both root and component display conditions
+      itemEditor.setDisplayCondition(rootCondition);
+      itemEditor.setDisplayCondition(componentCondition, 'test-component');
+
+      // Verify both conditions exist
+      const retrievedRootCondition = itemEditor.getDisplayCondition();
+      const retrievedComponentCondition = itemEditor.getDisplayCondition('test-component');
+
+      expect(retrievedRootCondition).toBeDefined();
+      expect(retrievedComponentCondition).toBeDefined();
+      expect(retrievedRootCondition).toBeInstanceOf(ConstExpression);
+      expect(retrievedComponentCondition).toBeInstanceOf(FunctionExpression);
+    });
+
+    test('should handle display conditions with complex expression structures', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+
+      // Create nested function expression
+      const nestedCondition = new FunctionExpression(
+        FunctionExpressionNames.and,
+        [
+          new FunctionExpression(
+            FunctionExpressionNames.eq,
+            [new ResponseVariableExpression('test-survey.page1.question1...get'), new ConstExpression('option1')]
+          ),
+          new FunctionExpression(
+            FunctionExpressionNames.gt,
+            [new ConstExpression(2), new ConstExpression(5)]
+          )
+        ]
+      );
+
+      // Set complex display condition
+      itemEditor.setDisplayCondition(nestedCondition);
+
+      // Retrieve and verify
+      const retrievedCondition = itemEditor.getDisplayCondition();
+      expect(retrievedCondition).toBeDefined();
+      expect(retrievedCondition).toBeInstanceOf(FunctionExpression);
+      expect((retrievedCondition as FunctionExpression).functionName).toBe(FunctionExpressionNames.and);
+      expect((retrievedCondition as FunctionExpression).arguments).toHaveLength(2);
+    });
+
+    test('should support undo/redo for display condition changes', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const testCondition = createTestExpression();
+
+      // Set display condition
+      itemEditor.setDisplayCondition(testCondition);
+      expect(itemEditor.getDisplayCondition()).toBeDefined();
+
+      // Undo - need to create new editor to see the undone state
+      editor.undo();
+      const itemEditorAfterUndo = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      expect(itemEditorAfterUndo.getDisplayCondition()).toBeUndefined();
+
+      // Redo - need to create new editor to see the redone state
+      editor.redo();
+      const itemEditorAfterRedo = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      expect(itemEditorAfterRedo.getDisplayCondition()).toBeDefined();
+      expect(itemEditorAfterRedo.getDisplayCondition()).toBeInstanceOf(ConstExpression);
+    });
+
+    test('should throw error when trying to set display condition on non-existent item', () => {
+      expect(() => {
+        new SingleChoiceQuestionEditor(editor, 'non-existent-item');
+      }).toThrow('Item non-existent-item not found in survey');
+    });
+  });
+
+  describe('getSiblingKeys', () => {
+    test('should return empty array when item has no siblings', () => {
+      const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toEqual([]);
+    });
+
+    test('should return sibling keys when item has siblings', () => {
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question2');
+      const testItem3 = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(2);
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.question2');
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.display1');
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey.page1.question1');
+    });
+
+    test('should not include items from different parent groups as siblings', () => {
+      // Add items to page1
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      // Add a new group and items to it
+      const subGroup2 = new GroupItem('test-survey.page2');
+      editor.addItem({ parentKey: 'test-survey' }, subGroup2, testTranslations);
+
+      const testItem3 = new SingleChoiceQuestionItem('test-survey.page2.question1');
+      editor.addItem({ parentKey: 'test-survey.page2' }, testItem3, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(1);
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.question2');
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey.page2.question1');
+    });
+
+    test('should work correctly with nested survey structure', () => {
+      // Create a nested structure: survey > page1 > subgroup > questions
+      const subGroup = new GroupItem('test-survey.page1.subgroup');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, subGroup, testTranslations);
+
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.subgroup.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.subgroup.question2');
+      const testItem3 = new DisplayItem('test-survey.page1.subgroup.display1');
+
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.subgroup' }, testItem3, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.subgroup.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(2);
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.subgroup.question2');
+      expect(siblingKeys.map(key => key.fullKey)).toContain('test-survey.page1.subgroup.display1');
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey.page1.subgroup.question1');
+    });
+
+    test('should work with root level items by testing through a child item', () => {
+      // Add another root level group
+      const rootGroup2 = new GroupItem('test-survey2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem(undefined, rootGroup2, testTranslations);
+
+      // Add a page to the new root group
+      const subGroup = new GroupItem('test-survey2.page1');
+      editor.addItem({ parentKey: 'test-survey2' }, subGroup, testTranslations);
+
+      // Add a question to each root group's subpage
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey2.page1.question1');
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey2.page1' }, testItem2, testTranslations);
+
+      // Test that items in different root groups are not siblings
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      // Should have no siblings since it's the only item in test-survey.page1
+      expect(siblingKeys).toHaveLength(0);
+      expect(siblingKeys.map(key => key.fullKey)).not.toContain('test-survey2.page1.question1');
+    });
+
+    test('should return keys with correct properties', () => {
+      const testItem1 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const itemEditor = new SingleChoiceQuestionEditor(editor, 'test-survey.page1.question1');
+      const siblingKeys = itemEditor.getSiblingKeys();
+
+      expect(siblingKeys).toHaveLength(1);
+      const siblingKey = siblingKeys[0];
+
+      expect(siblingKey.fullKey).toBe('test-survey.page1.question2');
+      expect(siblingKey.itemKey).toBe('question2');
+      expect(siblingKey.parentFullKey).toBe('test-survey.page1');
+      expect(siblingKey.isRoot).toBe(false);
+    });
+  });
+});
+
+// New tests for enhanced SurveyEditor undo/redo functionality
+describe('Enhanced SurveyEditor Undo/Redo', () => {
+  let survey: Survey;
+  let editor: SurveyEditor;
+
+  beforeEach(() => {
+    survey = createTestSurvey();
+    editor = new SurveyEditor(survey);
+  });
+
+  describe('Exposed UndoRedo Instance', () => {
+    test('should expose undoRedo instance', () => {
+      expect(editor.undoRedo).toBeDefined();
+      expect(editor.undoRedo).toBeInstanceOf(SurveyEditorUndoRedo);
+    });
+
+    test('should provide access to history through undoRedo instance', () => {
+      // Add some items to build history
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const history = editor.undoRedo.getHistory();
+      expect(history).toHaveLength(3); // Initial + 2 additions
+      expect(history[0].description).toBe('Initial state');
+      expect(history[1].description).toBe('Added test-survey.page1.display1');
+      expect(history[2].description).toBe('Added test-survey.page1.display2');
+      expect(history[2].isCurrent).toBe(true);
+    });
+
+    test('should provide access to current index through undoRedo instance', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      expect(editor.undoRedo.getCurrentIndex()).toBe(1);
+      expect(editor.undoRedo.getHistoryLength()).toBe(2);
+
+      editor.undo();
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+      expect(editor.undoRedo.getHistoryLength()).toBe(2);
+    });
+
+    test('should allow direct navigation through undoRedo instance', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      // Use undoRedo instance directly
+      const result = editor.undoRedo.jumpToIndex(0);
+      expect(result).toBeDefined();
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      // But this doesn't update the editor's survey state
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+    });
+  });
+
+  describe('Bulk Undo/Redo Methods', () => {
+    beforeEach(() => {
+      // Build some history
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testItem3 = new DisplayItem('test-survey.page1.display3');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+    });
+
+    test('should support jumpToIndex for backward navigation', () => {
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeDefined();
+
+      const success = editor.jumpToIndex(1);
+      expect(success).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(1);
+
+      // Should have only the first item
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeUndefined();
+    });
+
+    test('should support jumpToIndex for forward navigation', () => {
+      // First jump to create forward navigation opportunity
+      editor.jumpToIndex(1);
+
+      const success = editor.jumpToIndex(3);
+      expect(success).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(3);
+
+      // Should have all items back
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeDefined();
+    });
+
+    test('should support jumpToIndex to initial state', () => {
+      const success = editor.jumpToIndex(0);
+      expect(success).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      // Should have no additional items
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeUndefined();
+    });
+
+    test('should return false for invalid indices', () => {
+      expect(editor.jumpToIndex(-1)).toBe(false);
+      expect(editor.jumpToIndex(3)).toBe(false); // Current index
+      expect(editor.jumpToIndex(10)).toBe(false); // Beyond history
+    });
+
+    test('should not allow navigation with uncommitted changes', () => {
+      // Make an uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Should not allow navigation
+      expect(editor.jumpToIndex(1)).toBe(false);
+    });
+
+    test('should handle navigation after making changes', () => {
+      // Jump to middle of history
+      editor.jumpToIndex(1);
+
+      // Make new changes
+      const newItem = new DisplayItem('test-survey.page1.new-display');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, newItem, testTranslations);
+
+      // History should be truncated
+      expect(editor.undoRedo.getHistoryLength()).toBe(3); // Initial + first item + new item
+      expect(editor.undoRedo.getCurrentIndex()).toBe(2);
+
+      // Should have first and new items
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.display3']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.new-display']).toBeDefined();
+    });
+  });
+
+  describe('Integration with Existing Functionality', () => {
+    test('should work with existing undo/redo methods', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      // Jump to middle
+      editor.jumpToIndex(1);
+
+      // Use existing methods
+      expect(editor.canUndo()).toBe(true);
+      expect(editor.canRedo()).toBe(true);
+
+      const undoSuccess = editor.undo();
+      expect(undoSuccess).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      const redoSuccess = editor.redo();
+      expect(redoSuccess).toBe(true);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(1);
+    });
+
+    test('should maintain description consistency', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Check descriptions through both interfaces
+      expect(editor.getUndoDescription()).toBe('Added test-survey.page1.display1');
+      expect(editor.undoRedo.getUndoDescription()).toBe('Added test-survey.page1.display1');
+
+      editor.undo();
+      expect(editor.getRedoDescription()).toBe('Added test-survey.page1.display1');
+      expect(editor.undoRedo.getRedoDescription()).toBe('Added test-survey.page1.display1');
+    });
+
+    test('should handle complex operations with navigation', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new GroupItem('test-survey.page1.group1');
+      const testItem3 = new DisplayItem('test-survey.page1.group1.display1');
+      const testTranslations = createTestTranslations();
+
+      // Build nested structure
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1.group1' }, testItem3, testTranslations);
+
+      // Navigate to middle
+      editor.jumpToIndex(1);
+
+      // Only first item should exist
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1']).toBeUndefined();
+      expect(editor.survey.surveyItems['test-survey.page1.group1.display1']).toBeUndefined();
+
+      // Move item (should commit and create new branch)
+      const moveItem = new DisplayItem('test-survey.page1.moved-display');
+      editor.addItem({ parentKey: 'test-survey.page1' }, moveItem, testTranslations);
+
+      // Should have new history
+      expect(editor.undoRedo.getHistoryLength()).toBe(3);
+      expect(editor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(editor.survey.surveyItems['test-survey.page1.moved-display']).toBeDefined();
+    });
+  });
+
+  describe('Memory and Performance', () => {
+    test('should maintain memory usage information', () => {
+      const initialUsage = editor.getMemoryUsage();
+
+      // Add items
+      for (let i = 0; i < 5; i++) {
+        const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+        const testTranslations = createTestTranslations();
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      }
+
+      const afterUsage = editor.getMemoryUsage();
+      expect(afterUsage.entries).toBeGreaterThan(initialUsage.entries);
+      expect(afterUsage.totalMB).toBeGreaterThan(initialUsage.totalMB);
+
+      // Navigate around
+      editor.jumpToIndex(2);
+      editor.jumpToIndex(4);
+
+      // Memory usage should remain the same
+      const navigationUsage = editor.getMemoryUsage();
+      expect(navigationUsage.entries).toBe(afterUsage.entries);
+      expect(navigationUsage.totalMB).toBe(afterUsage.totalMB);
+    });
+
+    test('should handle large navigation operations efficiently', () => {
+      // Build larger history
+      for (let i = 0; i < 20; i++) {
+        const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+        const testTranslations = createTestTranslations();
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+      }
+
+      const startTime = performance.now();
+
+      // Perform various navigation operations
+      editor.jumpToIndex(0);
+      editor.jumpToIndex(10);
+      editor.jumpToIndex(5);
+      editor.jumpToIndex(15);
+
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+
+      // Should be very fast (less than 100ms)
+      expect(duration).toBeLessThan(100);
+
+      // Should be at correct position
+      expect(editor.undoRedo.getCurrentIndex()).toBe(15);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    test('should handle navigation on empty history', () => {
+      // Create fresh editor
+      const freshSurvey = createTestSurvey();
+      const freshEditor = new SurveyEditor(freshSurvey);
+
+      expect(freshEditor.jumpToIndex(0)).toBe(false);
+    });
+
+    test('should handle navigation with only initial state', () => {
+      expect(editor.undoRedo.getHistoryLength()).toBe(1);
+      expect(editor.undoRedo.getCurrentIndex()).toBe(0);
+
+      expect(editor.jumpToIndex(0)).toBe(false);
+    });
+
+    test('should handle uncommitted changes correctly', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted change
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      expect(editor.hasUncommittedChanges).toBe(true);
+
+      // Navigation should fail
+      expect(editor.jumpToIndex(0)).toBe(false);
+
+      // Commit changes
+      editor.commitIfNeeded();
+      expect(editor.hasUncommittedChanges).toBe(false);
+
+      // Navigation should work now
+      expect(editor.jumpToIndex(0)).toBe(true);
+    });
+  });
+
+  describe('Serialization (toJson/fromJson)', () => {
+    test('should serialize basic editor state', () => {
+      const jsonData = editor.toJson();
+
+      expect(jsonData.version).toBe('1.0.0');
+      expect(jsonData.survey).toBeDefined();
+      expect(jsonData.undoRedo).toBeDefined();
+      expect(jsonData.hasUncommittedChanges).toBe(false);
+    });
+
+    test('should preserve survey data in serialization', () => {
+      const jsonData = editor.toJson();
+
+      expect(jsonData.survey.surveyItems).toBeDefined();
+      expect(jsonData.survey.surveyItems['test-survey']).toBeDefined();
+      expect(jsonData.survey.surveyItems['test-survey.page1']).toBeDefined();
+      expect(jsonData.survey.$schema).toBeDefined();
+    });
+
+    test('should preserve undo/redo state in serialization', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const jsonData = editor.toJson();
+
+      expect(jsonData.undoRedo.history).toBeDefined();
+      expect(jsonData.undoRedo.currentIndex).toBeDefined();
+      expect(jsonData.undoRedo.config).toBeDefined();
+      expect(jsonData.undoRedo.history.length).toBeGreaterThan(1);
+    });
+
+    test('should preserve uncommitted changes flag', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted changes
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      const jsonData = editor.toJson();
+      expect(jsonData.hasUncommittedChanges).toBe(true);
+    });
+
+    test('should deserialize and create equivalent editor', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+      expect(restoredEditor.hasUncommittedChanges).toBe(editor.hasUncommittedChanges);
+      expect(restoredEditor.canUndo()).toBe(editor.canUndo());
+      expect(restoredEditor.canRedo()).toBe(editor.canRedo());
+    });
+
+    test('should preserve all survey items during round-trip', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testItem3 = new GroupItem('test-survey.page1.group1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem3, testTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      // Check all items are preserved
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display1']).toBeDefined();
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.question1']).toBeDefined();
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.group1']).toBeDefined();
+
+      // Check item types are preserved
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display1'].itemType).toBe(SurveyItemType.Display);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.question1'].itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.group1'].itemType).toBe(SurveyItemType.Group);
+    });
+
+    test('should preserve complete undo/redo history', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new DisplayItem('test-survey.page1.display2');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const originalHistoryLength = editor.undoRedo.getHistoryLength();
+      const originalCurrentIndex = editor.undoRedo.getCurrentIndex();
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.undoRedo.getHistoryLength()).toBe(originalHistoryLength);
+      expect(restoredEditor.undoRedo.getCurrentIndex()).toBe(originalCurrentIndex);
+
+      // Test that undo/redo still works
+      expect(restoredEditor.undo()).toBe(true);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display2']).toBeUndefined();
+
+      expect(restoredEditor.redo()).toBe(true);
+      expect(restoredEditor.survey.surveyItems['test-survey.page1.display2']).toBeDefined();
+    });
+
+    test('should preserve uncommitted changes state', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      // Make uncommitted changes
+      const updatedTranslations = createTestTranslations();
+      editor.updateItemTranslations('test-survey.page1.display1', updatedTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.hasUncommittedChanges).toBe(true);
+      expect(restoredEditor.canRedo()).toBe(false); // Should not be able to redo with uncommitted changes
+    });
+
+    test('should handle round-trip consistency', () => {
+      const testItem1 = new DisplayItem('test-survey.page1.display1');
+      const testItem2 = new SingleChoiceQuestionItem('test-survey.page1.question1');
+      const testTranslations = createTestTranslations();
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+      const originalJson = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(originalJson);
+      const secondJson = restoredEditor.toJson();
+
+      // The JSON should be identical (except for potential timestamp differences in history)
+      expect(secondJson.version).toBe(originalJson.version);
+      expect(secondJson.hasUncommittedChanges).toBe(originalJson.hasUncommittedChanges);
+      expect(secondJson.undoRedo.currentIndex).toBe(originalJson.undoRedo.currentIndex);
+      expect(secondJson.undoRedo.history.length).toBe(originalJson.undoRedo.history.length);
+
+      // Survey data should be identical
+      expect(JSON.stringify(secondJson.survey)).toBe(JSON.stringify(originalJson.survey));
+    });
+
+    test('should handle empty editor serialization', () => {
+      const freshSurvey = createTestSurvey();
+      const freshEditor = new SurveyEditor(freshSurvey);
+
+      const jsonData = freshEditor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      expect(restoredEditor.survey.surveyKey).toBe(freshEditor.survey.surveyKey);
+      expect(restoredEditor.hasUncommittedChanges).toBe(false);
+      expect(restoredEditor.canUndo()).toBe(false);
+      expect(restoredEditor.canRedo()).toBe(false);
+    });
+
+    test('should handle editor with complex expressions', () => {
+      const testItem = new DisplayItem('test-survey.page1.display1');
+      const testTranslations = createTestTranslations();
+
+      // Add item with complex expression
+      testItem.displayConditions = {
+        root: createComplexTestExpression()
+      };
+
+      editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+      const jsonData = editor.toJson();
+      const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+      const restoredItem = restoredEditor.survey.surveyItems['test-survey.page1.display1'] as DisplayItem;
+      expect(restoredItem.displayConditions?.root).toBeDefined();
+      expect(restoredItem.displayConditions?.root?.toJson()).toEqual(createComplexTestExpression().toJson());
+    });
+
+    describe('Error Handling', () => {
+      test('should throw error for missing survey data', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        } as any;
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: survey is required');
+      });
+
+      test('should throw error for missing undo/redo data', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: editor.survey.toJson(),
+          hasUncommittedChanges: false
+        } as any;
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: undoRedo is required');
+      });
+
+      test('should throw error for invalid hasUncommittedChanges', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: 'invalid' as any
+        };
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: hasUncommittedChanges must be a boolean');
+      });
+
+      test('should handle invalid survey data gracefully', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: { invalid: 'data' } as any,
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        };
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow();
+      });
+
+      test('should handle invalid undo/redo data gracefully', () => {
+        const invalidJson = {
+          version: '1.0.0',
+          survey: editor.survey.toJson(),
+          undoRedo: { invalid: 'data' } as any,
+          hasUncommittedChanges: false
+        };
+
+        expect(() => SurveyEditor.fromJson(invalidJson)).toThrow();
+      });
+    });
+
+    describe('Version Compatibility', () => {
+      test('should warn for future version but still load', () => {
+        const futureVersionJson = {
+          version: '2.0.0',
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        };
+
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        const restoredEditor = SurveyEditor.fromJson(futureVersionJson);
+
+        expect(consoleSpy).toHaveBeenCalledWith('Warning: Loading SurveyEditor with version 2.0.0, current version is 1.0.0');
+        expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+
+        consoleSpy.mockRestore();
+      });
+
+      test('should handle missing version gracefully', () => {
+        const noVersionJson = {
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        } as any;
+
+        const restoredEditor = SurveyEditor.fromJson(noVersionJson);
+        expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+      });
+
+      test('should handle compatible version without warning', () => {
+        const compatibleVersionJson = {
+          version: '1.1.0',
+          survey: editor.survey.toJson(),
+          undoRedo: editor.undoRedo.toJSON(),
+          hasUncommittedChanges: false
+        };
+
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+        const restoredEditor = SurveyEditor.fromJson(compatibleVersionJson);
+
+        expect(consoleSpy).not.toHaveBeenCalled();
+        expect(restoredEditor.survey.surveyKey).toBe(editor.survey.surveyKey);
+
+        consoleSpy.mockRestore();
+      });
+    });
+
+    describe('Memory and Performance', () => {
+      test('should handle large editor state serialization', () => {
+        // Create large editor state
+        for (let i = 0; i < 50; i++) {
+          const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+          const testTranslations = createTestTranslations();
+          editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        }
+
+        const startTime = performance.now();
+        const jsonData = editor.toJson();
+        const serializationTime = performance.now() - startTime;
+
+        const deserializationStartTime = performance.now();
+        const restoredEditor = SurveyEditor.fromJson(jsonData);
+        const deserializationTime = performance.now() - deserializationStartTime;
+
+        // Should be reasonably fast (less than 1 second each)
+        expect(serializationTime).toBeLessThan(1000);
+        expect(deserializationTime).toBeLessThan(1000);
+
+        // Should preserve all items
+        expect(Object.keys(restoredEditor.survey.surveyItems)).toHaveLength(Object.keys(editor.survey.surveyItems).length);
+      });
+
+      test('should handle memory usage information preservation', () => {
+        // Add some items to increase memory usage
+        for (let i = 0; i < 10; i++) {
+          const testItem = new DisplayItem(`test-survey.page1.display${i}`);
+          const testTranslations = createTestTranslations();
+          editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        }
+
+        const originalMemoryUsage = editor.getMemoryUsage();
+        const jsonData = editor.toJson();
+        const restoredEditor = SurveyEditor.fromJson(jsonData);
+        const restoredMemoryUsage = restoredEditor.getMemoryUsage();
+
+        expect(restoredMemoryUsage.entries).toBe(originalMemoryUsage.entries);
+        expect(restoredMemoryUsage.totalMB).toBeCloseTo(originalMemoryUsage.totalMB, 2);
+      });
+    });
+  });
+
+  describe('Event Listener Functionality', () => {
+    let eventSpy: jest.Mock;
+    let eventData: any;
+
+    beforeEach(() => {
+      eventSpy = jest.fn();
+      eventData = null;
+
+      // Setup event listener to capture data
+      editor.on('survey-changed', (data) => {
+        eventSpy(data);
+        eventData = data;
+      });
+    });
+
+    afterEach(() => {
+      editor.clearAllListeners();
+    });
+
+    describe('Basic Event Listener Management', () => {
+      test('should register and trigger event listeners', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalled();
+        expect(eventData).toBeDefined();
+        expect(eventData.isCommit).toBe(true);
+        expect(eventData.hasUncommittedChanges).toBe(false);
+        expect(eventData.description).toBe('Added test-survey.page1.item1');
+      });
+
+      test('should allow multiple listeners for the same event', () => {
+        const secondSpy = jest.fn();
+        const thirdSpy = jest.fn();
+
+        editor.on('survey-changed', secondSpy);
+        editor.on('survey-changed', thirdSpy);
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledTimes(1);
+        expect(secondSpy).toHaveBeenCalledTimes(1);
+        expect(thirdSpy).toHaveBeenCalledTimes(1);
+      });
+
+      test('should remove specific listeners', () => {
+        const secondSpy = jest.fn();
+        editor.on('survey-changed', secondSpy);
+
+        editor.off('survey-changed', secondSpy);
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledTimes(1);
+        expect(secondSpy).not.toHaveBeenCalled();
+      });
+
+      test('should clear all listeners', () => {
+        const secondSpy = jest.fn();
+        editor.on('survey-changed', secondSpy);
+
+        editor.clearAllListeners();
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).not.toHaveBeenCalled();
+        expect(secondSpy).not.toHaveBeenCalled();
+      });
+
+      test('should return correct listener count', () => {
+        expect(editor.getListenerCount()).toBe(1); // One listener from beforeEach
+
+        const secondSpy = jest.fn();
+        editor.on('survey-changed', secondSpy);
+
+        expect(editor.getListenerCount()).toBe(2);
+        expect(editor.getListenerCount('survey-changed')).toBe(2);
+
+        editor.off('survey-changed', secondSpy);
+
+        expect(editor.getListenerCount()).toBe(1);
+        expect(editor.getListenerCount('survey-changed')).toBe(1);
+      });
+    });
+
+    describe('Event Emission for Modifications', () => {
+      test('should emit event when making uncommitted changes', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on next event
+        eventSpy.mockClear();
+
+        // Make an uncommitted change
+        const updatedTranslations = createTestTranslations();
+        updatedTranslations.setContent('es', 'title', { type: ContentType.md, content: 'Contenido de prueba' });
+
+        editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: true,
+          isCommit: false
+        });
+      });
+
+      test('should emit event when committing changes', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on next event
+        eventSpy.mockClear();
+
+        // Make an uncommitted change
+        const updatedTranslations = createTestTranslations();
+        editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+        // Reset spy to focus on commit event
+        eventSpy.mockClear();
+
+        // Commit the changes
+        editor.commit('Manual commit');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Manual commit'
+        });
+      });
+    });
+
+    describe('Event Emission for Operations', () => {
+      test('should emit event when adding items', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Added test-survey.page1.item1'
+        });
+      });
+
+      test('should emit event when removing items', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on remove event
+        eventSpy.mockClear();
+
+        editor.removeItem('test-survey.page1.item1');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Removed test-survey.page1.item1'
+        });
+      });
+
+      test('should emit event when moving items', () => {
+        const testItem1 = new DisplayItem('test-survey.page1.item1');
+        const testItem2 = new DisplayItem('test-survey.page1.item2');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem1, testTranslations);
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+        // Create a second group to move item to
+        const subGroup2 = new GroupItem('test-survey.page2');
+        editor.addItem({ parentKey: 'test-survey' }, subGroup2, testTranslations);
+
+        // Reset spy to focus on move event
+        eventSpy.mockClear();
+
+        editor.moveItem('test-survey.page1.item1', { parentKey: 'test-survey.page2' });
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Moved test-survey.page1.item1 to test-survey.page2'
+        });
+      });
+
+      test('should emit event when renaming items', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on rename event
+        eventSpy.mockClear();
+
+        editor.onItemKeyChanged('test-survey.page1.item1', 'test-survey.page1.renamedItem');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Renamed test-survey.page1.item1 to test-survey.page1.renamedItem'
+        });
+      });
+
+      test('should emit event when renaming components', () => {
+        const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on component rename event
+        eventSpy.mockClear();
+
+        editor.onComponentKeyChanged('test-survey.page1.question1', 'oldKey', 'newKey');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Renamed component oldKey to newKey in test-survey.page1.question1'
+        });
+      });
+
+      test('should emit event when deleting components', () => {
+        const testItem = new SingleChoiceQuestionItem('test-survey.page1.question1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on component delete event
+        eventSpy.mockClear();
+
+        editor.deleteComponent('test-survey.page1.question1', 'someComponent');
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Deleted component someComponent from test-survey.page1.question1'
+        });
+      });
+    });
+
+    describe('Event Emission for Undo/Redo Operations', () => {
+      test('should emit events for undo operations', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on undo
+        eventSpy.mockClear();
+
+        editor.undo();
+
+        // Undo should not emit events as per the simplified design
+        expect(eventSpy).toHaveBeenCalled();
+      });
+
+      test('should emit events for redo operations', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        editor.undo();
+
+        // Reset spy to focus on redo
+        eventSpy.mockClear();
+
+        editor.redo();
+
+        // Redo should not emit events as per the simplified design
+        expect(eventSpy).toHaveBeenCalled();
+      });
+
+      test('should emit events for jumpToIndex operations', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on jumpToIndex
+        eventSpy.mockClear();
+
+        editor.jumpToIndex(0);
+
+        // jumpToIndex should not emit events as per the simplified design
+        expect(eventSpy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Error Handling', () => {
+      test('should handle listener errors gracefully', () => {
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+        // Add a listener that throws an error
+        editor.on('survey-changed', () => {
+          throw new Error('Test error');
+        });
+
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        // This should not throw, but should log the error
+        expect(() => {
+          editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+        }).not.toThrow();
+
+        expect(errorSpy).toHaveBeenCalledWith('Error in survey-changed listener:', expect.any(Error));
+
+        // The original listener should still have been called
+        expect(eventSpy).toHaveBeenCalled();
+
+        errorSpy.mockRestore();
+      });
+
+      test('should handle removing non-existent listeners gracefully', () => {
+        const nonExistentSpy = jest.fn();
+
+        // This should not throw
+        expect(() => {
+          editor.off('survey-changed', nonExistentSpy);
+        }).not.toThrow();
+
+        // Should not affect existing listeners
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Listener State After fromJson', () => {
+      test('should not preserve listeners after fromJson restoration', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        const jsonData = editor.toJson();
+        const restoredEditor = SurveyEditor.fromJson(jsonData);
+
+        // Should have no listeners after restoration
+        expect(restoredEditor.getListenerCount()).toBe(0);
+
+        // Adding a listener to the restored editor should work
+        const restoredSpy = jest.fn();
+        restoredEditor.on('survey-changed', restoredSpy);
+
+        const testItem2 = new DisplayItem('test-survey.page1.item2');
+        restoredEditor.addItem({ parentKey: 'test-survey.page1' }, testItem2, testTranslations);
+
+        expect(restoredSpy).toHaveBeenCalled();
+      });
+    });
+
+    describe('Event Data Structure Validation', () => {
+      test('should provide consistent event data structure for modifications', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        // Reset spy to focus on modification event
+        eventSpy.mockClear();
+
+        // Make an uncommitted change
+        const updatedTranslations = createTestTranslations();
+        editor.updateItemTranslations('test-survey.page1.item1', updatedTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: true,
+          isCommit: false
+        });
+
+        // Verify the structure doesn't contain description for non-commits
+        expect(eventData.description).toBeUndefined();
+      });
+
+      test('should provide consistent event data structure for commits', () => {
+        const testItem = new DisplayItem('test-survey.page1.item1');
+        const testTranslations = createTestTranslations();
+
+        editor.addItem({ parentKey: 'test-survey.page1' }, testItem, testTranslations);
+
+        expect(eventSpy).toHaveBeenCalledWith({
+          hasUncommittedChanges: false,
+          isCommit: true,
+          description: 'Added test-survey.page1.item1'
+        });
+
+        // Verify all expected properties are present
+        expect(eventData.hasUncommittedChanges).toBe(false);
+        expect(eventData.isCommit).toBe(true);
+        expect(eventData.description).toBe('Added test-survey.page1.item1');
+      });
+    });
+  });
+});

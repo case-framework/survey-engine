@@ -1,7 +1,8 @@
-export const SurveyEngineTest = () => {
-  console.log('test init project');
-};
+// TODO: Remove this once we have a proper export structure
+export * from './data_types';
 
-export const OpTest = (a: number, b: number): number => {
-    return a + b;
-}
+export * from './engine';
+export * from './expressions';
+export * from './utils';
+export * from './survey';
+

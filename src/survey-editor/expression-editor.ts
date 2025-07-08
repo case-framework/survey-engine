@@ -1,0 +1,745 @@
+
+
+// TODO: constant expression editor
+// TODO: context variable expression editor
+// TODO: function expression editor
+
+import { Expression, FunctionExpression, ExpressionEditorConfig, FunctionExpressionNames, ConstExpression, ResponseVariableExpression, ContextVariableType, ContextVariableExpression } from "../expressions/expression";
+import { ExpectedValueType, ValueReference } from "../survey";
+
+
+// ================================
+// EXPRESSION EDITOR CLASSES
+// ================================
+export abstract class ExpressionEditor {
+  returnType!: ExpectedValueType;
+  protected _editorConfig?: ExpressionEditorConfig;
+
+  abstract getExpression(): Expression | undefined
+
+  get editorConfig(): ExpressionEditorConfig | undefined {
+    return this._editorConfig;
+  }
+
+  withEditorConfig(editorConfig: ExpressionEditorConfig): ExpressionEditor {
+    this._editorConfig = editorConfig;
+    return this;
+  }
+}
+
+// ================================
+// CONST EDITORS
+// ================================
+export class ConstStringArrayEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.StringArray;
+
+  private _values: string[];
+
+  constructor(values: string[], editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._values = values;
+    this._editorConfig = editorConfig;
+  }
+
+  get values(): string[] {
+    return this._values;
+  }
+
+  set values(values: string[]) {
+    this._values = values;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._values, this._editorConfig);
+  }
+}
+
+export class ConstStringEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.String;
+
+  private _value: string;
+
+  constructor(value: string, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): string {
+    return this._value;
+  }
+
+  set value(value: string) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstNumberEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  private _value: number;
+
+  constructor(value: number, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): number {
+    return this._value;
+  }
+
+  set value(value: number) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstBooleanEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+
+  private _value: boolean;
+
+  constructor(value: boolean, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): boolean {
+    return this._value;
+  }
+
+  set value(value: boolean) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstDateEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Date;
+
+  private _value: Date;
+
+  constructor(value: Date, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._value = value;
+    this._editorConfig = editorConfig;
+  }
+
+  get value(): Date {
+    return this._value;
+  }
+
+  set value(value: Date) {
+    this._value = value;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._value, this._editorConfig);
+  }
+}
+
+export class ConstNumberArrayEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.NumberArray;
+
+  private _values: number[];
+
+  constructor(values: number[], editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._values = values;
+    this._editorConfig = editorConfig;
+  }
+
+  get values(): number[] {
+    return this._values;
+  }
+
+  set values(values: number[]) {
+    this._values = values;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._values, this._editorConfig);
+  }
+}
+
+export class ConstDateArrayEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.DateArray;
+
+  private _values: Date[];
+
+  constructor(values: Date[], editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._values = values;
+    this._editorConfig = editorConfig;
+  }
+
+  get values(): Date[] {
+    return this._values;
+  }
+
+  set values(values: Date[]) {
+    this._values = values;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ConstExpression(this._values, this._editorConfig);
+  }
+}
+
+// ================================
+// RESPONSE VARIABLE EXPRESSION EDITOR CLASSES
+// ================================
+
+export class ResponseVariableEditor extends ExpressionEditor {
+  private _variableName: string;
+  private _variableRef: ValueReference;
+
+  constructor(variableName: string, variableType: ExpectedValueType, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._variableName = variableName;
+    this._variableRef = new ValueReference(variableName);
+    this._editorConfig = editorConfig;
+    this.returnType = variableType;
+  }
+
+  get variableName(): string {
+    return this._variableName;
+  }
+
+  get variableRef(): ValueReference {
+    return this._variableRef;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ResponseVariableExpression(this._variableName, this._editorConfig);
+  }
+}
+
+// ================================
+// CONTEXT VARIABLE EXPRESSION EDITOR CLASSES
+// ================================
+
+abstract class ContextVariableEditor extends ExpressionEditor {
+  private _contextType: ContextVariableType;
+  private _key?: ExpressionEditor;
+  private _args?: ExpressionEditor[];
+  private _asType?: ExpectedValueType;
+
+  constructor(contextType: ContextVariableType, key?: ExpressionEditor, args?: ExpressionEditor[], asType?: ExpectedValueType, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._contextType = contextType;
+    this._key = key;
+    this._args = args;
+    this._asType = asType;
+    this._editorConfig = editorConfig;
+  }
+
+  getExpression(): Expression | undefined {
+    return new ContextVariableExpression(this._contextType, this._key?.getExpression(), this._args?.map(arg => arg.getExpression()), this._asType, this._editorConfig);
+  }
+}
+
+export class CtxLocaleEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.String;
+
+  constructor(editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.Locale, undefined, undefined, ExpectedValueType.String, editorConfig);
+  }
+}
+
+export class CtxPFlagIsDefinedEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.Boolean, editorConfig);
+  }
+}
+
+export class CtxPFlagStringEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.String;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.String, editorConfig);
+  }
+}
+
+export class CtxPFlagNumEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.Number, editorConfig);
+  }
+}
+
+export class CtxPFlagDateEditor extends ContextVariableEditor {
+  readonly returnType = ExpectedValueType.Date;
+
+  constructor(key: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.ParticipantFlag, key, undefined, ExpectedValueType.Date, editorConfig);
+  }
+}
+
+
+export class CtxCustomValueEditor extends ContextVariableEditor {
+
+  constructor(key: ExpressionEditor,
+    asType: ExpectedValueType,
+    editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.CustomValue, key, undefined, asType, editorConfig);
+    this.returnType = asType;
+  }
+}
+
+export class CtxCustomExpressionEditor extends ContextVariableEditor {
+  constructor(key: ExpressionEditor,
+    args: ExpressionEditor[],
+    asType: ExpectedValueType,
+    editorConfig?: ExpressionEditorConfig) {
+    super(ContextVariableType.CustomExpression, key, args, asType, editorConfig);
+    this.returnType = asType;
+  }
+}
+
+// ================================
+// GROUP EXPRESSION EDITOR CLASSES
+// ================================
+abstract class GroupExpressionEditor extends ExpressionEditor {
+  private _args: ExpressionEditor[];
+
+  constructor(
+    args: ExpressionEditor[],
+    editorConfig?: ExpressionEditorConfig
+  ) {
+    super();
+    this._args = args;
+    this._editorConfig = editorConfig;
+  }
+
+  get args(): ExpressionEditor[] {
+    return this._args;
+  }
+
+  addArg(arg: ExpressionEditor, position?: number) {
+    if (position === undefined) {
+      this._args.push(arg);
+    } else {
+      this._args.splice(position, 0, arg);
+    }
+  }
+
+  removeArg(position: number) {
+    this._args.splice(position, 1);
+  }
+
+  replaceArg(position: number, arg: ExpressionEditor) {
+    this._args[position] = arg;
+  }
+
+  swapArgs(activeIndex: number, overIndex: number) {
+    const newOrder = [...this._args];
+    newOrder.splice(activeIndex, 1);
+    newOrder.splice(overIndex, 0, this._args[activeIndex]);
+    this._args = newOrder;
+  }
+}
+
+export class AndExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    if (args.some(arg => arg.returnType !== ExpectedValueType.Boolean)) {
+      throw new Error('And expression editor must have boolean arguments');
+    }
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression | undefined {
+    return new FunctionExpression(
+      FunctionExpressionNames.and,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    )
+  }
+}
+
+export class OrExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    if (args.some(arg => arg.returnType !== ExpectedValueType.Boolean)) {
+      throw new Error('Or expression editor must have boolean arguments');
+    }
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.or,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    )
+  }
+}
+
+
+// ================================
+// LIST EXPRESSION EDITOR CLASSES
+// ================================
+
+export class StrListContainsExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _list: ExpressionEditor | undefined;
+  private _item: ExpressionEditor | undefined;
+
+  constructor(list: ExpressionEditor, item: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    if (list.returnType !== ExpectedValueType.StringArray) {
+      throw new Error('List contains expression editor must have a string array list');
+    }
+    if (item.returnType !== ExpectedValueType.String) {
+      throw new Error('List contains expression editor must have a string item');
+    }
+    this._list = list;
+    this._item = item;
+    this._editorConfig = editorConfig;
+  }
+
+  get list(): ExpressionEditor | undefined {
+    return this._list;
+  }
+
+  get item(): ExpressionEditor | undefined {
+    return this._item;
+  }
+
+  set list(list: ExpressionEditor | undefined) {
+    this._list = list;
+  }
+
+  set item(item: ExpressionEditor | undefined) {
+    this._item = item;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.list_contains,
+      [this._list?.getExpression(), this._item?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+// ================================
+// STRING EXPRESSION EDITOR CLASSES
+// ================================
+
+export class StrEqExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _a: ExpressionEditor | undefined;
+  private _b: ExpressionEditor | undefined;
+
+  constructor(a: ExpressionEditor, b: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._a = a;
+    this._b = b;
+    this._editorConfig = editorConfig;
+  }
+
+  get a(): ExpressionEditor | undefined {
+    return this._a;
+  }
+
+  get b(): ExpressionEditor | undefined {
+    return this._b;
+  }
+
+  set a(a: ExpressionEditor | undefined) {
+    this._a = a;
+  }
+
+  set b(b: ExpressionEditor | undefined) {
+    this._b = b;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.str_eq,
+      [this._a?.getExpression(), this._b?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+// ================================
+// NUMBER EXPRESSION EDITOR CLASSES
+// ================================
+
+export class EqExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _a: ExpressionEditor | undefined;
+  private _b: ExpressionEditor | undefined;
+
+  constructor(a: ExpressionEditor, b: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._a = a;
+    this._b = b;
+    this._editorConfig = editorConfig;
+  }
+
+  get a(): ExpressionEditor | undefined {
+    return this._a;
+  }
+
+  get b(): ExpressionEditor | undefined {
+    return this._b;
+  }
+
+  set a(a: ExpressionEditor | undefined) {
+    this._a = a;
+  }
+
+  set b(b: ExpressionEditor | undefined) {
+    this._b = b;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.eq,
+      [this._a?.getExpression(), this._b?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class GtExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _a: ExpressionEditor | undefined;
+  private _b: ExpressionEditor | undefined;
+
+  constructor(a: ExpressionEditor, b: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._a = a;
+    this._b = b;
+    this._editorConfig = editorConfig;
+  }
+
+  get a(): ExpressionEditor | undefined {
+    return this._a;
+  }
+
+  get b(): ExpressionEditor | undefined {
+    return this._b;
+  }
+
+  set a(a: ExpressionEditor | undefined) {
+    this._a = a;
+  }
+
+  set b(b: ExpressionEditor | undefined) {
+    this._b = b;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.gt,
+      [this._a?.getExpression(), this._b?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class GteExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _a: ExpressionEditor | undefined;
+  private _b: ExpressionEditor | undefined;
+
+  constructor(a: ExpressionEditor, b: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._a = a;
+    this._b = b;
+    this._editorConfig = editorConfig;
+  }
+
+  get a(): ExpressionEditor | undefined {
+    return this._a;
+  }
+
+  get b(): ExpressionEditor | undefined {
+    return this._b;
+  }
+
+  set a(a: ExpressionEditor | undefined) {
+    this._a = a;
+  }
+
+  set b(b: ExpressionEditor | undefined) {
+    this._b = b;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.gte,
+      [this._a?.getExpression(), this._b?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class LtExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _a: ExpressionEditor | undefined;
+  private _b: ExpressionEditor | undefined;
+
+  constructor(a: ExpressionEditor, b: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._a = a;
+    this._b = b;
+    this._editorConfig = editorConfig;
+  }
+
+  get a(): ExpressionEditor | undefined {
+    return this._a;
+  }
+
+  get b(): ExpressionEditor | undefined {
+    return this._b;
+  }
+
+  set a(a: ExpressionEditor | undefined) {
+    this._a = a;
+  }
+
+  set b(b: ExpressionEditor | undefined) {
+    this._b = b;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.lt,
+      [this._a?.getExpression(), this._b?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class LteExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  private _a: ExpressionEditor | undefined;
+  private _b: ExpressionEditor | undefined;
+
+  constructor(a: ExpressionEditor, b: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this._a = a;
+    this._b = b;
+    this._editorConfig = editorConfig;
+  }
+
+  get a(): ExpressionEditor | undefined {
+    return this._a;
+  }
+
+  get b(): ExpressionEditor | undefined {
+    return this._b;
+  }
+
+  set b(b: ExpressionEditor | undefined) {
+    this._b = b;
+  }
+
+  set a(a: ExpressionEditor | undefined) {
+    this._a = a;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.lte,
+      [this._a?.getExpression(), this._b?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class InRangeExpressionEditor extends ExpressionEditor {
+  readonly returnType = ExpectedValueType.Boolean;
+  value: ExpressionEditor | undefined;
+  min: ExpressionEditor | undefined;
+  max: ExpressionEditor | undefined;
+  inclusive: ExpressionEditor | undefined;
+
+  constructor(value: ExpressionEditor, min: ExpressionEditor, max: ExpressionEditor, inclusive: ExpressionEditor, editorConfig?: ExpressionEditorConfig) {
+    super();
+    this.value = value;
+    this.min = min;
+    this.max = max;
+    this.inclusive = inclusive;
+    this._editorConfig = editorConfig;
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.in_range,
+      [this.value?.getExpression(), this.min?.getExpression(), this.max?.getExpression(), this.inclusive?.getExpression()],
+      this._editorConfig
+    );
+  }
+}
+
+export class SumExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.sum,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    );
+  }
+}
+
+export class MinExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.min,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    );
+  }
+}
+
+export class MaxExpressionEditor extends GroupExpressionEditor {
+  readonly returnType = ExpectedValueType.Number;
+
+  constructor(args: ExpressionEditor[], editorConfig?: ExpressionEditorConfig) {
+    super(args, editorConfig);
+  }
+
+  getExpression(): Expression {
+    return new FunctionExpression(
+      FunctionExpressionNames.max,
+      this.args.map(arg => arg.getExpression()),
+      this._editorConfig
+    );
+  }
+}

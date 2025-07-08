@@ -1,12 +1,7 @@
-import { SurveyItem, isSurveyGroupItem, LocalizedString, SurveyGroupItem, SurveySingleItem, SurveySingleItemResponse } from "./data_types";
-
-export const pickRandomListItem = (items: Array<any>): any => {
+/* TODO: export const pickRandomListItem = (items: Array<any>): any => {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-export const removeItemByKey = (items: Array<any>, key: string): Array<any> => {
-  return items.filter(item => item.key !== key);
-}
 
 
 export const printResponses = (responses: SurveySingleItemResponse[], prefix: string) => {
@@ -14,36 +9,28 @@ export const printResponses = (responses: SurveySingleItemResponse[], prefix: st
     console.log(prefix, item);
   }));
 }
+*/
 
-export const printSurveyItem = (surveyItem: SurveyItem, prefix: string) => {
-  console.log(prefix + surveyItem.key);
-  if (isSurveyGroupItem(surveyItem)) {
-    surveyItem.items.forEach(i => {
-      printSurveyItem(i, prefix + '\t');
-    })
-  } else {
-    if (!surveyItem.components) { return; }
-    console.log(surveyItem.components.items.map(c => {
-      const content = c.content ? c.content[0] : { parts: [] };
-      return prefix + (content as LocalizedString).parts.join('');
+/**
+ * Shuffles an array of indices using the Fisher-Yates shuffle algorithm
+ * @param length - The length of the array to create indices for
+ * @returns A shuffled array of indices from 0 to length-1
+ */
+export function shuffleIndices(length: number): number[] {
+  const shuffledIndices = Array.from({ length }, (_, i) => i);
 
-    }).join('\n'));
+  for (let i = shuffledIndices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
   }
+
+  return shuffledIndices;
 }
 
-export const flattenSurveyItemTree = (itemTree: SurveyGroupItem): SurveySingleItem[] => {
-  const flatTree = new Array<SurveySingleItem>();
-
-  itemTree.items.forEach(item => {
-    if (isSurveyGroupItem(item)) {
-      flatTree.push(...flattenSurveyItemTree(item));
-    } else {
-      if (!item.type && !item.components) {
-        console.debug('Item without type or components - ignored: ' + JSON.stringify(item));
-        return;
-      }
-      flatTree.push({ ...item });
-    }
-  });
-  return flatTree;
+export function structuredCloneMethod<T>(obj: T): T {
+  if (typeof structuredClone !== 'undefined') {
+    return structuredClone(obj);
+  }
+  // Fallback to JSON method
+  return JSON.parse(JSON.stringify(obj));
 }
