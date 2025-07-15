@@ -159,7 +159,23 @@ export abstract class SurveyItemEditor {
     this._editor.onComponentKeyChanged(this._currentItem.key.fullKey, oldComponentKey, newComponentKey);
   }
 
+  updateItemMetadata(metadata?: { [key: string]: string }): void {
+    this._editor.commitIfNeeded();
+    this._currentItem.metadata = metadata;
+    this._editor.commit(`Updated metadata for ${this._currentItem.key.fullKey}`);
+  }
+
   abstract convertToType(type: SurveyItemType): void;
+}
+
+export class GenericSurveyItemEditor extends SurveyItemEditor {
+  constructor(editor: SurveyEditor, itemFullKey: string, type: SurveyItemType) {
+    super(editor, itemFullKey, type);
+  }
+
+  convertToType(type: SurveyItemType): void {
+    throw new Error(`use type specific editor to convert to ${type}`);
+  }
 }
 
 export abstract class QuestionEditor extends SurveyItemEditor {

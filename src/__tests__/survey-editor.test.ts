@@ -1783,6 +1783,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
           version: '1.0.0',
           undoRedo: editor.undoRedo.toJSON(),
           hasUncommittedChanges: false
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
 
         expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: survey is required');
@@ -1793,6 +1794,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
           version: '1.0.0',
           survey: editor.survey.toJson(),
           hasUncommittedChanges: false
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
 
         expect(() => SurveyEditor.fromJson(invalidJson)).toThrow('Invalid JSON data: undoRedo is required');
@@ -1803,6 +1805,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
           version: '1.0.0',
           survey: editor.survey.toJson(),
           undoRedo: editor.undoRedo.toJSON(),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           hasUncommittedChanges: 'invalid' as any
         };
 
@@ -1812,6 +1815,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
       test('should handle invalid survey data gracefully', () => {
         const invalidJson = {
           version: '1.0.0',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           survey: { invalid: 'data' } as any,
           undoRedo: editor.undoRedo.toJSON(),
           hasUncommittedChanges: false
@@ -1824,6 +1828,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
         const invalidJson = {
           version: '1.0.0',
           survey: editor.survey.toJson(),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           undoRedo: { invalid: 'data' } as any,
           hasUncommittedChanges: false
         };
@@ -1856,6 +1861,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
           survey: editor.survey.toJson(),
           undoRedo: editor.undoRedo.toJSON(),
           hasUncommittedChanges: false
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
 
         const restoredEditor = SurveyEditor.fromJson(noVersionJson);
@@ -1927,6 +1933,7 @@ describe('Enhanced SurveyEditor Undo/Redo', () => {
 
   describe('Event Listener Functionality', () => {
     let eventSpy: jest.Mock;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let eventData: any;
 
     beforeEach(() => {
