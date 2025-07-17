@@ -1,0 +1,1359 @@
+import { CopyPaste, SurveyItemClipboardData, SurveyComponentClipboardData } from '../survey-editor/copy-paste';
+import { SurveyEditor } from '../survey-editor/survey-editor';
+import { Survey } from '../survey/survey';
+import { GroupItem, SingleChoiceQuestionItem, MultipleChoiceQuestionItem, DisplayItem, SurveyItemType } from '../survey/items';
+import { SurveyItemTranslations } from '../survey/utils';
+import { TextComponent } from '../survey/components';
+import { JsonSurveyItemGroup, JsonSurveyDisplayItem } from '../survey/items/survey-item-json';
+import { ContentType } from '../survey/utils/content';
+import { ScgMcgChoiceResponseConfig, ScgMcgOption, ItemComponentType } from '../survey/components';
+
+describe('CopyPaste Functionality', () => {
+  let copyPaste: CopyPaste;
+  let editor: SurveyEditor; // Keep for non-copy-paste operations
+  let survey: Survey;
+
+  beforeEach(() => {
+    // Create a test survey with some items
+    survey = new Survey('test-survey');
+
+    // Add a group
+    const group1 = new GroupItem('test-survey.group1');
+    survey.surveyItems['test-survey.group1'] = group1;
+    (survey.surveyItems['test-survey'] as GroupItem).items = ['test-survey.group1'];
+
+    // Add a single choice question
+    const question1 = new SingleChoiceQuestionItem('test-survey.group1.Q1');
+    survey.surveyItems['test-survey.group1.Q1'] = question1;
+    group1.items = ['test-survey.group1.Q1'];
+
+    // Add a display item
+    const display1 = new DisplayItem('test-survey.group1.display1');
+    display1.components = [
+      new TextComponent('text1', undefined, 'test-survey.group1.display1')
+    ];
+    survey.surveyItems['test-survey.group1.display1'] = display1;
+    group1.items.push('test-survey.group1.display1');
+
+    copyPaste = new CopyPaste(survey);
+    editor = new SurveyEditor(survey); // Keep for non-copy-paste operations
+  });
+
+  describe('copyItem', () => {
+    test('should copy a single choice question item', () => {
+      const clipboardData = copyPaste.copyItem('test-survey.group1.Q1');
+
+      expect(clipboardData.type).toBe('survey-item');
+      expect(clipboardData.version).toBe('1.0.0');
+      expect(clipboardData.rootItemKey).toBe('test-survey.group1.Q1');
+      expect(clipboardData.items).toHaveLength(1);
+      expect(clipboardData.items[0].itemKey).toBe('test-survey.group1.Q1');
+      expect(clipboardData.items[0].itemData.itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+      expect(clipboardData.translations['test-survey.group1.Q1']).toBeDefined();
+      expect(typeof clipboardData.translations['test-survey.group1.Q1']).toBe('object');
+      expect(clipboardData.prefills).toBeDefined();
+      expect(clipboardData.timestamp).toBeGreaterThan(0);
+    });
+
+    test('should copy a group item with children and include entire subtree', () => {
+      const clipboardData = copyPaste.copyItem('test-survey.group1');
+
+      expect(clipboardData.type).toBe('survey-item');
+      expect(clipboardData.rootItemKey).toBe('test-survey.group1');
+      expect(clipboardData.items).toHaveLength(3); // group + 2 children
+
+      // Check root item
+      const rootItem = clipboardData.items.find(item => item.itemKey === 'test-survey.group1');
+      expect(rootItem).toBeDefined();
+      expect(rootItem!.itemData.itemType).toBe(SurveyItemType.Group);
+      expect((rootItem!.itemData as JsonSurveyItemGroup).items).toEqual([
+        'test-survey.group1.Q1',
+        'test-survey.group1.display1'
+      ]);
+
+      // Check child items are included
+      const childKeys = clipboardData.items.map(item => item.itemKey).sort();
+      expect(childKeys).toEqual([
+        'test-survey.group1',
+        'test-survey.group1.Q1',
+        'test-survey.group1.display1'
+      ]);
+
+      // Check translations for all items
+      expect(clipboardData.translations['test-survey.group1']).toBeDefined();
+      expect(typeof clipboardData.translations['test-survey.group1']).toBe('object');
+      expect(clipboardData.translations['test-survey.group1.Q1']).toBeDefined();
+      expect(typeof clipboardData.translations['test-survey.group1.Q1']).toBe('object');
+      expect(clipboardData.translations['test-survey.group1.display1']).toBeDefined();
+      expect(typeof clipboardData.translations['test-survey.group1.display1']).toBe('object');
+    });
+
+    test('should copy a display item', () => {
+      const clipboardData = copyPaste.copyItem('test-survey.group1.display1');
+
+      expect(clipboardData.type).toBe('survey-item');
+      expect(clipboardData.rootItemKey).toBe('test-survey.group1.display1');
+      expect(clipboardData.items).toHaveLength(1);
+      expect(clipboardData.items[0].itemKey).toBe('test-survey.group1.display1');
+      expect(clipboardData.items[0].itemData.itemType).toBe(SurveyItemType.Display);
+      expect((clipboardData.items[0].itemData as JsonSurveyDisplayItem).components).toBeDefined();
+    });
+
+    test('should throw error for non-existent item', () => {
+      expect(() => {
+        copyPaste.copyItem('non-existent-item');
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should include translations in clipboard data', () => {
+      const translations = new SurveyItemTranslations();
+      translations.setContent('en', 'title', { type: ContentType.CQM, content: 'Test Title', attributions: [] });
+      editor.updateItemTranslations('test-survey.group1.display1', translations);
+
+      const clipboardData = copyPaste.copyItem('test-survey.group1.display1');
+
+      expect(Object.keys(clipboardData.translations['test-survey.group1.display1'])).toContain('en');
+      expect(clipboardData.translations['test-survey.group1.display1']['en']['title']).toEqual({
+        type: ContentType.CQM,
+        content: 'Test Title',
+        attributions: []
+      });
+    });
+  });
+
+  describe('pasteItem', () => {
+    let clipboardData: SurveyItemClipboardData;
+
+    beforeEach(() => {
+      clipboardData = copyPaste.copyItem('test-survey.group1.Q1');
+    });
+
+    test('should paste item to specified location', () => {
+      const newItemKey = copyPaste.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1',
+        index: 0
+      });
+
+      expect(newItemKey).toBe('test-survey.group1.Q1_copy');
+      expect(survey.surveyItems[newItemKey]).toBeDefined();
+      expect(survey.surveyItems[newItemKey].itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+
+      // Check that item was added to parent's items array
+      const parentGroup = survey.surveyItems['test-survey.group1'] as GroupItem;
+      expect(parentGroup.items?.[0]).toBe('test-survey.group1.Q1_copy');
+    });
+
+    test('should generate unique keys for multiple pastes', () => {
+      const firstCopy = copyPaste.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1'
+      });
+      const secondCopy = copyPaste.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1'
+      });
+      const thirdCopy = copyPaste.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1'
+      });
+
+      expect(firstCopy).toBe('test-survey.group1.Q1_copy');
+      expect(secondCopy).toBe('test-survey.group1.Q1_copy_2');
+      expect(thirdCopy).toBe('test-survey.group1.Q1_copy_3');
+
+      expect(survey.surveyItems[firstCopy]).toBeDefined();
+      expect(survey.surveyItems[secondCopy]).toBeDefined();
+      expect(survey.surveyItems[thirdCopy]).toBeDefined();
+    });
+
+    test('should paste item at specified index', () => {
+      const newItemKey = copyPaste.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1',
+        index: 0
+      });
+
+      const parentGroup = survey.surveyItems['test-survey.group1'] as GroupItem;
+      expect(parentGroup.items?.[0]).toBe(newItemKey);
+    });
+
+    test('should recursively paste group with children', () => {
+      const groupClipboard = copyPaste.copyItem('test-survey.group1');
+
+      const newGroupKey = copyPaste.pasteItem(groupClipboard, {
+        parentKey: 'test-survey'
+      });
+
+      expect(newGroupKey).toBe('test-survey.group1_copy');
+      const newGroup = survey.surveyItems[newGroupKey] as GroupItem;
+      expect(newGroup.items).toEqual([
+        'test-survey.group1_copy.Q1',
+        'test-survey.group1_copy.display1'
+      ]);
+
+      // Check that child items were created
+      expect(survey.surveyItems['test-survey.group1_copy.Q1']).toBeDefined();
+      expect(survey.surveyItems['test-survey.group1_copy.display1']).toBeDefined();
+    });
+
+    test('should preserve translations when pasting', () => {
+      const translations = new SurveyItemTranslations();
+      translations.setContent('en', 'title', { type: ContentType.CQM, content: 'Test Title', attributions: [] });
+      translations.setContent('de', 'title', { type: ContentType.CQM, content: 'Test Titel', attributions: [] });
+      editor.updateItemTranslations('test-survey.group1.display1', translations);
+
+      const displayClipboard = copyPaste.copyItem('test-survey.group1.display1');
+      const newItemKey = copyPaste.pasteItem(displayClipboard, {
+        parentKey: 'test-survey.group1'
+      });
+
+      const newTranslations = survey.getItemTranslations(newItemKey);
+      expect(newTranslations?.locales).toContain('en');
+      expect(newTranslations?.locales).toContain('de');
+      expect(newTranslations?.getContent('en', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'Test Title',
+        attributions: []
+      });
+      expect(newTranslations?.getContent('de', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'Test Titel',
+        attributions: []
+      });
+    });
+
+    test('should validate clipboard data format', () => {
+      const invalidClipboard = {
+        type: 'invalid-type',
+        version: '1.0.0',
+        itemKey: 'test',
+        itemData: {},
+        translations: new SurveyItemTranslations(),
+        timestamp: Date.now()
+      };
+
+      expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        copyPaste.pasteItem(invalidClipboard as any, { parentKey: 'test-survey.group1' });
+      }).toThrow('Invalid clipboard data format');
+    });
+
+    test('should validate required clipboard data fields', () => {
+      const incompleteClipboard = {
+        type: 'survey-item',
+        version: '1.0.0',
+        itemKey: 'test'
+        // Missing itemData, translations, timestamp
+      };
+
+      expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        copyPaste.pasteItem(incompleteClipboard as any, { parentKey: 'test-survey.group1' });
+      }).toThrow('Invalid clipboard data format');
+    });
+
+
+    test('should handle undo/redo integration correctly', () => {
+      // Test that paste operation is properly tracked in undo/redo history
+      const initialHistoryLength = editor.undoRedo.getHistory().length + (editor.hasUncommittedChanges ? 1 : 0);
+
+      // Commit the changes to create a history entry
+      const newItemKey = editor.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1'
+      });
+
+      // Should have added an operation to history
+      expect(editor.undoRedo.getHistory().length).toBe(initialHistoryLength + 1);
+      expect(editor.hasUncommittedChanges).toBe(false);
+
+      // Verify the item was pasted
+      expect(editor.survey.surveyItems[newItemKey]).toBeDefined();
+      const parentGroup = editor.survey.surveyItems['test-survey.group1'] as GroupItem;
+      expect(parentGroup.items).toContain(newItemKey);
+
+      // Test undo
+      const undoSuccess = editor.undo();
+      expect(undoSuccess).toBe(true);
+      expect(editor.survey.surveyItems[newItemKey]).toBeUndefined();
+      expect((editor.survey.surveyItems['test-survey.group1'] as GroupItem).items).not.toContain(newItemKey);
+
+      // Test redo
+      const redoSuccess = editor.redo();
+      expect(redoSuccess).toBe(true);
+      expect(editor.survey.surveyItems[newItemKey]).toBeDefined();
+      expect((editor.survey.surveyItems['test-survey.group1'] as GroupItem).items).toContain(newItemKey);
+    });
+
+    test('should handle case where original item no longer exists', () => {
+      // Remove the original item first
+      editor.removeItem('test-survey.group1.Q1');
+
+      const clipboardData = copyPaste.copyItem('test-survey.group1.display1'); // Copy a different item
+
+      // Should still be able to paste from clipboard even if original is gone
+      expect(() => {
+        const newItemKey = copyPaste.pasteItem(clipboardData, {
+          parentKey: 'test-survey.group1'
+        });
+        expect(newItemKey).toBe('test-survey.group1.display1_copy');
+      }).not.toThrow();
+    });
+
+    test('should handle empty target parent gracefully', () => {
+      const clipboardData = copyPaste.copyItem('test-survey.group1.Q1');
+      const newItemKey = copyPaste.pasteItem(clipboardData, {
+        parentKey: 'test-survey.group1'
+      });
+
+      expect(newItemKey).toBe('test-survey.group1.Q1_copy');
+    });
+
+    test('should handle JSON serialization correctly', () => {
+      const originalClipboard = copyPaste.copyItem('test-survey.group1.display1');
+
+      // Simulate serialization/deserialization (e.g., through system clipboard)
+      const serialized = JSON.stringify(originalClipboard);
+      const deserialized = JSON.parse(serialized);
+
+      // Should be able to paste from deserialized data
+      const newItemKey = copyPaste.pasteItem(deserialized, {
+        parentKey: 'test-survey.group1'
+      });
+
+      expect(survey.surveyItems[newItemKey]).toBeDefined();
+      expect(survey.surveyItems[newItemKey].itemType).toBe(SurveyItemType.Display);
+    });
+  });
+
+  // Component tests now using copyPaste for component operations
+  describe('copyComponent', () => {
+    beforeEach(() => {
+      // Add a title to the question for testing
+      const question = survey.surveyItems['test-survey.group1.Q1'] as SingleChoiceQuestionItem;
+      question.header = {
+        title: new TextComponent('title', undefined, 'test-survey.group1.Q1')
+      };
+
+      // Add top content to question body
+      question.body = {
+        topContent: [
+          new TextComponent('topText', undefined, 'test-survey.group1.Q1')
+        ]
+      };
+
+      copyPaste = new CopyPaste(survey);
+      editor = new SurveyEditor(survey);
+    });
+
+    test('should copy a display component', () => {
+      const clipboardData = copyPaste.copyComponent('test-survey.group1.display1', 'text1');
+
+      expect(clipboardData.type).toBe('survey-component');
+      expect(clipboardData.version).toBe('1.0.0');
+      expect(clipboardData.componentKey).toBe('text1');
+      expect(clipboardData.parentItemKey).toBe('test-survey.group1.display1');
+      expect(clipboardData.componentData).toBeDefined();
+      expect(clipboardData.translations).toBeDefined();
+      expect(clipboardData.timestamp).toBeGreaterThan(0);
+    });
+
+    test('should copy a question header component', () => {
+      const clipboardData = copyPaste.copyComponent('test-survey.group1.Q1', 'title');
+
+      expect(clipboardData.type).toBe('survey-component');
+      expect(clipboardData.componentKey).toBe('title');
+      expect(clipboardData.parentItemKey).toBe('test-survey.group1.Q1');
+    });
+
+    test('should copy a question body component', () => {
+      const clipboardData = copyPaste.copyComponent('test-survey.group1.Q1', 'topText');
+
+      expect(clipboardData.type).toBe('survey-component');
+      expect(clipboardData.componentKey).toBe('topText');
+      expect(clipboardData.parentItemKey).toBe('test-survey.group1.Q1');
+    });
+
+    test('should include component translations in clipboard data', () => {
+      const translations = new SurveyItemTranslations();
+      translations.setContent('en', 'text1', { type: ContentType.CQM, content: 'Test Text', attributions: [] });
+      editor.updateItemTranslations('test-survey.group1.display1', translations);
+
+      const clipboardData = copyPaste.copyComponent('test-survey.group1.display1', 'text1');
+
+      expect(clipboardData.translations['en']).toBeDefined();
+      expect(clipboardData.translations['en']['text1']).toEqual({
+        type: ContentType.CQM,
+        content: 'Test Text',
+        attributions: []
+      });
+    });
+
+    test('should throw error for non-existent item', () => {
+      expect(() => {
+        copyPaste.copyComponent('non-existent-item', 'text1');
+      }).toThrow("Item with key 'non-existent-item' not found");
+    });
+
+    test('should throw error for non-existent component', () => {
+      expect(() => {
+        copyPaste.copyComponent('test-survey.group1.display1', 'non-existent-component');
+      }).toThrow("Component with key 'non-existent-component' not found in item 'test-survey.group1.display1'");
+    });
+  });
+
+  describe('pasteComponent', () => {
+    let clipboardData: SurveyComponentClipboardData;
+
+    beforeEach(() => {
+      clipboardData = copyPaste.copyComponent('test-survey.group1.display1', 'text1');
+    });
+
+    test('should paste component to display item', () => {
+      const newComponentKey = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.display1');
+
+      expect(newComponentKey).toBe('text1_copy');
+
+      const displayItem = survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      expect(displayItem.components?.length).toBe(2); // Original + pasted
+      expect(displayItem.components?.[1].key.componentKey).toBe('text1_copy');
+    });
+
+    test('should paste component to question item header', () => {
+      const newComponentKey = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.Q1', {
+        section: 'header',
+        subSection: 'title'
+      });
+
+      expect(newComponentKey).toBe('text1_copy');
+
+      const questionItem = survey.surveyItems['test-survey.group1.Q1'] as SingleChoiceQuestionItem;
+      expect(questionItem.header?.title?.key.componentKey).toBe('text1_copy');
+    });
+
+    test('should paste component to question item body', () => {
+      const newComponentKey = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.Q1', {
+        section: 'body',
+        subSection: 'topContent'
+      });
+
+      expect(newComponentKey).toBe('text1_copy');
+
+      const questionItem = survey.surveyItems['test-survey.group1.Q1'] as SingleChoiceQuestionItem;
+      expect(questionItem.body?.topContent?.length).toBe(1);
+      expect(questionItem.body?.topContent?.[0].key.componentKey).toBe('text1_copy');
+    });
+
+    test('should generate unique component keys for multiple pastes', () => {
+      const firstCopy = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.display1');
+      const secondCopy = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.display1');
+      const thirdCopy = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.display1');
+
+      expect(firstCopy).toBe('text1_copy');
+      expect(secondCopy).toBe('text1_copy_2');
+      expect(thirdCopy).toBe('text1_copy_3');
+
+      const displayItem = survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      expect(displayItem.components?.length).toBe(4); // Original + 3 copies
+    });
+
+    test('should paste component at specified index', () => {
+      const newComponentKey = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.display1', {
+        index: 0
+      });
+
+      const displayItem = survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      expect(displayItem.components?.[0].key.componentKey).toBe('text1_copy');
+    });
+
+    test('should preserve component translations when pasting', () => {
+      const translations = new SurveyItemTranslations();
+      translations.setContent('en', 'text1', { type: ContentType.CQM, content: 'Test Text', attributions: [] });
+      editor.updateItemTranslations('test-survey.group1.display1', translations);
+
+      const componentClipboard = copyPaste.copyComponent('test-survey.group1.display1', 'text1');
+      const newComponentKey = copyPaste.pasteComponent(componentClipboard, 'test-survey.group1.display1');
+
+      const newTranslations = survey.getItemTranslations('test-survey.group1.display1');
+      expect(newTranslations?.getContent('en', newComponentKey)).toEqual({
+        type: ContentType.CQM,
+        content: 'Test Text',
+        attributions: []
+      });
+    });
+
+    test('should paste component across different items', () => {
+      // Create a second display item
+      const display2 = new DisplayItem('test-survey.group1.display2');
+      survey.surveyItems['test-survey.group1.display2'] = display2;
+      (survey.surveyItems['test-survey.group1'] as GroupItem).items?.push('test-survey.group1.display2');
+
+      const newComponentKey = copyPaste.pasteComponent(clipboardData, 'test-survey.group1.display2');
+
+      expect(newComponentKey).toBe('text1_copy');
+
+      const targetItem = survey.surveyItems['test-survey.group1.display2'] as DisplayItem;
+      expect(targetItem.components?.length).toBe(1);
+      expect(targetItem.components?.[0].key.componentKey).toBe('text1_copy');
+    });
+
+    test('should validate clipboard data format', () => {
+      const invalidClipboard = {
+        type: 'invalid-type',
+        version: '1.0.0',
+        componentKey: 'test',
+        parentItemKey: 'test',
+        componentData: {},
+        translations: {},
+        timestamp: Date.now()
+      };
+
+      expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        copyPaste.pasteComponent(invalidClipboard as any, 'test-survey.group1.display1');
+      }).toThrow('Invalid component clipboard data format');
+    });
+
+    test('should validate required clipboard data fields', () => {
+      const incompleteClipboard = {
+        type: 'survey-component',
+        version: '1.0.0',
+        componentKey: 'test'
+        // Missing other required fields
+      };
+
+      expect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        copyPaste.pasteComponent(incompleteClipboard as any, 'test-survey.group1.display1');
+      }).toThrow('Invalid component clipboard data format');
+    });
+
+    test('should throw error for non-existent target item', () => {
+      expect(() => {
+        copyPaste.pasteComponent(clipboardData, 'non-existent-item');
+      }).toThrow("Target item with key 'non-existent-item' not found");
+    });
+
+    test('should handle undo/redo integration correctly', () => {
+      // Test that paste component operation is properly tracked in undo/redo history
+      const initialHistoryLength = editor.undoRedo.getHistory().length;
+
+      // Perform paste operation using editor method
+      const newComponentKey = editor.pasteComponent(clipboardData, 'test-survey.group1.display1');
+
+      // Should have added an operation to history
+      expect(editor.undoRedo.getHistory().length).toBe(initialHistoryLength + 1);
+      expect(editor.hasUncommittedChanges).toBe(false);
+
+      // Verify the component was pasted
+      const displayItem = editor.survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      const pastedComponent = displayItem.components?.find(c => c.key.componentKey === newComponentKey);
+      expect(pastedComponent).toBeDefined();
+
+      // Test undo
+      const undoSuccess = editor.undo();
+      expect(undoSuccess).toBe(true);
+      const undoDisplayItem = editor.survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      const undoComponent = undoDisplayItem.components?.find(c => c.key.componentKey === newComponentKey);
+      expect(undoComponent).toBeUndefined();
+
+      // Test redo
+      const redoSuccess = editor.redo();
+      expect(redoSuccess).toBe(true);
+      const redoDisplayItem = editor.survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      const redoComponent = redoDisplayItem.components?.find(c => c.key.componentKey === newComponentKey);
+      expect(redoComponent).toBeDefined();
+    });
+
+    test('should handle JSON serialization correctly', () => {
+      const clipboardData = copyPaste.copyComponent('test-survey.group1.display1', 'text1');
+
+      // Simulate serialization/deserialization
+      const serialized = JSON.stringify(clipboardData);
+      const deserialized = JSON.parse(serialized);
+
+      // Should be able to paste from deserialized data
+      const newComponentKey = copyPaste.pasteComponent(deserialized, 'test-survey.group1.display1');
+
+      const displayItem = survey.surveyItems['test-survey.group1.display1'] as DisplayItem;
+      expect(displayItem.components?.find(c => c.key.componentKey === newComponentKey)).toBeDefined();
+    });
+  });
+
+  // Add comprehensive translation copy-paste tests
+  describe('Translation Copy-Paste Tests', () => {
+    let surveyWithTranslations: Survey;
+    let editorWithTranslations: SurveyEditor;
+    let copyPasteWithTranslations: CopyPaste;
+
+    beforeEach(() => {
+      // Create a survey with complex structure for testing translations
+      surveyWithTranslations = new Survey('translation-test');
+      editorWithTranslations = new SurveyEditor(surveyWithTranslations);
+      copyPasteWithTranslations = new CopyPaste(surveyWithTranslations);
+
+      // Create a group with multiple items
+      const mainGroup = new GroupItem('translation-test.main-group');
+      surveyWithTranslations.surveyItems['translation-test.main-group'] = mainGroup;
+      (surveyWithTranslations.surveyItems['translation-test'] as GroupItem).items = ['translation-test.main-group'];
+
+      // Create Q1
+      const q1 = new SingleChoiceQuestionItem('translation-test.main-group.Q1');
+      surveyWithTranslations.surveyItems['translation-test.main-group.Q1'] = q1;
+
+      // Create Q2
+      const q2 = new MultipleChoiceQuestionItem('translation-test.main-group.Q2');
+      surveyWithTranslations.surveyItems['translation-test.main-group.Q2'] = q2;
+
+      // Create info display item
+      const info = new DisplayItem('translation-test.main-group.info');
+      info.components = [
+        new TextComponent('comp1', undefined, 'translation-test.main-group.info'),
+        new TextComponent('comp2', undefined, 'translation-test.main-group.info')
+      ];
+      surveyWithTranslations.surveyItems['translation-test.main-group.info'] = info;
+
+      // Create nested group
+      const nestedGroup = new GroupItem('translation-test.main-group.nested-group');
+      surveyWithTranslations.surveyItems['translation-test.main-group.nested-group'] = nestedGroup;
+
+      // Create Q3 in nested group
+      const q3 = new SingleChoiceQuestionItem('translation-test.main-group.nested-group.Q3');
+      surveyWithTranslations.surveyItems['translation-test.main-group.nested-group.Q3'] = q3;
+
+      // Set up item hierarchy
+      mainGroup.items = [
+        'translation-test.main-group.Q1',
+        'translation-test.main-group.Q2',
+        'translation-test.main-group.info',
+        'translation-test.main-group.nested-group'
+      ];
+      nestedGroup.items = ['translation-test.main-group.nested-group.Q3'];
+
+      // Add comprehensive translations for all items
+
+      // Main group translations
+      const mainGroupTranslations = new SurveyItemTranslations();
+      mainGroupTranslations.setContent('en', 'title', {
+        type: ContentType.CQM,
+        content: 'Main Survey Group',
+        attributions: []
+      });
+      mainGroupTranslations.setContent('es', 'title', {
+        type: ContentType.CQM,
+        content: 'Grupo Principal de Encuesta',
+        attributions: []
+      });
+      mainGroupTranslations.setContent('fr', 'title', {
+        type: ContentType.CQM,
+        content: 'Groupe Principal d\'Enquête',
+        attributions: []
+      });
+      editorWithTranslations.updateItemTranslations('translation-test.main-group', mainGroupTranslations);
+
+      // Q1 translations (with component translations)
+      const q1Translations = new SurveyItemTranslations();
+      q1Translations.setContent('en', 'title', {
+        type: ContentType.CQM,
+        content: 'What is your favorite color?',
+        attributions: []
+      });
+      q1Translations.setContent('en', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Red',
+        attributions: []
+      });
+      q1Translations.setContent('en', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Blue',
+        attributions: []
+      });
+      q1Translations.setContent('en', 'helpPopover', {
+        type: ContentType.CQM,
+        content: 'Choose your preferred color from the list',
+        attributions: []
+      });
+
+      q1Translations.setContent('es', 'title', {
+        type: ContentType.CQM,
+        content: '¿Cuál es tu color favorito?',
+        attributions: []
+      });
+      q1Translations.setContent('es', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Rojo',
+        attributions: []
+      });
+      q1Translations.setContent('es', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Azul',
+        attributions: []
+      });
+      q1Translations.setContent('es', 'helpPopover', {
+        type: ContentType.CQM,
+        content: 'Elige tu color preferido de la lista',
+        attributions: []
+      });
+
+      q1Translations.setContent('fr', 'title', {
+        type: ContentType.CQM,
+        content: 'Quelle est votre couleur préférée?',
+        attributions: []
+      });
+      q1Translations.setContent('fr', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Rouge',
+        attributions: []
+      });
+      q1Translations.setContent('fr', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Bleu',
+        attributions: []
+      });
+      q1Translations.setContent('fr', 'helpPopover', {
+        type: ContentType.CQM,
+        content: 'Choisissez votre couleur préférée dans la liste',
+        attributions: []
+      });
+      editorWithTranslations.updateItemTranslations('translation-test.main-group.Q1', q1Translations);
+
+      // Q2 translations
+      const q2Translations = new SurveyItemTranslations();
+      q2Translations.setContent('en', 'title', {
+        type: ContentType.CQM,
+        content: 'Which activities do you enjoy?',
+        attributions: []
+      });
+      q2Translations.setContent('en', 'subtitle', {
+        type: ContentType.CQM,
+        content: 'Select all that apply',
+        attributions: []
+      });
+      q2Translations.setContent('en', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Reading',
+        attributions: []
+      });
+      q2Translations.setContent('en', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Swimming',
+        attributions: []
+      });
+      q2Translations.setContent('en', 'rg.3', {
+        type: ContentType.CQM,
+        content: 'Hiking',
+        attributions: []
+      });
+
+      q2Translations.setContent('es', 'title', {
+        type: ContentType.CQM,
+        content: '¿Qué actividades disfrutas?',
+        attributions: []
+      });
+      q2Translations.setContent('es', 'subtitle', {
+        type: ContentType.CQM,
+        content: 'Selecciona todas las que apliquen',
+        attributions: []
+      });
+      q2Translations.setContent('es', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Lectura',
+        attributions: []
+      });
+      q2Translations.setContent('es', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Natación',
+        attributions: []
+      });
+      q2Translations.setContent('es', 'rg.3', {
+        type: ContentType.CQM,
+        content: 'Senderismo',
+        attributions: []
+      });
+      editorWithTranslations.updateItemTranslations('translation-test.main-group.Q2', q2Translations);
+
+      // Display item translations
+      const infoTranslations = new SurveyItemTranslations();
+      infoTranslations.setContent('en', 'comp1', {
+        type: ContentType.CQM,
+        content: 'Thank you for participating in our survey!',
+        attributions: []
+      });
+      infoTranslations.setContent('en', 'comp2', {
+        type: ContentType.md,
+        content: 'Your responses help us **improve** our services.'
+      });
+
+      infoTranslations.setContent('es', 'comp1', {
+        type: ContentType.CQM,
+        content: '¡Gracias por participar en nuestra encuesta!',
+        attributions: []
+      });
+      infoTranslations.setContent('es', 'comp2', {
+        type: ContentType.md,
+        content: 'Tus respuestas nos ayudan a **mejorar** nuestros servicios.'
+      });
+      editorWithTranslations.updateItemTranslations('translation-test.main-group.info', infoTranslations);
+
+      // Nested group translations
+      const nestedGroupTranslations = new SurveyItemTranslations();
+      nestedGroupTranslations.setContent('en', 'title', {
+        type: ContentType.CQM,
+        content: 'Additional Questions',
+        attributions: []
+      });
+      nestedGroupTranslations.setContent('es', 'title', {
+        type: ContentType.CQM,
+        content: 'Preguntas Adicionales',
+        attributions: []
+      });
+      editorWithTranslations.updateItemTranslations('translation-test.main-group.nested-group', nestedGroupTranslations);
+
+      // Q3 translations (nested item)
+      const q3Translations = new SurveyItemTranslations();
+      q3Translations.setContent('en', 'title', {
+        type: ContentType.CQM,
+        content: 'How satisfied are you overall?',
+        attributions: []
+      });
+      q3Translations.setContent('en', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Very Satisfied',
+        attributions: []
+      });
+      q3Translations.setContent('en', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Satisfied',
+        attributions: []
+      });
+      q3Translations.setContent('en', 'rg.3', {
+        type: ContentType.CQM,
+        content: 'Neutral',
+        attributions: []
+      });
+      q3Translations.setContent('en', 'rg.4', {
+        type: ContentType.CQM,
+        content: 'Dissatisfied',
+        attributions: []
+      });
+
+      q3Translations.setContent('es', 'title', {
+        type: ContentType.CQM,
+        content: '¿Qué tan satisfecho estás en general?',
+        attributions: []
+      });
+      q3Translations.setContent('es', 'rg.1', {
+        type: ContentType.CQM,
+        content: 'Muy Satisfecho',
+        attributions: []
+      });
+      q3Translations.setContent('es', 'rg.2', {
+        type: ContentType.CQM,
+        content: 'Satisfecho',
+        attributions: []
+      });
+      q3Translations.setContent('es', 'rg.3', {
+        type: ContentType.CQM,
+        content: 'Neutral',
+        attributions: []
+      });
+      q3Translations.setContent('es', 'rg.4', {
+        type: ContentType.CQM,
+        content: 'Insatisfecho',
+        attributions: []
+      });
+      editorWithTranslations.updateItemTranslations('translation-test.main-group.nested-group.Q3', q3Translations);
+    });
+
+    test('should copy single item with all its translations', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group.Q1');
+
+      expect(clipboardData.items).toHaveLength(1);
+      expect(clipboardData.rootItemKey).toBe('translation-test.main-group.Q1');
+
+      // Check translations are copied
+      const itemTranslations = clipboardData.translations['translation-test.main-group.Q1'];
+      expect(itemTranslations).toBeDefined();
+      expect(Object.keys(itemTranslations)).toContain('en');
+      expect(Object.keys(itemTranslations)).toContain('es');
+      expect(Object.keys(itemTranslations)).toContain('fr');
+
+      // Verify specific translation content
+      expect(itemTranslations['en']['title']).toEqual({
+        type: ContentType.CQM,
+        content: 'What is your favorite color?',
+        attributions: []
+      });
+      expect(itemTranslations['es']['title']).toEqual({
+        type: ContentType.CQM,
+        content: '¿Cuál es tu color favorito?',
+        attributions: []
+      });
+      expect(itemTranslations['fr']['title']).toEqual({
+        type: ContentType.CQM,
+        content: 'Quelle est votre couleur préférée?',
+        attributions: []
+      });
+
+      // Verify component translations
+      expect(itemTranslations['en']['rg.1']).toEqual({
+        type: ContentType.CQM,
+        content: 'Red',
+        attributions: []
+      });
+      expect(itemTranslations['es']['rg.1']).toEqual({
+        type: ContentType.CQM,
+        content: 'Rojo',
+        attributions: []
+      });
+      expect(itemTranslations['fr']['rg.1']).toEqual({
+        type: ContentType.CQM,
+        content: 'Rouge',
+        attributions: []
+      });
+    });
+
+    test('should copy group with entire subtree and all translations', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group');
+
+      // Should include main group + 4 items (Q1, Q2, info, nested-group) + 1 nested item (Q3) = 6 total
+      expect(clipboardData.items).toHaveLength(6);
+      expect(clipboardData.rootItemKey).toBe('translation-test.main-group');
+
+      // Check all expected items are included
+      const itemKeys = clipboardData.items.map(item => item.itemKey).sort();
+      expect(itemKeys).toEqual([
+        'translation-test.main-group',
+        'translation-test.main-group.Q1',
+        'translation-test.main-group.Q2',
+        'translation-test.main-group.info',
+        'translation-test.main-group.nested-group',
+        'translation-test.main-group.nested-group.Q3'
+      ]);
+
+      // Verify translations exist for all items
+      expect(Object.keys(clipboardData.translations)).toEqual(itemKeys);
+
+      // Spot check some specific translations
+      const mainGroupTranslations = clipboardData.translations['translation-test.main-group'];
+      expect(mainGroupTranslations['en']['title']).toEqual({
+        type: ContentType.CQM,
+        content: 'Main Survey Group',
+        attributions: []
+      });
+      expect(mainGroupTranslations['es']['title']).toEqual({
+        type: ContentType.CQM,
+        content: 'Grupo Principal de Encuesta',
+        attributions: []
+      });
+
+      const q3Translations = clipboardData.translations['translation-test.main-group.nested-group.Q3'];
+      expect(q3Translations['en']['title']).toEqual({
+        type: ContentType.CQM,
+        content: 'How satisfied are you overall?',
+        attributions: []
+      });
+      expect(q3Translations['es']['rg.1']).toEqual({
+        type: ContentType.CQM,
+        content: 'Muy Satisfecho',
+        attributions: []
+      });
+    });
+
+    test('should paste single item with properly updated translation keys', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group.Q1');
+
+      // Create target location
+      const newSection = new GroupItem('translation-test.new-section');
+      surveyWithTranslations.surveyItems['translation-test.new-section'] = newSection;
+      (surveyWithTranslations.surveyItems['translation-test'] as GroupItem).items!.push('translation-test.new-section');
+
+      const newItemKey = copyPasteWithTranslations.pasteItem(clipboardData, {
+        parentKey: 'translation-test.new-section'
+      });
+
+      expect(newItemKey).toBe('translation-test.new-section.Q1');
+
+      // Verify the item was created
+      expect(surveyWithTranslations.surveyItems[newItemKey]).toBeDefined();
+
+      // Verify translations were properly updated with new keys
+      const pastedTranslations = surveyWithTranslations.getItemTranslations(newItemKey);
+      expect(pastedTranslations).toBeDefined();
+      expect(pastedTranslations!.locales).toContain('en');
+      expect(pastedTranslations!.locales).toContain('es');
+      expect(pastedTranslations!.locales).toContain('fr');
+
+      // Verify translation content is preserved
+      expect(pastedTranslations!.getContent('en', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'What is your favorite color?',
+        attributions: []
+      });
+      expect(pastedTranslations!.getContent('es', 'rg.2')).toEqual({
+        type: ContentType.CQM,
+        content: 'Azul',
+        attributions: []
+      });
+      expect(pastedTranslations!.getContent('fr', 'helpPopover')).toEqual({
+        type: ContentType.CQM,
+        content: 'Choisissez votre couleur préférée dans la liste',
+        attributions: []
+      });
+
+      // Verify original translations are still intact
+      const originalTranslations = surveyWithTranslations.getItemTranslations('translation-test.main-group.Q1');
+      expect(originalTranslations!.getContent('en', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'What is your favorite color?',
+        attributions: []
+      });
+    });
+
+    test('should paste group subtree with properly updated translation keys for all items', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group');
+
+      // Create target location
+      const copiedSection = new GroupItem('translation-test.copied-section');
+      surveyWithTranslations.surveyItems['translation-test.copied-section'] = copiedSection;
+      (surveyWithTranslations.surveyItems['translation-test'] as GroupItem).items!.push('translation-test.copied-section');
+
+      const newRootKey = copyPasteWithTranslations.pasteItem(clipboardData, {
+        parentKey: 'translation-test.copied-section'
+      });
+
+      expect(newRootKey).toBe('translation-test.copied-section.main-group');
+
+      // Verify all items were created with correct keys
+      const expectedNewKeys = [
+        'translation-test.copied-section.main-group',
+        'translation-test.copied-section.main-group.Q1',
+        'translation-test.copied-section.main-group.Q2',
+        'translation-test.copied-section.main-group.info',
+        'translation-test.copied-section.main-group.nested-group',
+        'translation-test.copied-section.main-group.nested-group.Q3'
+      ];
+
+      expectedNewKeys.forEach(key => {
+        expect(surveyWithTranslations.surveyItems[key]).toBeDefined();
+      });
+
+      // Verify translations were properly updated for all items
+      expectedNewKeys.forEach(key => {
+        const translations = surveyWithTranslations.getItemTranslations(key);
+        expect(translations).toBeDefined();
+        expect(translations!.locales.length).toBeGreaterThan(0);
+      });
+
+      // Spot check specific translations
+      const copiedQ1Translations = surveyWithTranslations.getItemTranslations('translation-test.copied-section.main-group.Q1');
+      expect(copiedQ1Translations!.getContent('en', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'What is your favorite color?',
+        attributions: []
+      });
+      expect(copiedQ1Translations!.getContent('es', 'rg.1')).toEqual({
+        type: ContentType.CQM,
+        content: 'Rojo',
+        attributions: []
+      });
+
+      const copiedQ3Translations = surveyWithTranslations.getItemTranslations('translation-test.copied-section.main-group.nested-group.Q3');
+      expect(copiedQ3Translations!.getContent('en', 'rg.3')).toEqual({
+        type: ContentType.CQM,
+        content: 'Neutral',
+        attributions: []
+      });
+      expect(copiedQ3Translations!.getContent('es', 'rg.4')).toEqual({
+        type: ContentType.CQM,
+        content: 'Insatisfecho',
+        attributions: []
+      });
+
+      // Verify original translations are still intact
+      const originalQ1Translations = surveyWithTranslations.getItemTranslations('translation-test.main-group.Q1');
+      expect(originalQ1Translations!.getContent('fr', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'Quelle est votre couleur préférée?',
+        attributions: []
+      });
+    });
+
+    test('should handle multiple pastes with unique keys and preserved translations', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group.Q2');
+
+      // Create target location
+      const multipleCopies = new GroupItem('translation-test.multiple-copies');
+      surveyWithTranslations.surveyItems['translation-test.multiple-copies'] = multipleCopies;
+      (surveyWithTranslations.surveyItems['translation-test'] as GroupItem).items!.push('translation-test.multiple-copies');
+
+      // Paste the same item multiple times
+      const firstCopy = copyPasteWithTranslations.pasteItem(clipboardData, {
+        parentKey: 'translation-test.multiple-copies'
+      });
+      const secondCopy = copyPasteWithTranslations.pasteItem(clipboardData, {
+        parentKey: 'translation-test.multiple-copies'
+      });
+      const thirdCopy = copyPasteWithTranslations.pasteItem(clipboardData, {
+        parentKey: 'translation-test.multiple-copies'
+      });
+
+      expect(firstCopy).toBe('translation-test.multiple-copies.Q2');
+      expect(secondCopy).toBe('translation-test.multiple-copies.Q2_copy');
+      expect(thirdCopy).toBe('translation-test.multiple-copies.Q2_copy_2');
+
+      // Verify all copies have proper translations
+      [firstCopy, secondCopy, thirdCopy].forEach(key => {
+        const translations = surveyWithTranslations.getItemTranslations(key);
+        expect(translations).toBeDefined();
+        expect(translations!.locales).toContain('en');
+        expect(translations!.locales).toContain('es');
+
+        expect(translations!.getContent('en', 'title')).toEqual({
+          type: ContentType.CQM,
+          content: 'Which activities do you enjoy?',
+          attributions: []
+        });
+        expect(translations!.getContent('es', 'subtitle')).toEqual({
+          type: ContentType.CQM,
+          content: 'Selecciona todas las que apliquen',
+          attributions: []
+        });
+        expect(translations!.getContent('en', 'rg.3')).toEqual({
+          type: ContentType.CQM,
+          content: 'Hiking',
+          attributions: []
+        });
+      });
+    });
+
+    test('should preserve different content types in translations', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group.info');
+
+      // Create target location
+      const infoCopy = new GroupItem('translation-test.info-copy');
+      surveyWithTranslations.surveyItems['translation-test.info-copy'] = infoCopy;
+      (surveyWithTranslations.surveyItems['translation-test'] as GroupItem).items!.push('translation-test.info-copy');
+
+      const newItemKey = copyPasteWithTranslations.pasteItem(clipboardData, {
+        parentKey: 'translation-test.info-copy'
+      });
+
+      const pastedTranslations = surveyWithTranslations.getItemTranslations(newItemKey);
+      expect(pastedTranslations).toBeDefined();
+
+      // Verify CQM content type is preserved
+      expect(pastedTranslations!.getContent('en', 'comp1')).toEqual({
+        type: ContentType.CQM,
+        content: 'Thank you for participating in our survey!',
+        attributions: []
+      });
+      expect(pastedTranslations!.getContent('es', 'comp1')).toEqual({
+        type: ContentType.CQM,
+        content: '¡Gracias por participar en nuestra encuesta!',
+        attributions: []
+      });
+
+      // Verify Markdown content type is preserved
+      expect(pastedTranslations!.getContent('en', 'comp2')).toEqual({
+        type: ContentType.md,
+        content: 'Your responses help us **improve** our services.'
+      });
+      expect(pastedTranslations!.getContent('es', 'comp2')).toEqual({
+        type: ContentType.md,
+        content: 'Tus respuestas nos ayudan a **mejorar** nuestros servicios.'
+      });
+    });
+
+    test('should handle JSON serialization/deserialization of translations correctly', () => {
+      const clipboardData = copyPasteWithTranslations.copyItem('translation-test.main-group.Q1');
+
+      // Serialize to JSON and back (simulating clipboard operations)
+      const jsonString = JSON.stringify(clipboardData);
+      const deserializedData = JSON.parse(jsonString) as SurveyItemClipboardData;
+
+      // Create target location
+      const jsonTest = new GroupItem('translation-test.json-test');
+      surveyWithTranslations.surveyItems['translation-test.json-test'] = jsonTest;
+      (surveyWithTranslations.surveyItems['translation-test'] as GroupItem).items!.push('translation-test.json-test');
+
+      const newItemKey = copyPasteWithTranslations.pasteItem(deserializedData, {
+        parentKey: 'translation-test.json-test'
+      });
+
+      // Verify translations work after JSON round-trip
+      const pastedTranslations = surveyWithTranslations.getItemTranslations(newItemKey);
+      expect(pastedTranslations).toBeDefined();
+
+      expect(pastedTranslations!.getContent('en', 'title')).toEqual({
+        type: ContentType.CQM,
+        content: 'What is your favorite color?',
+        attributions: []
+      });
+      expect(pastedTranslations!.getContent('fr', 'rg.2')).toEqual({
+        type: ContentType.CQM,
+        content: 'Bleu',
+        attributions: []
+      });
+    });
+  });
+});
+
+describe('SurveyEditor - Smart Component Copy-Paste', () => {
+  let editor: SurveyEditor;
+  let survey: Survey;
+
+  beforeEach(() => {
+    // Create a test survey with a single choice question
+    survey = new Survey('test-survey');
+    const rootGroup = new GroupItem('root');
+    rootGroup.items = [];
+    survey.surveyItems['root'] = rootGroup;
+
+    const questionItem = new SingleChoiceQuestionItem('root.q1');
+    // Initialize the question with basic structure
+    questionItem.header = {
+      title: new TextComponent('title', undefined, 'root.q1'),
+      subtitle: new TextComponent('subtitle', undefined, 'root.q1')
+    };
+    questionItem.body = {
+      topContent: []
+    };
+    questionItem.responseConfig = new ScgMcgChoiceResponseConfig('rg', undefined, 'root.q1');
+    questionItem.responseConfig.items = [
+      new ScgMcgOption('1', 'rg', 'root.q1'),
+      new ScgMcgOption('2', 'rg', 'root.q1')
+    ];
+
+    survey.surveyItems['root.q1'] = questionItem;
+    rootGroup.items.push('root.q1');
+
+    editor = new SurveyEditor(survey);
+  });
+
+  describe('Single-slot component replacement', () => {
+    test('should replace title component when pasting into title', () => {
+      const originalTitle = (editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem).header!.title!;
+
+      // Copy the title component
+      const clipboardData = editor.copyComponent('root.q1', 'title');
+
+      // Paste it back into the title slot - should replace
+      const newComponentKey = editor.pasteComponent(clipboardData, 'root.q1', 'title');
+
+      const questionItem = editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem;
+      const newTitle = questionItem.header!.title!;
+
+      // Should have replaced the component
+      expect(newTitle.key.fullKey).toBe(newComponentKey);
+      expect(newTitle.key.fullKey).not.toBe(originalTitle.key.fullKey);
+      expect(newTitle.key.componentKey).toBe('title_copy');
+    });
+
+    test('should replace subtitle component when pasting into subtitle', () => {
+      const originalSubtitle = (editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem).header!.subtitle!;
+
+      // Copy the subtitle component
+      const clipboardData = editor.copyComponent('root.q1', 'subtitle');
+
+      // Paste it into the subtitle slot - should replace
+      const newComponentKey = editor.pasteComponent(clipboardData, 'root.q1', 'subtitle');
+
+      const questionItem = editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem;
+      const newSubtitle = questionItem.header!.subtitle!;
+
+      // Should have replaced the component
+      expect(newSubtitle.key.fullKey).toBe(newComponentKey);
+      expect(newSubtitle.key.fullKey).not.toBe(originalSubtitle.key.fullKey);
+      expect(newSubtitle.key.componentKey).toBe('subtitle_copy');
+    });
+  });
+
+  describe('Group component addition', () => {
+    test('should add new option when pasting into response config', () => {
+      const originalOptionsCount = (editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem).responseConfig.items.length;
+
+      // Copy an existing option
+      const clipboardData = editor.copyComponent('root.q1', 'rg.1');
+
+      // Paste it into the response config - should add new option
+      const newComponentKey = editor.pasteComponent(clipboardData, 'root.q1', 'rg');
+
+      const questionItem = editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem;
+      const newOptionsCount = questionItem.responseConfig.items.length;
+
+      // Should have added a new option
+      expect(newOptionsCount).toBe(originalOptionsCount + 1);
+      expect(newComponentKey).toBe('rg.1_copy');
+
+      // Verify the new option exists
+      const newOption = questionItem.responseConfig.items.find(opt => opt.key.fullKey === newComponentKey);
+      expect(newOption).toBeDefined();
+      expect(newOption!.componentType).toBe(ItemComponentType.ScgMcgOption);
+    });
+
+    test('should add to topContent when pasting into topContent area', () => {
+      const questionItem = editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem;
+      const originalTopContentCount = questionItem.body!.topContent?.length || 0;
+
+      // Create a text component to copy
+      const textComponent = new TextComponent('test-text', undefined, 'root.q1');
+      questionItem.body!.topContent = questionItem.body!.topContent || [];
+      questionItem.body!.topContent.push(textComponent);
+
+      // Copy the text component
+      const clipboardData = editor.copyComponent('root.q1', 'test-text');
+
+      // Paste it into topContent - should add new component
+      const newComponentKey = editor.pasteComponent(clipboardData, 'root.q1', 'test-text');
+
+      const updatedTopContentCount = questionItem.body!.topContent!.length;
+
+      // Should have added a new component
+      expect(updatedTopContentCount).toBe(originalTopContentCount + 2); // original + copied
+      expect(newComponentKey).toBe('test-text_copy');
+
+      // Verify the new component exists
+      const newComponent = questionItem.body!.topContent!.find(comp => comp.key.fullKey === newComponentKey);
+      expect(newComponent).toBeDefined();
+      expect(newComponent!.componentType).toBe(ItemComponentType.Text);
+    });
+  });
+
+  describe('Fallback to default behavior', () => {
+    test('should use default behavior when no target component is specified', () => {
+      const questionItem = editor.survey.surveyItems['root.q1'] as SingleChoiceQuestionItem;
+
+      // Create a text component to copy
+      const textComponent = new TextComponent('test-text', undefined, 'root.q1');
+      questionItem.body!.topContent = questionItem.body!.topContent || [];
+      questionItem.body!.topContent.push(textComponent);
+
+      // Copy the text component
+      const clipboardData = editor.copyComponent('root.q1', 'test-text');
+
+      // Paste without specifying target component - should use default behavior
+      const newComponentKey = editor.pasteComponent(clipboardData, 'root.q1');
+
+      // Should have added to default location (topContent)
+      const addedComponent = questionItem.body!.topContent!.find(comp => comp.key.fullKey === newComponentKey);
+      expect(addedComponent).toBeDefined();
+      expect(newComponentKey).toBe('test-text_copy');
+    });
+  });
+
+  describe('Error handling', () => {
+    test('should throw error when target item does not exist', () => {
+      const clipboardData = editor.copyComponent('root.q1', 'title');
+
+      expect(() => {
+        editor.pasteComponent(clipboardData, 'nonexistent.item', 'title');
+      }).toThrow("Target item with key 'nonexistent.item' not found");
+    });
+
+    test('should handle non-existent target component gracefully', () => {
+      const clipboardData = editor.copyComponent('root.q1', 'title');
+
+      // This should not throw and should use fallback logic
+      expect(() => {
+        const newComponentKey = editor.pasteComponent(clipboardData, 'root.q1', 'nonexistent-component');
+        expect(newComponentKey).toBeDefined();
+      }).not.toThrow();
+    });
+  });
+});
