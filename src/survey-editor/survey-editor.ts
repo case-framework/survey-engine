@@ -698,24 +698,5 @@ export class SurveyEditor {
     return copyPaste.copyComponent(itemKey, componentKey);
   }
 
-  /**
-   * Paste a component into an item
-   * @param clipboardData - The clipboard data containing the component to paste
-   * @param targetItemKey - The item to paste the component into
-   * @param targetComponentKey - The component key to paste into (if undefined, pastes into default location)
-   * @returns The full key of the pasted component
-   */
-  pasteComponent(
-    clipboardData: SurveyComponentClipboardData,
-    targetItemKey: string,
-    targetComponentKey?: string
-  ): string {
-    this.commitIfNeeded();
-
-    const copyPaste = new CopyPaste(this._survey);
-    const newFullComponentKey = copyPaste.pasteComponentSmart(clipboardData, targetItemKey, targetComponentKey);
-
-    this.commit(`Pasted component ${newFullComponentKey} into ${targetItemKey}`);
-    return newFullComponentKey;
-  }
+  // TODO: add paste component
 }

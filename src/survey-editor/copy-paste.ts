@@ -2,9 +2,9 @@ import { Survey } from "../survey/survey";
 import { SurveyItem, GroupItem, SurveyItemType, DisplayItem, QuestionItem } from "../survey/items";
 import { SurveyItemTranslations, JsonComponentContent } from "../survey/utils";
 import { SurveyItemKey, ItemComponentKey } from "../survey/item-component-key";
-import { JsonSurveyItem } from "../survey/items/survey-item-json";
+import { JsonSurveyItem, JsonSurveyItemGroup } from "../survey/items/survey-item-json";
 import { JsonSurveyItemResponse } from "../survey/responses";
-import { ItemComponent, DisplayComponent, TextComponent, GroupComponent, ItemComponentType, ScgMcgChoiceResponseConfig, ScgMcgOptionBase } from "../survey/components";
+import { ItemComponent, GroupComponent } from "../survey/components";
 
 // Serialized translation data format for clipboard
 export type SerializedTranslations = {
@@ -241,7 +241,7 @@ export class CopyPaste {
     index?: number;
   }): string {
     // Validate clipboard data
-    if (!this.isValidClipboardData(clipboardData)) {
+    if (!CopyPaste.isValidClipboardData(clipboardData)) {
       throw new Error('Invalid clipboard data format');
     }
 
@@ -362,171 +362,7 @@ export class CopyPaste {
     };
   }
 
-  /**
-   * Paste a component into an item
-   * @param clipboardData - The clipboard data containing the component to paste
-   * @param targetItemKey - The item to paste the component into
-   * @param targetLocation - Where to insert the component (optional)
-   * @returns The full key of the pasted component
-   */
-  pasteComponent(
-    clipboardData: SurveyComponentClipboardData,
-    targetItemKey: string,
-    targetLocation?: {
-      parentComponentKey?: string;
-      section?: 'header' | 'body' | 'footer' | 'responseConfig' | 'components';
-      subSection?: 'title' | 'subtitle' | 'helpPopover' | 'topContent' | 'bottomContent';
-      index?: number;
-    }
-  ): string {
-    // Validate clipboard data
-    if (!this.isValidComponentClipboardData(clipboardData)) {
-      throw new Error('Invalid component clipboard data format');
-    }
-
-    const targetItem = this.survey.surveyItems[targetItemKey];
-    if (!targetItem) {
-      throw new Error(`Target item with key '${targetItemKey}' not found`);
-    }
-
-    // Generate unique component key
-    const originalComponentKey = ItemComponentKey.fromFullKey(clipboardData.componentKey, clipboardData.parentItemKey);
-    const newComponentKey = this.generateUniqueComponentKey(originalComponentKey.componentKey, targetItemKey, targetLocation?.parentComponentKey);
-    const newFullComponentKey = targetLocation?.parentComponentKey ?
-      `${targetLocation.parentComponentKey}.${newComponentKey}` :
-      newComponentKey;
-
-    // Update component data with new keys
-    const updatedComponentData = this.updateComponentKeysInData(
-      clipboardData.componentData,
-      clipboardData.componentKey,
-      newFullComponentKey,
-      targetItemKey
-    );
-
-    // Create the component from JSON
-    const newComponent = this.createComponentFromJson(updatedComponentData, targetLocation?.parentComponentKey, targetItemKey);
-
-    // Insert component into the target item
-    this.insertComponentIntoItem(targetItem, newComponent, targetLocation);
-
-    // Update translations
-    this.updateComponentTranslations(targetItemKey, clipboardData.translations, clipboardData.componentKey, newFullComponentKey);
-
-    return newFullComponentKey;
-  }
-
-  /**
-   * Paste a component into an item with intelligent placement based on target component
-   * @param clipboardData - The clipboard data containing the component to paste
-   * @param targetItemKey - The item to paste the component into
-   * @param targetComponentKey - The component key to paste into (if undefined, uses default behavior)
-   * @returns The full key of the pasted component
-   */
-  pasteComponentSmart(
-    clipboardData: SurveyComponentClipboardData,
-    targetItemKey: string,
-    targetComponentKey?: string
-  ): string {
-    // If no target component specified, use default behavior
-    if (!targetComponentKey) {
-      return this.pasteComponent(clipboardData, targetItemKey);
-    }
-
-    // Validate clipboard data
-    if (!this.isValidComponentClipboardData(clipboardData)) {
-      throw new Error('Invalid component clipboard data format');
-    }
-
-    const targetItem = this.survey.surveyItems[targetItemKey];
-    if (!targetItem) {
-      throw new Error(`Target item with key '${targetItemKey}' not found`);
-    }
-
-    // Find the target component to determine paste behavior
-    const targetComponent = this.findComponentInItem(targetItem, targetComponentKey);
-    const pasteInfo = this.determinePasteLocation(targetItem, targetComponentKey, targetComponent);
-
-    // Generate unique component key
-    const originalComponentKey = ItemComponentKey.fromFullKey(clipboardData.componentKey, clipboardData.parentItemKey);
-    const newComponentKey = this.generateUniqueComponentKey(originalComponentKey.componentKey, targetItemKey, pasteInfo.parentComponentKey);
-    const newFullComponentKey = pasteInfo.parentComponentKey ?
-      `${pasteInfo.parentComponentKey}.${newComponentKey}` :
-      newComponentKey;
-
-    // Update component data with new keys
-    const updatedComponentData = this.updateComponentKeysInData(
-      clipboardData.componentData,
-      clipboardData.componentKey,
-      newFullComponentKey,
-      targetItemKey
-    );
-
-    // Create the component from JSON
-    const newComponent = this.createComponentFromJson(updatedComponentData, pasteInfo.parentComponentKey, targetItemKey);
-
-    // Insert component based on determined location
-    if (pasteInfo.shouldReplace && targetComponent) {
-      this.replaceComponent(targetItem, targetComponent, newComponent, pasteInfo);
-    } else {
-      this.insertComponentIntoItem(targetItem, newComponent, pasteInfo.location);
-    }
-
-    // Update translations
-    this.updateComponentTranslations(targetItemKey, clipboardData.translations, clipboardData.componentKey, newFullComponentKey);
-
-    return newFullComponentKey;
-  }
-
   // PRIVATE HELPER METHODS
-
-  /**
-   * Validate clipboard data format
-   */
-  private isValidClipboardData(data: any): data is SurveyItemClipboardData {
-    return (
-      data &&
-      typeof data === 'object' &&
-      data.type === 'survey-item' &&
-      data.version &&
-      data.items &&
-      Array.isArray(data.items) &&
-      data.items.length > 0 &&
-      data.items.every((item: any) =>
-        item &&
-        typeof item === 'object' &&
-        item.itemKey &&
-        typeof item.itemKey === 'string' &&
-        item.itemData &&
-        typeof item.itemData === 'object'
-      ) &&
-      data.translations &&
-      typeof data.translations === 'object' &&
-      data.prefills &&
-      typeof data.prefills === 'object' &&
-      data.rootItemKey &&
-      typeof data.rootItemKey === 'string' &&
-      typeof data.timestamp === 'number'
-    );
-  }
-
-  /**
-   * Validate component clipboard data format
-   */
-  private isValidComponentClipboardData(data: any): data is SurveyComponentClipboardData {
-    return (
-      data &&
-      typeof data === 'object' &&
-      data.type === 'survey-component' &&
-      data.version &&
-      data.componentData &&
-      data.componentKey &&
-      data.parentItemKey &&
-      data.translations &&
-      typeof data.timestamp === 'number'
-    );
-  }
-
   /**
    * Generate a unique item key within the target parent
    */
@@ -545,33 +381,6 @@ export class CopyPaste {
     }
 
     return candidateKey;
-  }
-
-  /**
-   * Generate a unique component key within the target item
-   */
-  private generateUniqueComponentKey(baseKey: string, targetItemKey: string, parentComponentKey?: string): string {
-    let counter = 1;
-    let candidateKey = `${baseKey}_copy`;
-
-    // Keep incrementing until we find a unique key
-    while (this.componentKeyExists(targetItemKey, candidateKey, parentComponentKey)) {
-      counter++;
-      candidateKey = `${baseKey}_copy_${counter}`;
-    }
-
-    return candidateKey;
-  }
-
-  /**
-   * Check if a component key already exists in the target item
-   */
-  private componentKeyExists(itemKey: string, componentKey: string, parentComponentKey?: string): boolean {
-    const fullComponentKey = parentComponentKey ? `${parentComponentKey}.${componentKey}` : componentKey;
-    const item = this.survey.surveyItems[itemKey];
-    if (!item) return false;
-
-    return this.findComponentInItem(item, fullComponentKey) !== null;
   }
 
   /**
@@ -715,53 +524,10 @@ export class CopyPaste {
   }
 
   /**
-   * Add an item to the survey at the specified target location
-   */
-  private addItemToSurvey(target: {
-    parentKey: string;
-    index?: number;
-  }, item: SurveyItem, content: SurveyItemTranslations): void {
-    // Find the parent group item
-    const parentGroup = this.survey.surveyItems[target.parentKey] as GroupItem;
-
-    if (!parentGroup) {
-      throw new Error(`Parent item with key '${target.parentKey}' not found`);
-    }
-
-    if (parentGroup.itemType !== SurveyItemType.Group) {
-      throw new Error(`Parent item '${target.parentKey}' is not a group item`);
-    }
-
-    // Initialize items array if it doesn't exist
-    if (!parentGroup.items) {
-      parentGroup.items = [];
-    }
-
-    // Determine insertion index
-    let insertIndex: number;
-    if (target.index !== undefined) {
-      // Insert at specified index, or at end if index is larger than array length
-      insertIndex = Math.min(target.index, parentGroup.items.length);
-    } else {
-      // Insert at the end
-      insertIndex = parentGroup.items.length;
-    }
-
-    // Add the item to the survey items collection
-    this.survey.surveyItems[item.key.fullKey] = item;
-
-    // Add the item key to the parent group's items array
-    parentGroup.items.splice(insertIndex, 0, item.key.fullKey);
-
-    // Update translations in the survey
-    this.survey.translations.setItemTranslations(item.key.fullKey, content);
-  }
-
-  /**
    * Recursively create child items for a group item
    */
-  private createChildItemsRecursively(originalParentKey: string, newParentKey: string, originalClipboardData: SurveyItemClipboardData): void {
-    const groupData = originalClipboardData.items[0].itemData as any;
+  private createChildItemsRecursively(newParentKey: string, originalClipboardData: SurveyItemClipboardData): void {
+    const groupData = originalClipboardData.items[0].itemData as JsonSurveyItemGroup;
 
     if (groupData.items && Array.isArray(groupData.items)) {
       groupData.items.forEach((originalChildKey: string) => {
@@ -799,7 +565,7 @@ export class CopyPaste {
 
           // Recursively create grandchildren if this is a group
           if (newChildItem.itemType === SurveyItemType.Group && (newChildItem as GroupItem).items) {
-            this.createChildItemsRecursively(originalChildKey, newChildKey.fullKey, childClipboardData);
+            this.createChildItemsRecursively(newChildKey.fullKey, childClipboardData);
           }
         }
       });
@@ -869,294 +635,31 @@ export class CopyPaste {
     return null;
   }
 
+
   /**
-   * Create a component from JSON data
-   */
-  private createComponentFromJson(componentData: any, parentComponentKey: string | undefined, itemKey: string): ItemComponent {
-    // Determine component type and use appropriate factory method
-    const componentType = componentData.type;
-
-    // For response config components, use specialized factories
-    if (componentType === ItemComponentType.SingleChoice || componentType === ItemComponentType.MultipleChoice) {
-      return ScgMcgChoiceResponseConfig.fromJson(componentData, parentComponentKey, itemKey);
-    }
-
-    // For ScgMcg option components
-    if (componentType === ItemComponentType.ScgMcgOption ||
-      componentType === ItemComponentType.ScgMcgOptionWithTextInput ||
-      componentType === ItemComponentType.ScgMcgOptionWithNumberInput ||
-      componentType === ItemComponentType.ScgMcgOptionWithDateInput ||
-      componentType === ItemComponentType.ScgMcgOptionWithTimeInput ||
-      componentType === ItemComponentType.ScgMcgOptionWithDropdown ||
-      componentType === ItemComponentType.ScgMcgOptionWithCloze) {
-      return ScgMcgOptionBase.fromJson(componentData, parentComponentKey, itemKey);
-    }
-
-    // Default to DisplayComponent for display components
-    return DisplayComponent.fromJson(componentData, parentComponentKey, itemKey);
+ * Validate clipboard data format
+ */
+  static isValidClipboardData(data: unknown): data is SurveyItemClipboardData {
+    if (typeof data !== 'object' || data === null || data === undefined) return false;
+    const clipboardData = data as SurveyItemClipboardData;
+    return (
+      clipboardData.type === 'survey-item' &&
+      clipboardData.version === '1.0.0' &&
+      clipboardData.rootItemKey !== undefined
+    );
   }
 
   /**
-   * Insert a component into an item at the specified location
+   * Validate component clipboard data format
    */
-  private insertComponentIntoItem(
-    item: SurveyItem,
-    component: ItemComponent,
-    location?: {
-      parentComponentKey?: string;
-      section?: 'header' | 'body' | 'footer' | 'responseConfig' | 'components';
-      subSection?: 'title' | 'subtitle' | 'helpPopover' | 'topContent' | 'bottomContent';
-      index?: number;
-    }
-  ): void {
-    if (item.itemType === SurveyItemType.Display) {
-      const displayItem = item as DisplayItem;
-      if (!displayItem.components) displayItem.components = [];
-
-      const insertIndex = location?.index !== undefined ?
-        Math.min(location.index, displayItem.components.length) :
-        displayItem.components.length;
-
-      displayItem.components.splice(insertIndex, 0, component as DisplayComponent);
-    } else if (item.itemType === SurveyItemType.SingleChoiceQuestion || item.itemType === SurveyItemType.MultipleChoiceQuestion) {
-      const questionItem = item as QuestionItem;
-
-      // Handle insertion into response config (group components like SingleChoice options)
-      if (location?.parentComponentKey) {
-        const parentComponent = this.findComponentInItem(item, location.parentComponentKey);
-        if (parentComponent && parentComponent instanceof GroupComponent) {
-          if (!parentComponent.items) parentComponent.items = [];
-          const insertIndex = location.index !== undefined ?
-            Math.min(location.index, parentComponent.items.length) :
-            parentComponent.items.length;
-          parentComponent.items.splice(insertIndex, 0, component);
-          return;
-        }
-      }
-
-      if (location?.section === 'header') {
-        if (!questionItem.header) questionItem.header = {};
-        if (location.subSection === 'title') questionItem.header.title = component as TextComponent;
-        else if (location.subSection === 'subtitle') questionItem.header.subtitle = component as TextComponent;
-        else if (location.subSection === 'helpPopover') questionItem.header.helpPopover = component as TextComponent;
-      } else if (location?.section === 'body') {
-        if (!questionItem.body) questionItem.body = {};
-        if (location.subSection === 'topContent') {
-          if (!questionItem.body.topContent) questionItem.body.topContent = [];
-          const insertIndex = location.index !== undefined ?
-            Math.min(location.index, questionItem.body.topContent.length) :
-            questionItem.body.topContent.length;
-          questionItem.body.topContent.splice(insertIndex, 0, component as DisplayComponent);
-        } else if (location.subSection === 'bottomContent') {
-          if (!questionItem.body.bottomContent) questionItem.body.bottomContent = [];
-          const insertIndex = location.index !== undefined ?
-            Math.min(location.index, questionItem.body.bottomContent.length) :
-            questionItem.body.bottomContent.length;
-          questionItem.body.bottomContent.splice(insertIndex, 0, component as DisplayComponent);
-        }
-      } else if (location?.section === 'footer') {
-        questionItem.footer = component as TextComponent;
-      } else {
-        // Default to body top content for question items
-        if (!questionItem.body) questionItem.body = {};
-        if (!questionItem.body.topContent) questionItem.body.topContent = [];
-        questionItem.body.topContent.push(component as DisplayComponent);
-      }
-    }
-  }
-
-  /**
-   * Update component translations for the pasted component
-   */
-  private updateComponentTranslations(
-    targetItemKey: string,
-    componentTranslations: { [locale: string]: { [contentKey: string]: any } },
-    oldComponentKey: string,
-    newComponentKey: string
-  ): void {
-    Object.keys(componentTranslations).forEach(locale => {
-      const localeTranslations = componentTranslations[locale];
-      Object.keys(localeTranslations).forEach(contentKey => {
-        // Update content key if it references the old component key
-        let newContentKey = contentKey;
-        if (contentKey === oldComponentKey) {
-          newContentKey = newComponentKey;
-        } else if (contentKey.startsWith(oldComponentKey + '.')) {
-          newContentKey = contentKey.replace(oldComponentKey, newComponentKey);
-        }
-
-        // Set the translation in the target item
-        const itemTranslations = this.survey.getItemTranslations(targetItemKey) || new SurveyItemTranslations();
-        itemTranslations.setContent(locale, newContentKey, localeTranslations[contentKey]);
-        this.survey.translations.setItemTranslations(targetItemKey, itemTranslations);
-      });
-    });
-  }
-
-  /**
-   * Determine where and how to paste a component based on the target
-   */
-  private determinePasteLocation(item: SurveyItem, targetComponentKey: string, targetComponent: ItemComponent | null): {
-    shouldReplace: boolean;
-    parentComponentKey?: string;
-    location?: {
-      parentComponentKey?: string;
-      section?: 'header' | 'body' | 'footer' | 'responseConfig' | 'components';
-      subSection?: 'title' | 'subtitle' | 'helpPopover' | 'topContent' | 'bottomContent';
-      index?: number;
-    };
-  } {
-    // If target component doesn't exist, determine insertion location based on key structure
-    if (!targetComponent) {
-      return this.determinePasteLocationFromKey(item, targetComponentKey);
-    }
-
-    // Determine behavior based on component type and location
-    if (item.itemType === SurveyItemType.SingleChoiceQuestion || item.itemType === SurveyItemType.MultipleChoiceQuestion) {
-      const questionItem = item as QuestionItem;
-
-      // Check if target is a single-slot component (replace behavior)
-      if (questionItem.header?.title?.key.fullKey === targetComponentKey) {
-        return {
-          shouldReplace: true,
-          location: { section: 'header', subSection: 'title' }
-        };
-      }
-      if (questionItem.header?.subtitle?.key.fullKey === targetComponentKey) {
-        return {
-          shouldReplace: true,
-          location: { section: 'header', subSection: 'subtitle' }
-        };
-      }
-      if (questionItem.header?.helpPopover?.key.fullKey === targetComponentKey) {
-        return {
-          shouldReplace: true,
-          location: { section: 'header', subSection: 'helpPopover' }
-        };
-      }
-      if (questionItem.footer?.key.fullKey === targetComponentKey) {
-        return {
-          shouldReplace: true,
-          location: { section: 'footer' }
-        };
-      }
-
-      // Check if target is in a group component (add behavior)
-      // Check response config (SingleChoice/MultipleChoice with items)
-      if (questionItem.responseConfig.key.fullKey === targetComponentKey) {
-        return {
-          shouldReplace: false,
-          parentComponentKey: targetComponentKey,
-          location: { parentComponentKey: targetComponentKey }
-        };
-      }
-
-      // Check if target is in topContent or bottomContent arrays
-      const topContentMatch = questionItem.body?.topContent?.find(comp => comp.key.fullKey === targetComponentKey);
-      if (topContentMatch) {
-        return {
-          shouldReplace: false,
-          location: { section: 'body', subSection: 'topContent' }
-        };
-      }
-
-      const bottomContentMatch = questionItem.body?.bottomContent?.find(comp => comp.key.fullKey === targetComponentKey);
-      if (bottomContentMatch) {
-        return {
-          shouldReplace: false,
-          location: { section: 'body', subSection: 'bottomContent' }
-        };
-      }
-    }
-
-    if (item.itemType === SurveyItemType.Display) {
-      const displayItem = item as DisplayItem;
-
-      // For display items, components array allows adding
-      const componentMatch = displayItem.components?.find(comp => comp.key.fullKey === targetComponentKey);
-      if (componentMatch) {
-        return {
-          shouldReplace: false,
-          location: { section: 'components' }
-        };
-      }
-    }
-
-    // Default to adding behavior if we can't determine the specific context
-    return {
-      shouldReplace: false,
-      location: undefined
-    };
-  }
-
-  /**
-   * Determine paste location when target component doesn't exist based on key structure
-   */
-  private determinePasteLocationFromKey(item: SurveyItem, targetComponentKey: string): {
-    shouldReplace: boolean;
-    parentComponentKey?: string;
-    location?: {
-      parentComponentKey?: string;
-      section?: 'header' | 'body' | 'footer' | 'responseConfig' | 'components';
-      subSection?: 'title' | 'subtitle' | 'helpPopover' | 'topContent' | 'bottomContent';
-      index?: number;
-    };
-  } {
-    if (item.itemType === SurveyItemType.SingleChoiceQuestion || item.itemType === SurveyItemType.MultipleChoiceQuestion) {
-      // Analyze key structure to determine intended location
-      if (targetComponentKey === 'title') {
-        return { shouldReplace: true, location: { section: 'header', subSection: 'title' } };
-      }
-      if (targetComponentKey === 'subtitle') {
-        return { shouldReplace: true, location: { section: 'header', subSection: 'subtitle' } };
-      }
-      if (targetComponentKey === 'helpPopover') {
-        return { shouldReplace: true, location: { section: 'header', subSection: 'helpPopover' } };
-      }
-      if (targetComponentKey === 'footer') {
-        return { shouldReplace: true, location: { section: 'footer' } };
-      }
-      if (targetComponentKey === 'rg' || targetComponentKey.startsWith('rg.')) {
-        return { shouldReplace: false, parentComponentKey: 'rg', location: { parentComponentKey: 'rg' } };
-      }
-
-      // Default to body top content for question items
-      return { shouldReplace: false, location: { section: 'body', subSection: 'topContent' } };
-    }
-
-    if (item.itemType === SurveyItemType.Display) {
-      // Default to components array for display items
-      return { shouldReplace: false, location: { section: 'components' } };
-    }
-
-    // Default behavior
-    return { shouldReplace: false, location: undefined };
-  }
-
-  /**
-   * Replace an existing component with a new one
-   */
-  private replaceComponent(
-    item: SurveyItem,
-    oldComponent: ItemComponent,
-    newComponent: ItemComponent,
-    pasteInfo: { location?: any }
-  ): void {
-    if (item.itemType === SurveyItemType.SingleChoiceQuestion || item.itemType === SurveyItemType.MultipleChoiceQuestion) {
-      const questionItem = item as QuestionItem;
-
-      if (pasteInfo.location?.section === 'header') {
-        if (!questionItem.header) questionItem.header = {};
-        if (pasteInfo.location.subSection === 'title') {
-          questionItem.header.title = newComponent as TextComponent;
-        } else if (pasteInfo.location.subSection === 'subtitle') {
-          questionItem.header.subtitle = newComponent as TextComponent;
-        } else if (pasteInfo.location.subSection === 'helpPopover') {
-          questionItem.header.helpPopover = newComponent as TextComponent;
-        }
-      } else if (pasteInfo.location?.section === 'footer') {
-        questionItem.footer = newComponent as TextComponent;
-      }
-    }
+  static isValidComponentClipboardData(data: unknown): data is SurveyComponentClipboardData {
+    if (typeof data !== 'object' || data === null || data === undefined) return false;
+    const clipboardData = data as SurveyComponentClipboardData;
+    return (
+      clipboardData.type === 'survey-component' &&
+      clipboardData.version === '1.0.0' &&
+      clipboardData.componentKey !== undefined &&
+      clipboardData.parentItemKey !== undefined
+    );
   }
 }
