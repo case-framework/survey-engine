@@ -1,4 +1,3 @@
-import { Expression } from "../data_types/expression";
 import { CURRENT_SURVEY_SCHEMA, JsonSurvey, } from "./survey-file-schema";
 import { SurveyItemTranslations, SurveyTranslations } from "./utils/translations";
 import { GroupItem, QuestionItem, SurveyItem } from "./items";
@@ -8,7 +7,6 @@ import { ReferenceUsage } from "./utils/value-reference";
 
 
 abstract class SurveyBase {
-  prefillRules?: Expression[];
   maxItemsPerPage?: { large: number, small: number };
   availableFor?: string;
   requireLoginBeforeSubmission?: boolean;
@@ -52,9 +50,6 @@ export class Survey extends SurveyBase {
     // Parse other fields
     survey._translations = new SurveyTranslations(rawSurvey.translations);
 
-    if (rawSurvey.prefillRules) {
-      survey.prefillRules = rawSurvey.prefillRules;
-    }
     if (rawSurvey.maxItemsPerPage) {
       survey.maxItemsPerPage = rawSurvey.maxItemsPerPage;
     }
@@ -80,9 +75,6 @@ export class Survey extends SurveyBase {
     // Export other fields
     json.translations = this._translations?.toJson();
 
-    if (this.prefillRules) {
-      json.prefillRules = this.prefillRules;
-    }
     if (this.maxItemsPerPage) {
       json.maxItemsPerPage = this.maxItemsPerPage;
     }

@@ -6,7 +6,7 @@ import { SurveyItemTranslations } from '../survey/utils';
 import { TextComponent } from '../survey/components';
 import { JsonSurveyItemGroup, JsonSurveyDisplayItem } from '../survey/items/survey-item-json';
 import { ContentType } from '../survey/utils/content';
-import { ScgMcgChoiceResponseConfig, ScgMcgOption, ItemComponentType } from '../survey/components';
+
 
 describe('CopyPaste Functionality', () => {
   let copyPaste: CopyPaste;
@@ -51,7 +51,6 @@ describe('CopyPaste Functionality', () => {
       expect(clipboardData.items[0].itemData.itemType).toBe(SurveyItemType.SingleChoiceQuestion);
       expect(clipboardData.translations['test-survey.group1.Q1']).toBeDefined();
       expect(typeof clipboardData.translations['test-survey.group1.Q1']).toBe('object');
-      expect(clipboardData.prefills).toBeDefined();
       expect(clipboardData.timestamp).toBeGreaterThan(0);
     });
 

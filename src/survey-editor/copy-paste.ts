@@ -20,7 +20,6 @@ export interface SurveyItemClipboardData {
     itemData: JsonSurveyItem;
   }>;
   translations: { [itemKey: string]: SerializedTranslations };
-  prefills: { [itemKey: string]: JsonSurveyItemResponse };
   rootItemKey: string; // The key of the main item being copied
   timestamp: number;
 }
@@ -85,32 +84,12 @@ export class CopyPaste {
       }
     });
 
-    // Collect prefills for all items (if any exist)
-    const prefills: { [itemKey: string]: JsonSurveyItemResponse } = {};
-    // Note: Prefills would typically come from the survey engine context
-    // For now, we'll create empty prefills structure that can be populated if needed
-    itemsToCopy.forEach(key => {
-      const surveyItem = this.survey.surveyItems[key];
-      if (surveyItem.itemType !== SurveyItemType.Group &&
-        surveyItem.itemType !== SurveyItemType.Display &&
-        surveyItem.itemType !== SurveyItemType.PageBreak &&
-        surveyItem.itemType !== SurveyItemType.SurveyEnd) {
-        // Create empty prefill structure for response items
-        prefills[key] = {
-          key: key,
-          itemType: surveyItem.itemType,
-          response: undefined
-        };
-      }
-    });
-
     // Create clipboard data
     const clipboardData: SurveyItemClipboardData = {
       type: 'survey-item',
       version: '1.0.0',
       items: items,
       translations: translations,
-      prefills: prefills,
       rootItemKey: itemKey,
       timestamp: Date.now()
     };
@@ -297,8 +276,7 @@ export class CopyPaste {
       this.survey.translations.setItemTranslations(itemKey, itemTranslations);
     });
 
-    // Update and set prefills
-    this.updatePrefills(clipboardData.prefills, keyMapping);
+    // TODO: update prefill rules where needed to use the new keys
 
     // Add the root item to the parent group
     const rootItem = createdItems[newRootFullKey];

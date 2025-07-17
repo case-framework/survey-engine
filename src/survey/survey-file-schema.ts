@@ -1,4 +1,3 @@
-import { Expression } from "../data_types/expression";
 import { JsonSurveyItem } from "./items";
 import { JsonSurveyTranslations } from "./utils/translations";
 
@@ -18,7 +17,6 @@ type ItemKey = string;
 
 export type JsonSurvey = {
   $schema: string;
-  prefillRules?: Expression[];
   maxItemsPerPage?: { large: number, small: number };
   availableFor?: string;
   requireLoginBeforeSubmission?: boolean;

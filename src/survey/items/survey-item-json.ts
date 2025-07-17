@@ -27,6 +27,7 @@ export interface JsonSurveyItemBase {
       [componentKey: string]: JsonExpression | undefined;
     }
   }
+  prefillRules?: Array<JsonExpression | undefined>;
 }
 
 
