@@ -1,10 +1,11 @@
 import { Survey } from "../survey/survey";
-import { SurveyItem, GroupItem, SurveyItemType, DisplayItem, QuestionItem } from "../survey/items";
+import { SurveyItem, GroupItem, SurveyItemType } from "../survey/items";
 import { SurveyItemTranslations, JsonComponentContent } from "../survey/utils";
 import { SurveyItemKey, ItemComponentKey } from "../survey/item-component-key";
 import { JsonSurveyItem, JsonSurveyItemGroup } from "../survey/items/survey-item-json";
 import { JsonSurveyItemResponse } from "../survey/responses";
 import { ItemComponent, GroupComponent } from "../survey/components";
+
 
 // Serialized translation data format for clipboard
 export type SerializedTranslations = {
@@ -24,18 +25,8 @@ export interface SurveyItemClipboardData {
   timestamp: number;
 }
 
-// Clipboard data structure for component copy-paste functionality
-export interface SurveyComponentClipboardData {
-  type: 'survey-component';
-  version: string;
-  componentData: unknown; // JSON representation of the component
-  componentKey: string;
-  parentItemKey: string;
-  translations: { [locale: string]: { [contentKey: string]: unknown } };
-  timestamp: number;
-}
 
-export class CopyPaste {
+export class ItemCopyPaste {
   private survey: Survey;
 
   constructor(survey: Survey) {
@@ -220,7 +211,7 @@ export class CopyPaste {
     index?: number;
   }): string {
     // Validate clipboard data
-    if (!CopyPaste.isValidClipboardData(clipboardData)) {
+    if (!ItemCopyPaste.isValidClipboardData(clipboardData)) {
       throw new Error('Invalid clipboard data format');
     }
 
@@ -285,59 +276,6 @@ export class CopyPaste {
     }
 
     return newRootFullKey;
-  }
-
-  // COMPONENT COPY-PASTE FUNCTIONALITY
-
-  /**
-   * Copy a component from an item
-   * @param itemKey - The full key of the item containing the component
-   * @param componentKey - The full key of the component to copy
-   * @returns Clipboard data for the component
-   */
-  copyComponent(itemKey: string, componentKey: string): SurveyComponentClipboardData {
-    const item = this.survey.surveyItems[itemKey];
-    if (!item) {
-      throw new Error(`Item with key '${itemKey}' not found`);
-    }
-
-    // Find the component within the item
-    const component = this.findComponentInItem(item, componentKey);
-    if (!component) {
-      throw new Error(`Component with key '${componentKey}' not found in item '${itemKey}'`);
-    }
-
-    // Get component translations
-    const itemTranslations = this.survey.getItemTranslations(itemKey);
-    const componentTranslations: { [locale: string]: { [contentKey: string]: any } } = {};
-
-    if (itemTranslations) {
-      itemTranslations.locales.forEach(locale => {
-        const localeContent = itemTranslations.getAllForLocale(locale);
-        if (localeContent) {
-          // Extract translations that match this component key
-          const componentLocaleContent: { [contentKey: string]: any } = {};
-          Object.keys(localeContent).forEach(contentKey => {
-            if (contentKey === componentKey || contentKey.startsWith(componentKey + '.')) {
-              componentLocaleContent[contentKey] = localeContent[contentKey];
-            }
-          });
-          if (Object.keys(componentLocaleContent).length > 0) {
-            componentTranslations[locale] = componentLocaleContent;
-          }
-        }
-      });
-    }
-
-    return {
-      type: 'survey-component',
-      version: '1.0.0',
-      componentData: component.toJson(),
-      componentKey: componentKey,
-      parentItemKey: itemKey,
-      translations: componentTranslations,
-      timestamp: Date.now()
-    };
   }
 
   // PRIVATE HELPER METHODS
@@ -550,42 +488,6 @@ export class CopyPaste {
     }
   }
 
-  /**
-   * Find a component within an item by its full key
-   */
-  private findComponentInItem(item: SurveyItem, componentKey: string): ItemComponent | null {
-    // Search in different item types
-    if (item.itemType === SurveyItemType.Display) {
-      const displayItem = item as DisplayItem;
-      return this.searchComponentsArray(displayItem.components || [], componentKey);
-    }
-
-    if (item.itemType === SurveyItemType.SingleChoiceQuestion || item.itemType === SurveyItemType.MultipleChoiceQuestion) {
-      const questionItem = item as QuestionItem;
-
-      // Check header components
-      if (questionItem.header?.title?.key.fullKey === componentKey) return questionItem.header.title;
-      if (questionItem.header?.subtitle?.key.fullKey === componentKey) return questionItem.header.subtitle;
-      if (questionItem.header?.helpPopover?.key.fullKey === componentKey) return questionItem.header.helpPopover;
-
-      // Check body components
-      const topContentResult = this.searchComponentsArray(questionItem.body?.topContent || [], componentKey);
-      if (topContentResult) return topContentResult;
-
-      const bottomContentResult = this.searchComponentsArray(questionItem.body?.bottomContent || [], componentKey);
-      if (bottomContentResult) return bottomContentResult;
-
-      // Check footer
-      if (questionItem.footer?.key.fullKey === componentKey) return questionItem.footer;
-
-      // Check response config and its children
-      if (questionItem.responseConfig.key.fullKey === componentKey) return questionItem.responseConfig;
-
-      return this.searchComponentRecursively(questionItem.responseConfig, componentKey);
-    }
-
-    return null;
-  }
 
   /**
    * Search for a component in an array of components
@@ -624,20 +526,6 @@ export class CopyPaste {
       clipboardData.type === 'survey-item' &&
       clipboardData.version === '1.0.0' &&
       clipboardData.rootItemKey !== undefined
-    );
-  }
-
-  /**
-   * Validate component clipboard data format
-   */
-  static isValidComponentClipboardData(data: unknown): data is SurveyComponentClipboardData {
-    if (typeof data !== 'object' || data === null || data === undefined) return false;
-    const clipboardData = data as SurveyComponentClipboardData;
-    return (
-      clipboardData.type === 'survey-component' &&
-      clipboardData.version === '1.0.0' &&
-      clipboardData.componentKey !== undefined &&
-      clipboardData.parentItemKey !== undefined
     );
   }
 }

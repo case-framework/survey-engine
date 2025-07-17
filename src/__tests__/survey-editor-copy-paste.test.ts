@@ -1,4 +1,4 @@
-import { CopyPaste, SurveyItemClipboardData, SurveyComponentClipboardData } from '../survey-editor/copy-paste';
+import { ItemCopyPaste, SurveyItemClipboardData } from '../survey-editor/item-copy-paste';
 import { SurveyEditor } from '../survey-editor/survey-editor';
 import { Survey } from '../survey/survey';
 import { GroupItem, SingleChoiceQuestionItem, MultipleChoiceQuestionItem, DisplayItem, SurveyItemType } from '../survey/items';
@@ -9,7 +9,7 @@ import { ContentType } from '../survey/utils/content';
 
 
 describe('CopyPaste Functionality', () => {
-  let copyPaste: CopyPaste;
+  let copyPaste: ItemCopyPaste;
   let editor: SurveyEditor; // Keep for non-copy-paste operations
   let survey: Survey;
 
@@ -35,7 +35,7 @@ describe('CopyPaste Functionality', () => {
     survey.surveyItems['test-survey.group1.display1'] = display1;
     group1.items.push('test-survey.group1.display1');
 
-    copyPaste = new CopyPaste(survey);
+    copyPaste = new ItemCopyPaste(survey);
     editor = new SurveyEditor(survey); // Keep for non-copy-paste operations
   });
 
@@ -320,54 +320,17 @@ describe('CopyPaste Functionality', () => {
     });
   });
 
-
-  // Component tests now using copyPaste for component operations
-  describe('copyComponent', () => {
-    beforeEach(() => {
-      // Add a title to the question for testing
-      const question = survey.surveyItems['test-survey.group1.Q1'] as SingleChoiceQuestionItem;
-      question.header = {
-        title: new TextComponent('title', undefined, 'test-survey.group1.Q1')
-      };
-
-      // Add top content to question body
-      question.body = {
-        topContent: [
-          new TextComponent('topText', undefined, 'test-survey.group1.Q1')
-        ]
-      };
-
-      copyPaste = new CopyPaste(survey);
-      editor = new SurveyEditor(survey);
-    });
-
-    test('should copy a display component', () => {
-      const clipboardData = copyPaste.copyComponent('test-survey.group1.display1', 'text1');
-
-      expect(clipboardData.type).toBe('survey-component');
-      expect(clipboardData.version).toBe('1.0.0');
-      expect(clipboardData.componentKey).toBe('text1');
-      expect(clipboardData.parentItemKey).toBe('test-survey.group1.display1');
-      expect(clipboardData.componentData).toBeDefined();
-      expect(clipboardData.translations).toBeDefined();
-      expect(clipboardData.timestamp).toBeGreaterThan(0);
-    });
-
-    // TODO:
-  });
-
-
   // Add comprehensive translation copy-paste tests
   describe('Translation Copy-Paste Tests', () => {
     let surveyWithTranslations: Survey;
     let editorWithTranslations: SurveyEditor;
-    let copyPasteWithTranslations: CopyPaste;
+    let copyPasteWithTranslations: ItemCopyPaste;
 
     beforeEach(() => {
       // Create a survey with complex structure for testing translations
       surveyWithTranslations = new Survey('translation-test');
       editorWithTranslations = new SurveyEditor(surveyWithTranslations);
-      copyPasteWithTranslations = new CopyPaste(surveyWithTranslations);
+      copyPasteWithTranslations = new ItemCopyPaste(surveyWithTranslations);
 
       // Create a group with multiple items
       const mainGroup = new GroupItem('translation-test.main-group');

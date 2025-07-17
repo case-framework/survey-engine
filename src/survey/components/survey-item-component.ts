@@ -1,5 +1,5 @@
 import { ItemComponentKey } from "../item-component-key";
-import { JsonItemComponent } from "../survey-file-schema";
+import { JsonItemComponent } from "./survey-item-component-json";
 import { ExpectedValueType } from "../utils";
 import { ValueReference, ValueReferenceMethod } from "../utils/value-reference";
 import { DisplayComponentTypes, ItemComponentType, ResponseConfigComponentTypes, ScgMcgOptionTypes } from "./types";

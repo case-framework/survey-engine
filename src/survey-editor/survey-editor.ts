@@ -4,7 +4,7 @@ import { SurveyEditorUndoRedo, type UndoRedoConfig } from "./undo-redo";
 import { SurveyItemTranslations } from "../survey/utils";
 import { SurveyItemKey } from "../survey/item-component-key";
 import { JsonSurvey } from "../survey/survey-file-schema";
-import { CopyPaste, SurveyItemClipboardData, SurveyComponentClipboardData } from "./copy-paste";
+import { ItemCopyPaste, SurveyItemClipboardData } from "./item-copy-paste";
 
 // Interface for serializing SurveyEditor state
 export interface SurveyEditorJson {
@@ -664,7 +664,7 @@ export class SurveyEditor {
    * @returns Clipboard data that can be serialized to JSON for clipboard
    */
   copyItem(itemKey: string): SurveyItemClipboardData {
-    const copyPaste = new CopyPaste(this._survey);
+    const copyPaste = new ItemCopyPaste(this._survey);
     return copyPaste.copyItem(itemKey);
   }
 
@@ -680,23 +680,10 @@ export class SurveyEditor {
   }): string {
     this.commitIfNeeded();
 
-    const copyPaste = new CopyPaste(this._survey);
+    const copyPaste = new ItemCopyPaste(this._survey);
     const newFullKey = copyPaste.pasteItem(clipboardData, target);
 
     this.commit(`Pasted ${newFullKey}`);
     return newFullKey;
   }
-
-  /**
-   * Copy a component from an item
-   * @param itemKey - The full key of the item containing the component
-   * @param componentKey - The full key of the component to copy
-   * @returns Clipboard data for the component
-   */
-  copyComponent(itemKey: string, componentKey: string): SurveyComponentClipboardData {
-    const copyPaste = new CopyPaste(this._survey);
-    return copyPaste.copyComponent(itemKey, componentKey);
-  }
-
-  // TODO: add paste component
 }

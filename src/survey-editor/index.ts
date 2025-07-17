@@ -4,4 +4,4 @@ export * from './component-editor';
 export * from './expression-editor';
 export * from './expression-editor-generators';
 export * from './undo-redo';
-export * from './copy-paste';
+export * from './item-copy-paste';
