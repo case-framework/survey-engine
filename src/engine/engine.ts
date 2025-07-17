@@ -219,6 +219,11 @@ export class SurveyEngineCore {
     return pages;
   }
 
+  getRenderedSurveyItem(itemKey: string): RenderedSurveyItem | undefined {
+    const renderedSurvey = flattenTree(this.renderedSurveyTree);
+    return renderedSurvey.find(item => item.key.fullKey === itemKey);
+  }
+
   onQuestionDisplayed(itemKey: string) {
     this.setTimestampFor('displayed', itemKey);
   }
