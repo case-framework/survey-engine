@@ -395,6 +395,10 @@ export class SurveyEditor {
       parentGroup.items = [];
     }
 
+    if (parentGroup.items.includes(item.key.fullKey)) {
+      throw new Error(`Item ${item.key.fullKey} already in this group`);
+    }
+
     // Determine insertion index
     let insertIndex: number;
     if (target?.index !== undefined) {

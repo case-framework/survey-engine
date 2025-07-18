@@ -140,7 +140,7 @@ export abstract class GroupComponent extends ItemComponent {
 // DISPLAY COMPONENTS
 // ========================================
 export class DisplayComponent extends ItemComponent {
-  componentType!: DisplayComponentTypes;
+  declare componentType: DisplayComponentTypes;
 
   constructor(
     type: DisplayComponentTypes,
@@ -236,7 +236,7 @@ export abstract class ResponseConfigComponent extends ItemComponent {
 export class ScgMcgChoiceResponseConfig extends GroupComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
   items: Array<ScgMcgOptionBase>;
-  shuffleItems?: boolean;
+  declare shuffleItems?: boolean;
 
 
   constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
@@ -287,7 +287,7 @@ export class ScgMcgChoiceResponseConfig extends GroupComponent {
 }
 
 export abstract class ScgMcgOptionBase extends ItemComponent {
-  componentType!: ScgMcgOptionTypes;
+  declare componentType: ScgMcgOptionTypes;
 
   static fromJson(item: JsonItemComponent, parentFullKey: string | undefined = undefined, parentItemKey: string): ScgMcgOptionBase {
     switch (item.type) {

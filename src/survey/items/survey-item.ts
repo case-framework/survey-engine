@@ -511,7 +511,7 @@ abstract class ScgMcgQuestionItem extends QuestionItem {
 
 export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
   itemType: SurveyItemType.SingleChoiceQuestion = SurveyItemType.SingleChoiceQuestion;
-  responseConfig!: ScgMcgChoiceResponseConfig;
+  declare responseConfig: ScgMcgChoiceResponseConfig;
 
   constructor(itemFullKey: string) {
     super(itemFullKey, SurveyItemType.SingleChoiceQuestion);
@@ -527,7 +527,7 @@ export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
 
 export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
   itemType: SurveyItemType.MultipleChoiceQuestion = SurveyItemType.MultipleChoiceQuestion;
-  responseConfig!: ScgMcgChoiceResponseConfig;
+  declare responseConfig: ScgMcgChoiceResponseConfig;
 
   constructor(itemFullKey: string) {
     super(itemFullKey, SurveyItemType.MultipleChoiceQuestion);

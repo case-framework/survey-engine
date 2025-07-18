@@ -1,6 +1,6 @@
 import { SurveyItemKey } from "../survey/item-component-key";
 import { SurveyEditor } from "./survey-editor";
-import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType } from "../survey/items";
+import { MultipleChoiceQuestionItem, QuestionItem, SingleChoiceQuestionItem, SurveyItem, SurveyItemType, GroupItem } from "../survey/items";
 import { DisplayComponentEditor, ScgMcgOptionBaseEditor } from "./component-editor";
 import { DisplayComponent, ItemComponent, ItemComponentType, ScgMcgOption, ScgMcgOptionBase, ScgMcgOptionTypes } from "../survey";
 import { Content } from "../survey/utils/content";
@@ -242,7 +242,7 @@ export abstract class QuestionEditor extends SurveyItemEditor {
  * Single choice question and multiple choice question are very similar things, this is the base class for them.
  */
 abstract class ScgMcgEditor extends QuestionEditor {
-  protected _currentItem!: SingleChoiceQuestionItem | MultipleChoiceQuestionItem;
+  declare protected _currentItem: SingleChoiceQuestionItem | MultipleChoiceQuestionItem;
 
   constructor(editor: SurveyEditor, itemFullKey: string, type: SurveyItemType.SingleChoiceQuestion | SurveyItemType.MultipleChoiceQuestion) {
     super(editor, itemFullKey, type);
@@ -306,6 +306,221 @@ export class SingleChoiceQuestionEditor extends ScgMcgEditor {
         return;
       default:
         throw new Error(`Cannot convert ${this._type} to ${type}`);
+    }
+  }
+}
+
+export class GroupItemEditor extends SurveyItemEditor {
+  protected _currentItem: GroupItem;
+
+  constructor(editor: SurveyEditor, itemFullKey: string) {
+    super(editor, itemFullKey, SurveyItemType.Group);
+    this._currentItem = this._editor.survey.surveyItems[itemFullKey] as GroupItem;
+    if (!this._currentItem) {
+      throw new Error(`Can't find group item ${itemFullKey}`);
+    }
+  }
+
+  /**
+   * Get the ordered list of child item keys in this group
+   * @returns Array of child item keys in their current order
+   */
+  get childItemKeys(): string[] {
+    return this._currentItem.items || [];
+  }
+
+  /**
+   * Get the child items as SurveyItem objects in their current order
+   * @returns Array of child SurveyItem objects
+   */
+  get childItems(): SurveyItem[] {
+    const childKeys = this.childItemKeys;
+    return childKeys
+      .map(key => this._editor.survey.surveyItems[key])
+      .filter(item => item !== undefined); // Filter out any missing items
+  }
+
+  /**
+   * Update the ordering of items within this group
+   * @param newOrder Array of item keys in the desired order
+   * @throws Error if any key in newOrder is not a child of this group
+   */
+  updateItemOrdering(newOrder: string[]): void {
+    this._editor.commitIfNeeded();
+
+    const currentKeys = new Set(this.childItemKeys);
+
+    // Validate that all items in newOrder are current children
+    if (newOrder.length !== currentKeys.size || !newOrder.every(key => currentKeys.has(key))) {
+      throw new Error('New order must contain exactly the same items as current children');
+    }
+
+    // Update the items array with the new order
+    this._currentItem.items = [...newOrder];
+
+    this._editor.commit(`Reordered items in group ${this._currentItem.key.fullKey}`);
+  }
+
+  /**
+   * Swap two items by their positions in the group
+   * @param fromIndex The index of the first item to swap
+   * @param toIndex The index of the second item to swap
+   * @throws Error if indices are out of bounds
+   */
+  swapItemsByIndex(fromIndex: number, toIndex: number): void {
+    this._editor.commitIfNeeded();
+
+    const items = this.childItemKeys;
+
+    if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
+      throw new Error(`Index out of bounds. Valid range is 0-${items.length - 1}`);
+    }
+
+    if (fromIndex === toIndex) {
+      return; // No operation needed
+    }
+
+    // Swap the items
+    const newOrder = [...items];
+    [newOrder[fromIndex], newOrder[toIndex]] = [newOrder[toIndex], newOrder[fromIndex]];
+
+    this._currentItem.items = newOrder;
+
+    this._editor.commit(`Swapped items at positions ${fromIndex} and ${toIndex} in group ${this._currentItem.key.fullKey}`);
+  }
+
+  /**
+   * Swap two items by their keys
+   * @param itemKey1 The key of the first item to swap
+   * @param itemKey2 The key of the second item to swap
+   * @throws Error if either key is not found in this group
+   */
+  swapItemsByKey(itemKey1: string, itemKey2: string): void {
+    const items = this.childItemKeys;
+    const index1 = items.indexOf(itemKey1);
+    const index2 = items.indexOf(itemKey2);
+
+    if (index1 === -1) {
+      throw new Error(`Item '${itemKey1}' not found in group '${this._currentItem.key.fullKey}'`);
+    }
+
+    if (index2 === -1) {
+      throw new Error(`Item '${itemKey2}' not found in group '${this._currentItem.key.fullKey}'`);
+    }
+
+    this.swapItemsByIndex(index1, index2);
+  }
+
+  /**
+   * Move an item from one position to another within the group
+   * @param fromIndex The current index of the item to move
+   * @param toIndex The target index where the item should be moved
+   * @throws Error if indices are out of bounds
+   */
+  moveItem(fromIndex: number, toIndex: number): void {
+    this._editor.commitIfNeeded();
+
+    const items = this.childItemKeys;
+
+    if (fromIndex < 0 || fromIndex >= items.length || toIndex < 0 || toIndex >= items.length) {
+      throw new Error(`Index out of bounds. Valid range is 0-${items.length - 1}`);
+    }
+
+    if (fromIndex === toIndex) {
+      return; // No operation needed
+    }
+
+    // Create new order by moving the item
+    const newOrder = [...items];
+    const [movedItem] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, movedItem);
+
+    this._currentItem.items = newOrder;
+
+    this._editor.commit(`Moved item from position ${fromIndex} to ${toIndex} in group ${this._currentItem.key.fullKey}`);
+  }
+
+  /**
+   * Move an item by key to a specific position
+   * @param itemKey The key of the item to move
+   * @param toIndex The target index where the item should be moved
+   * @throws Error if the item key is not found or index is out of bounds
+   */
+  moveItemByKey(itemKey: string, toIndex: number): void {
+    const items = this.childItemKeys;
+    const fromIndex = items.indexOf(itemKey);
+
+    if (fromIndex === -1) {
+      throw new Error(`Item '${itemKey}' not found in group '${this._currentItem.key.fullKey}'`);
+    }
+
+    this.moveItem(fromIndex, toIndex);
+  }
+
+  /**
+   * Add an existing item to this group at a specific position
+   * @param itemKey The key of the item to add
+   * @param index Optional index where to insert the item (defaults to end)
+   * @throws Error if the item doesn't exist or is already in this group
+   */
+  addChildItem(item: SurveyItem, translations: SurveyItemTranslations, index?: number): void {
+    this._editor.addItem({
+      parentKey: this._currentItem.key.fullKey,
+      index
+    }, item, translations)
+  }
+
+  /**
+   * Remove an item from this group (doesn't delete the item from the survey)
+   * @param itemKey The key of the item to remove from this group
+   * @returns true if the item was removed, false if it wasn't in the group
+   */
+  removeChildItem(itemKey: string): boolean {
+    return this._editor.removeItem(itemKey);
+  }
+
+  /**
+   * Get the index of an item within this group
+   * @param itemKey The key of the item to find
+   * @returns The index of the item, or -1 if not found
+   */
+  getItemIndex(itemKey: string): number {
+    return this.childItemKeys.indexOf(itemKey);
+  }
+
+  /**
+   * Check if an item is a direct child of this group
+   * @param itemKey The key of the item to check
+   * @returns true if the item is a direct child of this group
+   */
+  hasChildItem(itemKey: string): boolean {
+    return this.childItemKeys.includes(itemKey);
+  }
+
+  /**
+   * Set whether items in this group should be shuffled
+   * @param shouldShuffle Whether to shuffle items in this group
+   */
+  setShuffleItems(shouldShuffle: boolean): void {
+    this._editor.commitIfNeeded();
+    this._currentItem.shuffleItems = shouldShuffle;
+    this._editor.commit(`Set shuffleItems to ${shouldShuffle} for group ${this._currentItem.key.fullKey}`);
+  }
+
+  /**
+   * Get whether items in this group are set to be shuffled
+   * @returns true if items should be shuffled
+   */
+  getShuffleItems(): boolean {
+    return this._currentItem.shuffleItems || false;
+  }
+
+  convertToType(type: SurveyItemType): void {
+    switch (type) {
+      case SurveyItemType.Group:
+        return; // Already a group
+      default:
+        throw new Error(`Cannot convert group item to ${type}`);
     }
   }
 }
