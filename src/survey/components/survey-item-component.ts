@@ -236,7 +236,6 @@ export abstract class ResponseConfigComponent extends ItemComponent {
 export class ScgMcgChoiceResponseConfig extends GroupComponent {
   componentType: ItemComponentType.SingleChoice = ItemComponentType.SingleChoice;
   items: Array<ScgMcgOptionBase>;
-  declare shuffleItems?: boolean;
 
 
   constructor(compKey: string, parentFullKey: string | undefined = undefined, parentItemKey: string | undefined = undefined) {
