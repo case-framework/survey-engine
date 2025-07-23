@@ -363,4 +363,270 @@ describe('ItemInitHelper', () => {
       expect(survey.surveyItems[groupKey]).toBeDefined();
     });
   });
+
+  describe('surveyEnd', () => {
+    it('should create and add a survey end item', () => {
+      const parentKey = 'test-survey.page1';
+
+      const surveyEndKey = initAndAdd.surveyEnd({
+        parentFullKey: parentKey
+      });
+
+      // Verify the survey end was created
+      expect(surveyEndKey).toBeDefined();
+      expect(surveyEndKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the survey end exists in the survey
+      const createdSurveyEnd = survey.surveyItems[surveyEndKey];
+      expect(createdSurveyEnd).toBeDefined();
+      expect(createdSurveyEnd.itemType).toBe(SurveyItemType.SurveyEnd);
+
+      // Verify the survey end was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(surveyEndKey);
+    });
+
+    it('should add survey end at specified position', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      const item2 = new DisplayItem(`${parentKey}.item2`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+      survey.surveyItems[`${parentKey}.item2`] = item2;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`, `${parentKey}.item2`];
+
+      // Add survey end at position 1 (between item1 and item2)
+      const surveyEndKey = initAndAdd.surveyEnd({
+        parentFullKey: parentKey,
+        position: 1
+      });
+
+      // Verify the survey end was inserted at the correct position
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        surveyEndKey,
+        `${parentKey}.item2`
+      ]);
+    });
+
+    it('should add survey end at the end when no position is specified', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`];
+
+      // Add survey end without specifying position
+      const surveyEndKey = initAndAdd.surveyEnd({
+        parentFullKey: parentKey
+      });
+
+      // Verify the survey end was added at the end
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        surveyEndKey
+      ]);
+    });
+
+    it('should generate unique keys for multiple survey ends', () => {
+      const parentKey = 'test-survey.page1';
+
+      // Create multiple survey ends
+      const surveyEnd1Key = initAndAdd.surveyEnd({
+        parentFullKey: parentKey
+      });
+      const surveyEnd2Key = initAndAdd.surveyEnd({
+        parentFullKey: parentKey
+      });
+
+      // Verify all keys are unique
+      expect(surveyEnd1Key).not.toBe(surveyEnd2Key);
+
+      // Verify all survey ends exist
+      expect(survey.surveyItems[surveyEnd1Key]).toBeDefined();
+      expect(survey.surveyItems[surveyEnd2Key]).toBeDefined();
+
+      // Verify all are added to parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(surveyEnd1Key);
+      expect(parentGroup.items).toContain(surveyEnd2Key);
+    });
+
+    it('should work with root group as parent', () => {
+      const rootKey = 'test-survey';
+
+      const surveyEndKey = initAndAdd.surveyEnd({
+        parentFullKey: rootKey
+      });
+
+      // Verify the survey end was created and added to root
+      const createdSurveyEnd = survey.surveyItems[surveyEndKey];
+      expect(createdSurveyEnd).toBeDefined();
+      expect(createdSurveyEnd.itemType).toBe(SurveyItemType.SurveyEnd);
+
+      const rootGroup = survey.surveyItems[rootKey] as GroupItem;
+      expect(rootGroup.items).toContain(surveyEndKey);
+    });
+
+    it('should throw error for non-existent parent', () => {
+      expect(() => {
+        initAndAdd.surveyEnd({
+          parentFullKey: 'non-existent-parent'
+        });
+      }).toThrow();
+    });
+
+    it('should return the full key of the created survey end', () => {
+      const parentKey = 'test-survey.page1';
+
+      const surveyEndKey = initAndAdd.surveyEnd({
+        parentFullKey: parentKey
+      });
+
+      // Verify the returned key is a valid full key format
+      expect(surveyEndKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the key corresponds to an actual item
+      expect(survey.surveyItems[surveyEndKey]).toBeDefined();
+    });
+  });
+
+  describe('pageBreak', () => {
+    it('should create and add a page break item', () => {
+      const parentKey = 'test-survey.page1';
+
+      const pageBreakKey = initAndAdd.pageBreak({
+        parentFullKey: parentKey
+      });
+
+      // Verify the page break was created
+      expect(pageBreakKey).toBeDefined();
+      expect(pageBreakKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the page break exists in the survey
+      const createdPageBreak = survey.surveyItems[pageBreakKey];
+      expect(createdPageBreak).toBeDefined();
+      expect(createdPageBreak.itemType).toBe(SurveyItemType.PageBreak);
+
+      // Verify the page break was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(pageBreakKey);
+    });
+
+    it('should add page break at specified position', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      const item2 = new DisplayItem(`${parentKey}.item2`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+      survey.surveyItems[`${parentKey}.item2`] = item2;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`, `${parentKey}.item2`];
+
+      // Add page break at position 1 (between item1 and item2)
+      const pageBreakKey = initAndAdd.pageBreak({
+        parentFullKey: parentKey,
+        position: 1
+      });
+
+      // Verify the page break was inserted at the correct position
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        pageBreakKey,
+        `${parentKey}.item2`
+      ]);
+    });
+
+    it('should add page break at the end when no position is specified', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`];
+
+      // Add page break without specifying position
+      const pageBreakKey = initAndAdd.pageBreak({
+        parentFullKey: parentKey
+      });
+
+      // Verify the page break was added at the end
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        pageBreakKey
+      ]);
+    });
+
+    it('should generate unique keys for multiple page breaks', () => {
+      const parentKey = 'test-survey.page1';
+
+      // Create multiple page breaks
+      const pageBreak1Key = initAndAdd.pageBreak({
+        parentFullKey: parentKey
+      });
+      const pageBreak2Key = initAndAdd.pageBreak({
+        parentFullKey: parentKey
+      });
+
+      // Verify all keys are unique
+      expect(pageBreak1Key).not.toBe(pageBreak2Key);
+
+      // Verify all page breaks exist
+      expect(survey.surveyItems[pageBreak1Key]).toBeDefined();
+      expect(survey.surveyItems[pageBreak2Key]).toBeDefined();
+
+      // Verify all are added to parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(pageBreak1Key);
+      expect(parentGroup.items).toContain(pageBreak2Key);
+    });
+
+    it('should work with root group as parent', () => {
+      const rootKey = 'test-survey';
+
+      const pageBreakKey = initAndAdd.pageBreak({
+        parentFullKey: rootKey
+      });
+
+      // Verify the page break was created and added to root
+      const createdPageBreak = survey.surveyItems[pageBreakKey];
+      expect(createdPageBreak).toBeDefined();
+      expect(createdPageBreak.itemType).toBe(SurveyItemType.PageBreak);
+
+      const rootGroup = survey.surveyItems[rootKey] as GroupItem;
+      expect(rootGroup.items).toContain(pageBreakKey);
+    });
+
+    it('should throw error for non-existent parent', () => {
+      expect(() => {
+        initAndAdd.pageBreak({
+          parentFullKey: 'non-existent-parent'
+        });
+      }).toThrow();
+    });
+
+    it('should return the full key of the created page break', () => {
+      const parentKey = 'test-survey.page1';
+
+      const pageBreakKey = initAndAdd.pageBreak({
+        parentFullKey: parentKey
+      });
+
+      // Verify the returned key is a valid full key format
+      expect(pageBreakKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the key corresponds to an actual item
+      expect(survey.surveyItems[pageBreakKey]).toBeDefined();
+    });
+  });
 });

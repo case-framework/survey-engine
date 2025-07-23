@@ -1,6 +1,6 @@
 import { SurveyEditor } from "./survey-editor";
-import { GroupItem, SurveyItemType } from "../survey/items";
-import { SurveyItemTranslations } from "../survey/utils";
+import { DisplayItem, GroupItem, MultipleChoiceQuestionItem, PageBreakItem, SingleChoiceQuestionItem, SurveyEndItem } from "../survey/items";
+import { ContentType, SurveyItemTranslations } from "../survey/utils";
 
 interface Target {
   parentFullKey: string;
@@ -31,24 +31,95 @@ export class ItemInitHelper {
     return newGroup.key.fullKey;
   }
 
-  surveyEnd(target: Target) {
+  surveyEnd(target: Target): string {
+    // Generate a unique key for the new survey end
+    const uniqueKey = this.generateUniqueKey(target.parentFullKey);
 
+    // Create the new SurveyEndItem
+    const newSurveyEnd = new SurveyEndItem(`${target.parentFullKey}.${uniqueKey}`);
+
+    // Create translations for the survey end (empty by default)
+    const translations = new SurveyItemTranslations();
+    for (const locale of this._editor.survey.locales) {
+      translations.setContent(locale, 'title', {
+        content: '',
+        type: ContentType.CQM
+      });
+    }
+
+    // Add the survey end to the survey via the editor
+    this._editor.addItem({
+      parentKey: target.parentFullKey,
+      index: target.position
+    }, newSurveyEnd, translations);
+
+    return newSurveyEnd.key.fullKey;
   }
 
-  pageBreak(target: Target) {
+  pageBreak(target: Target): string {
+    // Generate a unique key for the new page break
+    const uniqueKey = this.generateUniqueKey(target.parentFullKey);
+
+    // Create the new PageBreakItem
+    const newPageBreak = new PageBreakItem(`${target.parentFullKey}.${uniqueKey}`);
+
+    // Add the page break to the survey via the editor
+    this._editor.addItem({
+      parentKey: target.parentFullKey,
+      index: target.position
+    }, newPageBreak);
+
+    return newPageBreak.key.fullKey;
   }
 
   // Display items
   displayItem(target: Target) {
+    // Generate a unique key for the new display item
+    const uniqueKey = this.generateUniqueKey(target.parentFullKey);
+
+    // Create the new DisplayItem
+    const newDisplayItem = new DisplayItem(`${target.parentFullKey}.${uniqueKey}`);
+
+    // Add the display item to the survey via the editor
+    this._editor.addItem({
+      parentKey: target.parentFullKey,
+      index: target.position
+    }, newDisplayItem);
+
+    return newDisplayItem.key.fullKey;
   }
 
   // Response items
   singleChoiceQuestion(target: Target) {
+    // Generate a unique key for the new single choice question
+    const uniqueKey = this.generateUniqueKey(target.parentFullKey);
 
+    // Create the new SingleChoiceQuestionItem
+    const newSingleChoiceQuestion = new SingleChoiceQuestionItem(`${target.parentFullKey}.${uniqueKey}`);
+
+    // Add the single choice question to the survey via the editor
+    this._editor.addItem({
+      parentKey: target.parentFullKey,
+      index: target.position
+    }, newSingleChoiceQuestion);
+
+    return newSingleChoiceQuestion.key.fullKey;
   }
 
   multipleChoiceQuestion(target: Target) {
+    // Generate a unique key for the new multiple choice question
+    const uniqueKey = this.generateUniqueKey(target.parentFullKey);
 
+    // Create the new MultipleChoiceQuestionItem
+    const newMultipleChoiceQuestion = new MultipleChoiceQuestionItem(`${target.parentFullKey}.${uniqueKey}`);
+
+    // Add the multiple choice question to the survey via the editor
+    this._editor.addItem({
+      parentKey: target.parentFullKey,
+      index: target.position
+    }, newMultipleChoiceQuestion);
+
+    return newMultipleChoiceQuestion.key.fullKey;
   }
 
 

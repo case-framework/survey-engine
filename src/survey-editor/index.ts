@@ -5,3 +5,4 @@ export * from './expression-editor';
 export * from './expression-editor-generators';
 export * from './undo-redo';
 export * from './item-copy-paste';
+export * from './item-init-helper';
