@@ -354,7 +354,7 @@ export class SurveyEditor {
     index?: number;
   } | undefined,
     item: SurveyItem,
-    content: SurveyItemTranslations
+    content?: SurveyItemTranslations
   ) {
     this.commitIfNeeded();
 

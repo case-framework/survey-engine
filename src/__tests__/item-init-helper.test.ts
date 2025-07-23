@@ -1,0 +1,366 @@
+import { Survey } from '../survey/survey';
+import { SurveyEditor } from '../survey-editor/survey-editor';
+import { ItemInitHelper } from '../survey-editor/item-init-helper';
+import { GroupItem, SingleChoiceQuestionItem, DisplayItem, SurveyItemType } from '../survey/items';
+
+// Helper function to create a test survey with some existing items
+const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
+  const survey = new Survey(surveyKey);
+
+  // Add a sub-group to the root
+  const subGroup = new GroupItem(`${surveyKey}.page1`);
+  survey.surveyItems[`${surveyKey}.page1`] = subGroup;
+
+  // Add the sub-group to the root group's items
+  const rootGroup = survey.surveyItems[surveyKey] as GroupItem;
+  rootGroup.items = [`${surveyKey}.page1`];
+
+  return survey;
+};
+
+// Helper function to add items with known keys to test uniqueness
+const addKnownItems = (survey: Survey, parentKey: string, itemKeys: string[]): void => {
+  itemKeys.forEach(key => {
+    const fullKey = `${parentKey}.${key}`;
+    const item = new DisplayItem(fullKey);
+    survey.surveyItems[fullKey] = item;
+
+    // Add to parent's items array
+    const parentItem = survey.surveyItems[parentKey] as GroupItem;
+    if (!parentItem.items) {
+      parentItem.items = [];
+    }
+    parentItem.items.push(fullKey);
+  });
+};
+
+describe('ItemInitHelper', () => {
+  let survey: Survey;
+  let editor: SurveyEditor;
+  let initAndAdd: ItemInitHelper;
+
+  beforeEach(() => {
+    survey = createTestSurvey();
+    editor = new SurveyEditor(survey);
+    initAndAdd = new ItemInitHelper(editor);
+  });
+
+  describe('generateUniqueKey', () => {
+    it('should generate a 3-character key by default', () => {
+      const key = (initAndAdd as any).generateUniqueKey('test-survey.page1');
+
+      expect(typeof key).toBe('string');
+      expect(key).toHaveLength(3);
+      expect(key).toMatch(/^[a-zA-Z0-9]{3}$/);
+    });
+
+    it('should generate a key of specified length', () => {
+      const key5 = (initAndAdd as any).generateUniqueKey('test-survey.page1', 5);
+      const key1 = (initAndAdd as any).generateUniqueKey('test-survey.page1', 1);
+      const key10 = (initAndAdd as any).generateUniqueKey('test-survey.page1', 10);
+
+      expect(key5).toHaveLength(5);
+      expect(key1).toHaveLength(1);
+      expect(key10).toHaveLength(10);
+
+      expect(key5).toMatch(/^[a-zA-Z0-9]{5}$/);
+      expect(key1).toMatch(/^[a-zA-Z0-9]{1}$/);
+      expect(key10).toMatch(/^[a-zA-Z0-9]{10}$/);
+    });
+
+    it('should generate unique keys when siblings exist', () => {
+      // Add some existing items with known keys
+      addKnownItems(survey, 'test-survey.page1', ['abc', 'def', 'xyz']);
+
+      const generatedKeys = new Set<string>();
+
+      // Generate multiple keys and ensure they're all unique and different from existing ones
+      for (let i = 0; i < 10; i++) {
+        const key = (initAndAdd as any).generateUniqueKey('test-survey.page1');
+
+        expect(key).not.toBe('abc');
+        expect(key).not.toBe('def');
+        expect(key).not.toBe('xyz');
+        expect(generatedKeys.has(key)).toBe(false);
+
+        generatedKeys.add(key);
+      }
+
+      expect(generatedKeys.size).toBe(10);
+    });
+
+    it('should handle empty parent (no existing siblings)', () => {
+      const key = (initAndAdd as any).generateUniqueKey('test-survey.page1');
+
+      expect(typeof key).toBe('string');
+      expect(key).toHaveLength(3);
+      expect(key).toMatch(/^[a-zA-Z0-9]{3}$/);
+    });
+
+    it('should generate different keys for different parents', () => {
+      // Add another sub-group
+      const subGroup2 = new GroupItem('test-survey.page2');
+      survey.surveyItems['test-survey.page2'] = subGroup2;
+      const rootGroup = survey.surveyItems['test-survey'] as GroupItem;
+      rootGroup.items?.push('test-survey.page2');
+
+      // Add the same key to both parents
+      addKnownItems(survey, 'test-survey.page1', ['abc']);
+      addKnownItems(survey, 'test-survey.page2', ['abc']);
+
+      // Generate keys for both parents - they should be able to avoid 'abc' independently
+      const key1 = (initAndAdd as any).generateUniqueKey('test-survey.page1');
+      const key2 = (initAndAdd as any).generateUniqueKey('test-survey.page2');
+
+      expect(key1).not.toBe('abc');
+      expect(key2).not.toBe('abc');
+      expect(typeof key1).toBe('string');
+      expect(typeof key2).toBe('string');
+    });
+
+    it('should work with nested parent keys', () => {
+      // Create a deeply nested structure
+      const nestedGroup = new GroupItem('test-survey.page1.section1');
+      survey.surveyItems['test-survey.page1.section1'] = nestedGroup;
+
+      const key = (initAndAdd as any).generateUniqueKey('test-survey.page1.section1');
+
+      expect(typeof key).toBe('string');
+      expect(key).toHaveLength(3);
+      expect(key).toMatch(/^[a-zA-Z0-9]{3}$/);
+    });
+
+    it('should handle case where many keys are already taken', () => {
+      // Fill up many single character combinations to test the algorithm under pressure
+      const existingKeys: string[] = [];
+      for (let i = 0; i < 100; i++) {
+        existingKeys.push(`k${i.toString().padStart(2, '0')}`);
+      }
+
+      addKnownItems(survey, 'test-survey.page1', existingKeys);
+
+      const key = (initAndAdd as any).generateUniqueKey('test-survey.page1');
+
+      expect(typeof key).toBe('string');
+      expect(key).toHaveLength(3);
+      expect(existingKeys).not.toContain(key);
+    });
+
+    it('should throw error if unable to generate unique key after max attempts', () => {
+      // Mock Math.random to always return the same value, causing key generation to fail
+      const originalRandom = Math.random;
+      Math.random = jest.fn(() => 0.5);
+
+      // Calculate what key will be generated when random always returns 0.5
+      // chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' (62 chars)
+      // Math.floor(0.5 * 62) = 31, which is 'F' (0-indexed)
+      const predictableKey = 'FFF';
+      addKnownItems(survey, 'test-survey.page1', [predictableKey]);
+
+      expect(() => {
+        (initAndAdd as any).generateUniqueKey('test-survey.page1');
+      }).toThrow('Failed to generate unique key after 1000 attempts');
+
+      // Restore original Math.random
+      Math.random = originalRandom;
+    });
+
+    it('should generate multiple unique keys in sequence', () => {
+      const generatedKeys = new Set<string>();
+
+      // Generate 20 keys and ensure they're all unique
+      for (let i = 0; i < 20; i++) {
+        const key = (initAndAdd as any).generateUniqueKey('test-survey.page1');
+        expect(generatedKeys.has(key)).toBe(false);
+        generatedKeys.add(key);
+
+        // Add the generated key to the survey so the next generation avoids it
+        const fullKey = `test-survey.page1.${key}`;
+        const item = new DisplayItem(fullKey);
+        survey.surveyItems[fullKey] = item;
+
+        // Add to parent's items array
+        const parentItem = survey.surveyItems['test-survey.page1'] as GroupItem;
+        if (!parentItem.items) {
+          parentItem.items = [];
+        }
+        parentItem.items.push(fullKey);
+      }
+
+      expect(generatedKeys.size).toBe(20);
+    });
+  });
+
+  describe('initAndAddGroup', () => {
+    it('should create and add a group with default shuffleItems (false)', () => {
+      const parentKey = 'test-survey.page1';
+
+      const groupKey = initAndAdd.group({
+        parentFullKey: parentKey
+      });
+
+      // Verify the group was created
+      expect(groupKey).toBeDefined();
+      expect(groupKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the group exists in the survey
+      const createdGroup = survey.surveyItems[groupKey] as GroupItem;
+      expect(createdGroup).toBeDefined();
+      expect(createdGroup.itemType).toBe(SurveyItemType.Group);
+      expect(createdGroup.shuffleItems).toBe(false);
+
+      // Verify the group was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(groupKey);
+    });
+
+    it('should create and add a group with shuffleItems set to true', () => {
+      const parentKey = 'test-survey.page1';
+
+      const groupKey = initAndAdd.group({
+        parentFullKey: parentKey
+      }, true);
+
+      // Verify the group was created with shuffleItems = true
+      const createdGroup = survey.surveyItems[groupKey] as GroupItem;
+      expect(createdGroup).toBeDefined();
+      expect(createdGroup.itemType).toBe(SurveyItemType.Group);
+      expect(createdGroup.shuffleItems).toBe(true);
+
+      // Verify the group was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(groupKey);
+    });
+
+    it('should create and add a group with shuffleItems explicitly set to false', () => {
+      const parentKey = 'test-survey.page1';
+
+      const groupKey = initAndAdd.group({
+        parentFullKey: parentKey
+      }, false);
+
+      // Verify the group was created with shuffleItems = false
+      const createdGroup = survey.surveyItems[groupKey] as GroupItem;
+      expect(createdGroup).toBeDefined();
+      expect(createdGroup.itemType).toBe(SurveyItemType.Group);
+      expect(createdGroup.shuffleItems).toBe(false);
+    });
+
+    it('should add group at specified position', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      const item2 = new DisplayItem(`${parentKey}.item2`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+      survey.surveyItems[`${parentKey}.item2`] = item2;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`, `${parentKey}.item2`];
+
+      // Add group at position 1 (between item1 and item2)
+      const groupKey = initAndAdd.group({
+        parentFullKey: parentKey,
+        position: 1
+      });
+
+      // Verify the group was inserted at the correct position
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        groupKey,
+        `${parentKey}.item2`
+      ]);
+    });
+
+    it('should add group at the end when no position is specified', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`];
+
+      // Add group without specifying position
+      const groupKey = initAndAdd.group({
+        parentFullKey: parentKey
+      });
+
+      // Verify the group was added at the end
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        groupKey
+      ]);
+    });
+
+    it('should generate unique keys for multiple groups', () => {
+      const parentKey = 'test-survey.page1';
+
+      // Create multiple groups
+      const group1Key = initAndAdd.group({
+        parentFullKey: parentKey
+      });
+      const group2Key = initAndAdd.group({
+        parentFullKey: parentKey
+      });
+      const group3Key = initAndAdd.group({
+        parentFullKey: parentKey
+      });
+
+      // Verify all keys are unique
+      expect(group1Key).not.toBe(group2Key);
+      expect(group1Key).not.toBe(group3Key);
+      expect(group2Key).not.toBe(group3Key);
+
+      // Verify all groups exist
+      expect(survey.surveyItems[group1Key]).toBeDefined();
+      expect(survey.surveyItems[group2Key]).toBeDefined();
+      expect(survey.surveyItems[group3Key]).toBeDefined();
+
+      // Verify all are added to parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(group1Key);
+      expect(parentGroup.items).toContain(group2Key);
+      expect(parentGroup.items).toContain(group3Key);
+    });
+
+    it('should work with root group as parent', () => {
+      const rootKey = 'test-survey';
+
+      const groupKey = initAndAdd.group({
+        parentFullKey: rootKey
+      }, true);
+
+      // Verify the group was created and added to root
+      const createdGroup = survey.surveyItems[groupKey] as GroupItem;
+      expect(createdGroup).toBeDefined();
+      expect(createdGroup.shuffleItems).toBe(true);
+
+      const rootGroup = survey.surveyItems[rootKey] as GroupItem;
+      expect(rootGroup.items).toContain(groupKey);
+    });
+
+    it('should throw error for non-existent parent', () => {
+      expect(() => {
+        initAndAdd.group({
+          parentFullKey: 'non-existent-parent'
+        });
+      }).toThrow();
+    });
+
+    it('should return the full key of the created group', () => {
+      const parentKey = 'test-survey.page1';
+
+      const groupKey = initAndAdd.group({
+        parentFullKey: parentKey
+      });
+
+      // Verify the returned key is a valid full key format
+      expect(groupKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the key corresponds to an actual item
+      expect(survey.surveyItems[groupKey]).toBeDefined();
+    });
+  });
+});
