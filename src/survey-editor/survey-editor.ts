@@ -416,7 +416,9 @@ export class SurveyEditor {
     parentGroup.items.splice(insertIndex, 0, item.key.fullKey);
 
     // Update translations in the survey
-    this._survey.translations.setItemTranslations(item.key.fullKey, content);
+    if (content) {
+      this._survey.translations.setItemTranslations(item.key.fullKey, content);
+    }
 
     // Mark as modified (uncommitted change)
     this.commit(`Added ${item.key.fullKey}`);

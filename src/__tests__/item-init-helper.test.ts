@@ -2,6 +2,7 @@ import { Survey } from '../survey/survey';
 import { SurveyEditor } from '../survey-editor/survey-editor';
 import { ItemInitHelper } from '../survey-editor/item-init-helper';
 import { GroupItem, SingleChoiceQuestionItem, DisplayItem, SurveyItemType } from '../survey/items';
+import { ContentType } from '../survey/utils/content';
 
 // Helper function to create a test survey with some existing items
 const createTestSurvey = (surveyKey: string = 'test-survey'): Survey => {
@@ -365,8 +366,15 @@ describe('ItemInitHelper', () => {
   });
 
   describe('surveyEnd', () => {
-    it('should create and add a survey end item', () => {
+    it('should create and add a survey end item with translations', () => {
       const parentKey = 'test-survey.page1';
+
+      // Set up locales in the survey first
+      survey.translations.setSurveyCardContent('en', {
+        name: { type: ContentType.md, content: 'Test Survey' },
+        description: { type: ContentType.md, content: 'Test Description' },
+        typicalDuration: { type: ContentType.md, content: '5 minutes' }
+      });
 
       const surveyEndKey = initAndAdd.surveyEnd({
         parentFullKey: parentKey
@@ -384,6 +392,10 @@ describe('ItemInitHelper', () => {
       // Verify the survey end was added to the parent
       const parentGroup = survey.surveyItems[parentKey] as GroupItem;
       expect(parentGroup.items).toContain(surveyEndKey);
+
+      // Verify translations were created
+      const itemTranslations = survey.getItemTranslations(surveyEndKey);
+      expect(itemTranslations?.getContent('en', 'title')).toBeDefined();
     });
 
     it('should add survey end at specified position', () => {
@@ -494,6 +506,225 @@ describe('ItemInitHelper', () => {
 
       // Verify the key corresponds to an actual item
       expect(survey.surveyItems[surveyEndKey]).toBeDefined();
+    });
+  });
+
+  describe('displayItem', () => {
+    it('should create and add a display item', () => {
+      const parentKey = 'test-survey.page1';
+
+      const displayItemKey = initAndAdd.displayItem({
+        parentFullKey: parentKey
+      });
+
+      // Verify the display item was created
+      expect(displayItemKey).toBeDefined();
+      expect(displayItemKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the display item exists in the survey
+      const createdDisplayItem = survey.surveyItems[displayItemKey];
+      expect(createdDisplayItem).toBeDefined();
+      expect(createdDisplayItem.itemType).toBe(SurveyItemType.Display);
+
+      // Verify the display item was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(displayItemKey);
+    });
+
+    it('should add display item at specified position', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      const item2 = new DisplayItem(`${parentKey}.item2`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+      survey.surveyItems[`${parentKey}.item2`] = item2;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`, `${parentKey}.item2`];
+
+      // Add display item at position 1 (between item1 and item2)
+      const displayItemKey = initAndAdd.displayItem({
+        parentFullKey: parentKey,
+        position: 1
+      });
+
+      // Verify the display item was inserted at the correct position
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        displayItemKey,
+        `${parentKey}.item2`
+      ]);
+    });
+
+    it('should work with root group as parent', () => {
+      const rootKey = 'test-survey';
+
+      const displayItemKey = initAndAdd.displayItem({
+        parentFullKey: rootKey
+      });
+
+      // Verify the display item was created and added to root
+      const createdDisplayItem = survey.surveyItems[displayItemKey];
+      expect(createdDisplayItem).toBeDefined();
+      expect(createdDisplayItem.itemType).toBe(SurveyItemType.Display);
+
+      const rootGroup = survey.surveyItems[rootKey] as GroupItem;
+      expect(rootGroup.items).toContain(displayItemKey);
+    });
+
+    it('should throw error for non-existent parent', () => {
+      expect(() => {
+        initAndAdd.displayItem({
+          parentFullKey: 'non-existent-parent'
+        });
+      }).toThrow();
+    });
+  });
+
+  describe('singleChoiceQuestion', () => {
+    it('should create and add a single choice question', () => {
+      const parentKey = 'test-survey.page1';
+
+      const singleChoiceKey = initAndAdd.singleChoiceQuestion({
+        parentFullKey: parentKey
+      });
+
+      // Verify the single choice question was created
+      expect(singleChoiceKey).toBeDefined();
+      expect(singleChoiceKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the single choice question exists in the survey
+      const createdSingleChoice = survey.surveyItems[singleChoiceKey];
+      expect(createdSingleChoice).toBeDefined();
+      expect(createdSingleChoice.itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+
+      // Verify the single choice question was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(singleChoiceKey);
+    });
+
+    it('should add single choice question at specified position', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      const item2 = new DisplayItem(`${parentKey}.item2`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+      survey.surveyItems[`${parentKey}.item2`] = item2;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`, `${parentKey}.item2`];
+
+      // Add single choice question at position 1 (between item1 and item2)
+      const singleChoiceKey = initAndAdd.singleChoiceQuestion({
+        parentFullKey: parentKey,
+        position: 1
+      });
+
+      // Verify the single choice question was inserted at the correct position
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        singleChoiceKey,
+        `${parentKey}.item2`
+      ]);
+    });
+
+    it('should work with root group as parent', () => {
+      const rootKey = 'test-survey';
+
+      const singleChoiceKey = initAndAdd.singleChoiceQuestion({
+        parentFullKey: rootKey
+      });
+
+      // Verify the single choice question was created and added to root
+      const createdSingleChoice = survey.surveyItems[singleChoiceKey];
+      expect(createdSingleChoice).toBeDefined();
+      expect(createdSingleChoice.itemType).toBe(SurveyItemType.SingleChoiceQuestion);
+
+      const rootGroup = survey.surveyItems[rootKey] as GroupItem;
+      expect(rootGroup.items).toContain(singleChoiceKey);
+    });
+
+    it('should throw error for non-existent parent', () => {
+      expect(() => {
+        initAndAdd.singleChoiceQuestion({
+          parentFullKey: 'non-existent-parent'
+        });
+      }).toThrow();
+    });
+  });
+
+  describe('multipleChoiceQuestion', () => {
+    it('should create and add a multiple choice question', () => {
+      const parentKey = 'test-survey.page1';
+
+      const multipleChoiceKey = initAndAdd.multipleChoiceQuestion({
+        parentFullKey: parentKey
+      });
+
+      // Verify the multiple choice question was created
+      expect(multipleChoiceKey).toBeDefined();
+      expect(multipleChoiceKey).toMatch(/^test-survey\.page1\.[a-zA-Z0-9]{3}$/);
+
+      // Verify the multiple choice question exists in the survey
+      const createdMultipleChoice = survey.surveyItems[multipleChoiceKey];
+      expect(createdMultipleChoice).toBeDefined();
+      expect(createdMultipleChoice.itemType).toBe(SurveyItemType.MultipleChoiceQuestion);
+
+      // Verify the multiple choice question was added to the parent
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      expect(parentGroup.items).toContain(multipleChoiceKey);
+    });
+
+    it('should add multiple choice question at specified position', () => {
+      const parentKey = 'test-survey.page1';
+
+      // First add some items to the parent group
+      const item1 = new DisplayItem(`${parentKey}.item1`);
+      const item2 = new DisplayItem(`${parentKey}.item2`);
+      survey.surveyItems[`${parentKey}.item1`] = item1;
+      survey.surveyItems[`${parentKey}.item2`] = item2;
+
+      const parentGroup = survey.surveyItems[parentKey] as GroupItem;
+      parentGroup.items = [`${parentKey}.item1`, `${parentKey}.item2`];
+
+      // Add multiple choice question at position 1 (between item1 and item2)
+      const multipleChoiceKey = initAndAdd.multipleChoiceQuestion({
+        parentFullKey: parentKey,
+        position: 1
+      });
+
+      // Verify the multiple choice question was inserted at the correct position
+      expect(parentGroup.items).toEqual([
+        `${parentKey}.item1`,
+        multipleChoiceKey,
+        `${parentKey}.item2`
+      ]);
+    });
+
+    it('should work with root group as parent', () => {
+      const rootKey = 'test-survey';
+
+      const multipleChoiceKey = initAndAdd.multipleChoiceQuestion({
+        parentFullKey: rootKey
+      });
+
+      // Verify the multiple choice question was created and added to root
+      const createdMultipleChoice = survey.surveyItems[multipleChoiceKey];
+      expect(createdMultipleChoice).toBeDefined();
+      expect(createdMultipleChoice.itemType).toBe(SurveyItemType.MultipleChoiceQuestion);
+
+      const rootGroup = survey.surveyItems[rootKey] as GroupItem;
+      expect(rootGroup.items).toContain(multipleChoiceKey);
+    });
+
+    it('should throw error for non-existent parent', () => {
+      expect(() => {
+        initAndAdd.multipleChoiceQuestion({
+          parentFullKey: 'non-existent-parent'
+        });
+      }).toThrow();
     });
   });
 
