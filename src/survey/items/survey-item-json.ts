@@ -1,5 +1,5 @@
 import { JsonExpression } from "../../expressions";
-import { JsonItemComponent } from "../survey-file-schema";
+import { JsonItemComponent } from "../components";
 import { JsonTemplateValue } from "../../expressions/template-value";
 import { ConfidentialMode, SurveyItemType } from "./types";
 
@@ -27,6 +27,7 @@ export interface JsonSurveyItemBase {
       [componentKey: string]: JsonExpression | undefined;
     }
   }
+  prefillRules?: Array<JsonExpression | undefined>;
 }
 
 

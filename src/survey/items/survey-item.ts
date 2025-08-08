@@ -26,6 +26,7 @@ export abstract class SurveyItem {
   validations?: {
     [validationKey: string]: Expression | undefined;
   }
+  prefillRules?: Array<Expression | undefined>;
 
   constructor(itemFullKey: string, itemType: SurveyItemType) {
     this.key = SurveyItemKey.fromFullKey(itemFullKey);
@@ -158,7 +159,6 @@ export class GroupItem extends SurveyItem {
 
     group.shuffleItems = json.shuffleItems;
     group.metadata = json.metadata;
-
     group.displayConditions = json.displayConditions ? displayConditionsFromJson(json.displayConditions) : undefined;
     return group;
   }
@@ -323,6 +323,7 @@ export abstract class QuestionItem extends SurveyItem {
     this.disabledConditions = json.disabledConditions ? disabledConditionsFromJson(json.disabledConditions) : undefined;
     this.templateValues = json.templateValues ? templateValuesFromJson(json.templateValues) : undefined;
     this.validations = json.validations ? Object.fromEntries(Object.entries(json.validations).map(([key, value]) => [key, Expression.fromJson(value)])) : undefined;
+    this.prefillRules = json.prefillRules ? json.prefillRules.map(rule => rule ? Expression.fromJson(rule) : undefined) : undefined;
 
     if (json.header) {
       this.header = {
@@ -352,6 +353,7 @@ export abstract class QuestionItem extends SurveyItem {
       disabledConditions: this.disabledConditions ? disabledConditionsToJson(this.disabledConditions) : undefined,
       templateValues: this.templateValues ? templateValuesToJson(this.templateValues) : undefined,
       validations: this.validations ? Object.fromEntries(Object.entries(this.validations).map(([key, value]) => [key, value?.toJson()])) : undefined,
+      prefillRules: this.prefillRules ? this.prefillRules.map(rule => rule?.toJson()) : undefined,
     }
 
     if (this.header) {
@@ -509,7 +511,6 @@ abstract class ScgMcgQuestionItem extends QuestionItem {
 
 export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
   itemType: SurveyItemType.SingleChoiceQuestion = SurveyItemType.SingleChoiceQuestion;
-  responseConfig!: ScgMcgChoiceResponseConfig;
 
   constructor(itemFullKey: string) {
     super(itemFullKey, SurveyItemType.SingleChoiceQuestion);
@@ -525,7 +526,6 @@ export class SingleChoiceQuestionItem extends ScgMcgQuestionItem {
 
 export class MultipleChoiceQuestionItem extends ScgMcgQuestionItem {
   itemType: SurveyItemType.MultipleChoiceQuestion = SurveyItemType.MultipleChoiceQuestion;
-  responseConfig!: ScgMcgChoiceResponseConfig;
 
   constructor(itemFullKey: string) {
     super(itemFullKey, SurveyItemType.MultipleChoiceQuestion);

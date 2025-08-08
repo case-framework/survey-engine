@@ -112,3 +112,111 @@ class EditorAnalytics {
 3. **Performance**: Be mindful of heavy operations in the `survey-changed` event as it fires on every modification
 4. **Memory leaks**: Remove listeners when components unmount to prevent memory leaks
 5. **Check event type**: Use the `isCommit` flag to differentiate between modifications and commits
+
+# Survey Engine Example Usage
+
+## ItemInitHelper Usage
+
+The `ItemInitHelper` class provides convenient methods for creating and adding survey items to a survey.
+
+### Creating Groups
+
+```typescript
+import { Survey } from '../survey/survey';
+import { SurveyEditor } from '../survey-editor/survey-editor';
+import { ItemInitHelper } from '../survey-editor/item-init-helper';
+
+const survey = new Survey('my-survey');
+const editor = new SurveyEditor(survey);
+const initHelper = new ItemInitHelper(editor);
+
+// Create a group with default shuffleItems (false)
+const groupKey = initHelper.group({
+  parentFullKey: 'my-survey'
+});
+
+// Create a group with shuffleItems enabled
+const shuffledGroupKey = initHelper.group({
+  parentFullKey: 'my-survey'
+}, true);
+
+// Create a group at a specific position
+const positionedGroupKey = initHelper.group({
+  parentFullKey: 'my-survey',
+  position: 1
+});
+```
+
+### Creating Survey End Items
+
+```typescript
+// Create a survey end item
+const surveyEndKey = initHelper.surveyEnd({
+  parentFullKey: 'my-survey'
+});
+
+// Create a survey end item at a specific position
+const positionedSurveyEndKey = initHelper.surveyEnd({
+  parentFullKey: 'my-survey',
+  position: 2
+});
+```
+
+### Creating Page Break Items
+
+```typescript
+// Create a page break item
+const pageBreakKey = initHelper.pageBreak({
+  parentFullKey: 'my-survey'
+});
+
+// Create a page break item at a specific position
+const positionedPageBreakKey = initHelper.pageBreak({
+  parentFullKey: 'my-survey',
+  position: 1
+});
+```
+
+### Complete Example
+
+```typescript
+import { Survey } from '../survey/survey';
+import { SurveyEditor } from '../survey-editor/survey-editor';
+import { ItemInitHelper } from '../survey-editor/item-init-helper';
+
+// Create a new survey
+const survey = new Survey('example-survey');
+const editor = new SurveyEditor(survey);
+const initHelper = new ItemInitHelper(editor);
+
+// Create the survey structure
+const group1Key = initHelper.group({
+  parentFullKey: 'example-survey'
+});
+
+const pageBreakKey = initHelper.pageBreak({
+  parentFullKey: 'example-survey'
+});
+
+const group2Key = initHelper.group({
+  parentFullKey: 'example-survey'
+});
+
+const surveyEndKey = initHelper.surveyEnd({
+  parentFullKey: 'example-survey'
+});
+
+console.log('Created survey structure:');
+console.log('- Group 1:', group1Key);
+console.log('- Page Break:', pageBreakKey);
+console.log('- Group 2:', group2Key);
+console.log('- Survey End:', surveyEndKey);
+```
+
+## Key Features
+
+- **Automatic Key Generation**: All methods generate unique keys automatically
+- **Position Control**: Items can be inserted at specific positions within their parent
+- **Type Safety**: All methods return the full key of the created item
+- **Error Handling**: Throws errors for invalid parent keys or other issues
+- **Consistent API**: All methods follow the same pattern for easy use

@@ -4,6 +4,7 @@ import { SurveyEditorUndoRedo, type UndoRedoConfig } from "./undo-redo";
 import { SurveyItemTranslations } from "../survey/utils";
 import { SurveyItemKey } from "../survey/item-component-key";
 import { JsonSurvey } from "../survey/survey-file-schema";
+import { ItemCopyPaste, SurveyItemClipboardData } from "./item-copy-paste";
 
 // Interface for serializing SurveyEditor state
 export interface SurveyEditorJson {
@@ -12,6 +13,7 @@ export interface SurveyEditorJson {
   undoRedo: ReturnType<SurveyEditorUndoRedo['toJSON']>;
   hasUncommittedChanges: boolean;
 }
+
 
 // Event types for the editor
 export type SurveyEditorEventType = 'survey-changed';
@@ -352,7 +354,7 @@ export class SurveyEditor {
     index?: number;
   } | undefined,
     item: SurveyItem,
-    content: SurveyItemTranslations
+    content?: SurveyItemTranslations
   ) {
     this.commitIfNeeded();
 
@@ -393,6 +395,10 @@ export class SurveyEditor {
       parentGroup.items = [];
     }
 
+    if (parentGroup.items.includes(item.key.fullKey)) {
+      throw new Error(`Item ${item.key.fullKey} already in this group`);
+    }
+
     // Determine insertion index
     let insertIndex: number;
     if (target?.index !== undefined) {
@@ -410,7 +416,9 @@ export class SurveyEditor {
     parentGroup.items.splice(insertIndex, 0, item.key.fullKey);
 
     // Update translations in the survey
-    this._survey.translations.setItemTranslations(item.key.fullKey, content);
+    if (content) {
+      this._survey.translations.setItemTranslations(item.key.fullKey, content);
+    }
 
     // Mark as modified (uncommitted change)
     this.commit(`Added ${item.key.fullKey}`);
@@ -654,5 +662,34 @@ export class SurveyEditor {
     this._survey.translations?.onComponentDeleted(itemKey, componentKey);
 
     this.commit(`Deleted component ${componentKey} from ${itemKey}`);
+  }
+
+  /**
+   * Copy a survey item and all its data to clipboard format
+   * @param itemKey - The full key of the item to copy
+   * @returns Clipboard data that can be serialized to JSON for clipboard
+   */
+  copyItem(itemKey: string): SurveyItemClipboardData {
+    const copyPaste = new ItemCopyPaste(this._survey);
+    return copyPaste.copyItem(itemKey);
+  }
+
+  /**
+   * Paste a survey item from clipboard data to a target location
+   * @param clipboardData - The clipboard data containing the item to paste
+   * @param target - Target location where to paste the item
+   * @returns The full key of the pasted item
+   */
+  pasteItem(clipboardData: SurveyItemClipboardData, target: {
+    parentKey: string;
+    index?: number;
+  }): string {
+    this.commitIfNeeded();
+
+    const copyPaste = new ItemCopyPaste(this._survey);
+    const newFullKey = copyPaste.pasteItem(clipboardData, target);
+
+    this.commit(`Pasted ${newFullKey}`);
+    return newFullKey;
   }
 }

@@ -110,7 +110,7 @@ export abstract class Expression {
 }
 
 export class ConstExpression extends Expression {
-  type!: ExpressionType.Const;
+  declare type: ExpressionType.Const;
   value?: ValueType;
 
   constructor(value?: ValueType, editorConfig?: ExpressionEditorConfig) {
@@ -146,7 +146,7 @@ export class ConstExpression extends Expression {
 }
 
 export class ResponseVariableExpression extends Expression {
-  type: ExpressionType.ResponseVariable;
+  declare type: ExpressionType.ResponseVariable;
   variableRef: string;
 
   constructor(variableRef: string, editorConfig?: ExpressionEditorConfig) {
@@ -191,7 +191,7 @@ export class ResponseVariableExpression extends Expression {
 }
 
 export class ContextVariableExpression extends Expression {
-  type: ExpressionType.ContextVariable;
+  declare type: ExpressionType.ContextVariable;
 
   contextType: ContextVariableType;
   key?: Expression;
@@ -277,7 +277,7 @@ export enum FunctionExpressionNames {
 }
 
 export class FunctionExpression extends Expression {
-  type: ExpressionType.Function;
+  declare type: ExpressionType.Function;
   functionName: FunctionExpressionNames;
   arguments: Array<Expression | undefined>;
 
