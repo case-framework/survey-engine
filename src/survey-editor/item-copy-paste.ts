@@ -1,10 +1,8 @@
 import { Survey } from "../survey/survey";
 import { SurveyItem, GroupItem, SurveyItemType } from "../survey/items";
 import { SurveyItemTranslations, JsonComponentContent } from "../survey/utils";
-import { SurveyItemKey, ItemComponentKey } from "../survey/item-component-key";
-import { JsonSurveyItem, JsonSurveyItemGroup } from "../survey/items/survey-item-json";
-import { JsonSurveyItemResponse } from "../survey/responses";
-import { ItemComponent, GroupComponent } from "../survey/components";
+import { SurveyItemKey } from "../survey/item-component-key";
+import { JsonSurveyItem } from "../survey/items/survey-item-json";
 
 
 // Serialized translation data format for clipboard
@@ -141,24 +139,6 @@ export class ItemCopyPaste {
         data[key].forEach((item: any) => this.updateComponentKeysRecursively(item, keyMapping));
       } else if (data[key] && typeof data[key] === 'object') {
         this.updateComponentKeysRecursively(data[key], keyMapping);
-      }
-    });
-  }
-
-  /**
-   * Update prefill keys and store them (placeholder for future implementation)
-   * @param prefills - The prefills to update
-   * @param keyMapping - Mapping from old keys to new keys
-   */
-  private updatePrefills(prefills: { [itemKey: string]: JsonSurveyItemResponse }, keyMapping: { [oldKey: string]: string }): void {
-    // Update prefill keys according to the key mapping
-    Object.keys(prefills).forEach(oldKey => {
-      const newKey = keyMapping[oldKey];
-      if (newKey && newKey !== oldKey) {
-        const prefill = prefills[oldKey];
-        prefill.key = newKey;
-        // Note: In a full implementation, these would be stored in the survey engine context
-        // For now, we just update the keys for consistency
       }
     });
   }
@@ -321,30 +301,6 @@ export class ItemCopyPaste {
   }
 
   /**
-   * Update component keys in component data
-   */
-  private updateComponentKeysInData(componentData: any, oldFullKey: string, newFullKey: string, newItemKey: string): any {
-    const updatedData = JSON.parse(JSON.stringify(componentData)); // Deep clone
-
-    // Update the main component key
-    updatedData.key = newFullKey;
-
-    // If this is a group component with nested items, update their keys
-    if (updatedData.items && Array.isArray(updatedData.items)) {
-      updatedData.items = updatedData.items.map((childData: any) => {
-        if (childData.key && childData.key.startsWith(oldFullKey + '.')) {
-          const oldChildKey = ItemComponentKey.fromFullKey(childData.key, this.survey.surveyItems[newItemKey].key.fullKey);
-          const newChildKey = new ItemComponentKey(oldChildKey.componentKey, newFullKey, newItemKey);
-          return this.updateComponentKeysInData(childData, childData.key, newChildKey.fullKey, newItemKey);
-        }
-        return childData;
-      });
-    }
-
-    return updatedData;
-  }
-
-  /**
    * Update expressions in item data that reference the old keys
    */
   private updateExpressionsInItemData(itemData: JsonSurveyItem, oldFullKey: string, newFullKey: string): void {
@@ -437,82 +393,6 @@ export class ItemCopyPaste {
     });
 
     return newTranslations;
-  }
-
-  /**
-   * Recursively create child items for a group item
-   */
-  private createChildItemsRecursively(newParentKey: string, originalClipboardData: SurveyItemClipboardData): void {
-    const groupData = originalClipboardData.items[0].itemData as JsonSurveyItemGroup;
-
-    if (groupData.items && Array.isArray(groupData.items)) {
-      groupData.items.forEach((originalChildKey: string) => {
-        // Check if the original child item exists in the source survey
-        const originalChildItem = this.survey.surveyItems[originalChildKey];
-        if (originalChildItem) {
-          // Create clipboard data for the child item
-          const childClipboardData = this.copyItem(originalChildKey);
-
-          // Generate new key for the child
-          const originalChildItemKey = SurveyItemKey.fromFullKey(originalChildKey);
-          const newChildKey = new SurveyItemKey(originalChildItemKey.itemKey, newParentKey);
-
-          // Create the child item data with updated keys
-          const updatedChildData = this.updateItemKeysInData(childClipboardData.items[0].itemData, originalChildKey, newChildKey.fullKey);
-
-          // Create the child item
-          const newChildItem = SurveyItem.fromJson(newChildKey.fullKey, updatedChildData);
-
-          // Add to survey items
-          this.survey.surveyItems[newChildKey.fullKey] = newChildItem;
-
-          // Update translations for child
-          const childTranslations = this.updateTranslationKeys(childClipboardData.translations, originalChildKey, newChildKey.fullKey);
-          const serializedChildTranslations = childTranslations[newChildKey.fullKey];
-          if (serializedChildTranslations) {
-            const itemTranslations = new SurveyItemTranslations();
-            Object.keys(serializedChildTranslations).forEach(locale => {
-              itemTranslations.setAllForLocale(locale, serializedChildTranslations[locale]);
-            });
-            this.survey.translations.setItemTranslations(newChildKey.fullKey, itemTranslations);
-          } else {
-            this.survey.translations.setItemTranslations(newChildKey.fullKey, new SurveyItemTranslations());
-          }
-
-          // Recursively create grandchildren if this is a group
-          if (newChildItem.itemType === SurveyItemType.Group && (newChildItem as GroupItem).items) {
-            this.createChildItemsRecursively(newChildKey.fullKey, childClipboardData);
-          }
-        }
-      });
-    }
-  }
-
-
-  /**
-   * Search for a component in an array of components
-   */
-  private searchComponentsArray(components: ItemComponent[], componentKey: string): ItemComponent | null {
-    for (const component of components) {
-      if (component.key.fullKey === componentKey) {
-        return component;
-      }
-
-      // Search recursively in nested components
-      const nestedResult = this.searchComponentRecursively(component, componentKey);
-      if (nestedResult) return nestedResult;
-    }
-    return null;
-  }
-
-  /**
-   * Search for a component recursively within a component
-   */
-  private searchComponentRecursively(component: ItemComponent, componentKey: string): ItemComponent | null {
-    if (component instanceof GroupComponent && component.items) {
-      return this.searchComponentsArray(component.items, componentKey);
-    }
-    return null;
   }
 
 

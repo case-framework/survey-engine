@@ -1,7 +1,7 @@
 import { Survey } from '../survey/survey';
 import { SurveyEditor } from '../survey-editor/survey-editor';
 import { ItemInitHelper } from '../survey-editor/item-init-helper';
-import { GroupItem, SingleChoiceQuestionItem, DisplayItem, SurveyItemType } from '../survey/items';
+import { GroupItem, DisplayItem, SurveyItemType } from '../survey/items';
 import { ContentType } from '../survey/utils/content';
 
 // Helper function to create a test survey with some existing items
