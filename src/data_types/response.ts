@@ -3,6 +3,7 @@ import { ConfidentialMode } from "./survey-item";
 export type TimestampType = 'rendered' | 'displayed' | 'responded';
 
 export interface SurveyResponse {
+  id?: string;
   key: string;
   participantId?: string;
   submittedAt: number;
