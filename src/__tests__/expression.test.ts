@@ -1291,15 +1291,15 @@ test('testing expression: responseHasKeysAny', () => {
 test('testing expression: responseHasKeysAll', () => {
   const expEval = new ExpressionEval();
   const testResp: SurveyGroupItemResponse = {
-    key: '1',
+    key: 'S',
     items: [
       {
-        key: '1.1', response: {
-          key: '1',
+        key: 'S.Q', response: {
+          key: 'rg',
           items: [{
-            key: '1',
+            key: 'group',
             items: [{
-              key: '1',
+              key: 'subgroup',
               items: [
                 { key: '1' },
                 { key: '2' },
@@ -1315,35 +1315,39 @@ test('testing expression: responseHasKeysAll', () => {
   expect(expEval.eval(
     {
       name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '4' }, { str: '3' },
+        { str: 'S.Q' }, { str: 'rg.group.subgroup' }, { str: '4' }, { str: '3' },
       ]
     }, undefined, undefined, testResp
   )).toBeFalsy();
+
   expect(expEval.eval(
     {
       name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '2' }, { str: '3' }, { str: '1' }
+        { str: 'S.Q' }, { str: 'rg.group.subgroup' }, { str: '2' }, { str: '3' }, { str: '1' }
       ]
     }, undefined, undefined, testResp
   )).toBeTruthy();
+
   expect(expEval.eval(
     {
       name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1.1' }, { str: '1' }, { str: '2' },
+        { str: 'S.Q' }, { str: 'rg.group.subgroup' }, { str: '1' }, { str: '2' },
+      ]
+    }, undefined, undefined, testResp
+  )).toBeTruthy();
+
+  expect(expEval.eval(
+    {
+      name: 'responseHasKeysAll', data: [
+        { str: 'S.Q' }, { str: 'rg.group.subgroup' }, { str: '4' }, { str: '5' },
       ]
     }, undefined, undefined, testResp
   )).toBeFalsy();
+
   expect(expEval.eval(
     {
       name: 'responseHasKeysAll', data: [
-        { str: '1.1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: '1' }, { str: '1.1' }, { str: '4' }, { str: '5' },
+        { str: 'S.Q' }, { str: 'rg.group.subgroup' }, { str: '4' }, { str: '5' },
       ]
     }, undefined, undefined, testResp
   )).toBeFalsy();

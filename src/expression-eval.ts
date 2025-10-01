@@ -846,7 +846,8 @@ export class ExpressionEval {
     const responseItem = this.evalExpression(getResponseItemExp) as ResponseItem | undefined;
     if (!responseItem || !responseItem.items) { return false; }
 
-    return responseItem.items.every(it => keys.includes(it.key));
+    const selectedKeys = responseItem.items.map(it => it.key);
+    return keys.every(it => selectedKeys.includes(it));
   }
 
   private responseHasOnlyKeysOtherThan(exp: Expression): boolean {
