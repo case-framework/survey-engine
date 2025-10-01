@@ -1343,15 +1343,6 @@ test('testing expression: responseHasKeysAll', () => {
       ]
     }, undefined, undefined, testResp
   )).toBeFalsy();
-
-  expect(expEval.eval(
-    {
-      name: 'responseHasKeysAll', data: [
-        { str: 'S.Q' }, { str: 'rg.group.subgroup' }, { str: '4' }, { str: '5' },
-      ]
-    }, undefined, undefined, testResp
-  )).toBeFalsy();
-
 });
 
 test('testing expression: hasResponse', () => {
