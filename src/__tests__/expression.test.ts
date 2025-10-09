@@ -1537,6 +1537,141 @@ test('testing expression: getParticipantFlagValue', () => {
 });
 
 
+test('testing expression: hasStudyVariableKey', () => {
+  const expEval = new ExpressionEval();
+
+  // no context
+  expect(expEval.eval({
+    name: 'hasStudyVariableKey', data: [
+      { str: 'enrollmentOpen' }
+    ]
+  })).toBeFalsy();
+
+  const ctx: SurveyContext = {
+    studyVariables: {
+      enrollmentOpen: { type: 'boolean', value: true },
+      targetSampleSize: { type: 'int', value: 30 },
+    }
+  };
+
+  expect(expEval.eval({
+    name: 'hasStudyVariableKey', data: [
+      { str: 'enrollmentOpen' }
+    ]
+  }, undefined, ctx)).toBeTruthy();
+
+  expect(expEval.eval({
+    name: 'hasStudyVariableKey', data: [
+      { str: 'unknown' }
+    ]
+  }, undefined, ctx)).toBeFalsy();
+});
+
+test('testing expression: getStudyVariableBoolean', () => {
+  const expEval = new ExpressionEval();
+  const ctx: SurveyContext = {
+    studyVariables: {
+      recruitmentPaused: { type: 'boolean', value: false },
+      enrollmentOpen: { type: 'boolean', value: true },
+      targetSampleSize: { type: 'int', value: 30 },
+    }
+  };
+
+  // no context
+  expect(expEval.eval({ name: 'getStudyVariableBoolean', data: [{ str: 'enrollmentOpen' }] })).toBeUndefined();
+
+  // correct type
+  expect(expEval.eval({ name: 'getStudyVariableBoolean', data: [{ str: 'enrollmentOpen' }] }, undefined, ctx)).toBe(true);
+  expect(expEval.eval({ name: 'getStudyVariableBoolean', data: [{ str: 'recruitmentPaused' }] }, undefined, ctx)).toBe(false);
+
+  // wrong type
+  expect(expEval.eval({ name: 'getStudyVariableBoolean', data: [{ str: 'targetSampleSize' }] }, undefined, ctx)).toBeUndefined();
+
+  // missing key
+  expect(expEval.eval({ name: 'getStudyVariableBoolean', data: [{ str: 'unknown' }] }, undefined, ctx)).toBeUndefined();
+});
+
+test('testing expression: getStudyVariableInt', () => {
+  const expEval = new ExpressionEval();
+  const ctx: SurveyContext = {
+    studyVariables: {
+      targetSampleSize: { type: 'int', value: 42 },
+      enrollmentOpen: { type: 'boolean', value: false },
+    }
+  };
+
+  // no context
+  expect(expEval.eval({ name: 'getStudyVariableInt', data: [{ str: 'targetSampleSize' }] })).toBeUndefined();
+
+  // correct type
+  expect(expEval.eval({ name: 'getStudyVariableInt', data: [{ str: 'targetSampleSize' }] }, undefined, ctx)).toBe(42);
+
+  // wrong type
+  expect(expEval.eval({ name: 'getStudyVariableInt', data: [{ str: 'enrollmentOpen' }] }, undefined, ctx)).toBeUndefined();
+
+  // missing key
+  expect(expEval.eval({ name: 'getStudyVariableInt', data: [{ str: 'unknown' }] }, undefined, ctx)).toBeUndefined();
+});
+
+test('testing expression: getStudyVariableFloat', () => {
+  const expEval = new ExpressionEval();
+  const ctx: SurveyContext = {
+    studyVariables: {
+      targetResponseRate: { type: 'float', value: 0.65 },
+      targetSampleSize: { type: 'int', value: 10 },
+    }
+  };
+
+  // no context
+  expect(expEval.eval({ name: 'getStudyVariableFloat', data: [{ str: 'targetResponseRate' }] })).toBeUndefined();
+
+  // correct type
+  expect(expEval.eval({ name: 'getStudyVariableFloat', data: [{ str: 'targetResponseRate' }] }, undefined, ctx)).toBeCloseTo(0.65);
+
+  // wrong type
+  expect(expEval.eval({ name: 'getStudyVariableFloat', data: [{ str: 'targetSampleSize' }] }, undefined, ctx)).toBeUndefined();
+});
+
+test('testing expression: getStudyVariableDate', () => {
+  const expEval = new ExpressionEval();
+  const d = new Date('2020-01-01T00:00:00.000Z');
+  const ctx: SurveyContext = {
+    studyVariables: {
+      studyStartAt: { type: 'date', value: d },
+      studyTitle: { type: 'string', value: 'hello' },
+    }
+  };
+
+  // no context
+  expect(expEval.eval({ name: 'getStudyVariableDate', data: [{ str: 'studyStartAt' }] })).toBeUndefined();
+
+  // correct type -> unix seconds
+  expect(expEval.eval({ name: 'getStudyVariableDate', data: [{ str: 'studyStartAt' }] }, undefined, ctx)).toBe(getUnixTime(d));
+
+  // wrong type
+  expect(expEval.eval({ name: 'getStudyVariableDate', data: [{ str: 'studyTitle' }] }, undefined, ctx)).toBeUndefined();
+});
+
+test('testing expression: getStudyVariableString', () => {
+  const expEval = new ExpressionEval();
+  const ctx: SurveyContext = {
+    studyVariables: {
+      studyTitle: { type: 'string', value: 'hello' },
+      enrollmentOpen: { type: 'boolean', value: true },
+    }
+  };
+
+  // no context
+  expect(expEval.eval({ name: 'getStudyVariableString', data: [{ str: 'studyTitle' }] })).toBeUndefined();
+
+  // correct type
+  expect(expEval.eval({ name: 'getStudyVariableString', data: [{ str: 'studyTitle' }] }, undefined, ctx)).toBe('hello');
+
+  // wrong type
+  expect(expEval.eval({ name: 'getStudyVariableString', data: [{ str: 'enrollmentOpen' }] }, undefined, ctx)).toBeUndefined();
+});
+
+
 test('testing expression: validateSelectedOptionHasValueDefined', () => {
   const expEval = new ExpressionEval();
   const testSurveyResponses: SurveyItemResponse = {
