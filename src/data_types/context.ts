@@ -25,7 +25,7 @@ type StudyVariableBoolean = {
 
 type StudyVariableDate = {
   type: 'date';
-  value: string;
+  value: Date;
 }
 
 

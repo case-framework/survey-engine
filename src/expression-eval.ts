@@ -137,6 +137,19 @@ export class ExpressionEval {
       case 'getParticipantFlagValue':
         return this.getParticipantFlagValue(expression);
 
+      case 'hasStudyVariableKey':
+        return this.hasStudyVariableKey(expression);
+      case 'getStudyVariableBoolean':
+        return this.getStudyVariableBoolean(expression);
+      case 'getStudyVariableInt':
+        return this.getStudyVariableInt(expression);
+      case 'getStudyVariableFloat':
+        return this.getStudyVariableFloat(expression);
+      case 'getStudyVariableDate':
+        return this.getStudyVariableDate(expression);
+      case 'getStudyVariableString':
+        return this.getStudyVariableString(expression);
+
       case 'validateSelectedOptionHasValueDefined':
         return this.validateSelectedOptionHasValueDefined(expression);
 
@@ -666,6 +679,128 @@ export class ExpressionEval {
     }
 
     return this.context.participantFlags[key];
+  }
+
+  /*
+    Study variables
+  */
+  private hasStudyVariableKey(exp: Expression): boolean {
+    if (!Array.isArray(exp.data) || exp.data.length !== 1) {
+      this.logEvent('hasStudyVariableKey: data attribute is missing or wrong: ' + exp.data);
+      return false;
+    }
+    const key = expressionArgParser(exp.data[0]);
+
+    if (!this.context || !this.context.studyVariables) {
+      return false;
+    }
+
+    return this.context.studyVariables.hasOwnProperty(key);
+  }
+
+  private getStudyVariableBoolean(exp: Expression): boolean | undefined {
+    if (!Array.isArray(exp.data) || exp.data.length !== 1) {
+      this.logEvent('getStudyVariableBoolean: data attribute is missing or wrong: ' + exp.data);
+      return undefined;
+    }
+    if (!this.context || !this.context.studyVariables) {
+      return undefined;
+    }
+
+    const key = expressionArgParser(exp.data[0]);
+    const variable = this.context.studyVariables[key];
+    if (!variable) {
+      return undefined;
+    }
+    if (variable.type !== 'boolean') {
+      return undefined;
+    }
+    return variable.value;
+  }
+
+  private getStudyVariableInt(exp: Expression): number | undefined {
+    if (!Array.isArray(exp.data) || exp.data.length !== 1) {
+      this.logEvent('getStudyVariableInt: data attribute is missing or wrong: ' + exp.data);
+      return undefined;
+    }
+
+    if (!this.context || !this.context.studyVariables) {
+      return undefined;
+    }
+
+    const key = expressionArgParser(exp.data[0]);
+    const variable = this.context.studyVariables[key];
+    if (!variable) {
+      return undefined;
+    }
+    if (variable.type !== 'int') {
+      return undefined;
+    }
+    return variable.value;
+  }
+
+  private getStudyVariableFloat(exp: Expression): number | undefined {
+    if (!Array.isArray(exp.data) || exp.data.length !== 1) {
+      this.logEvent('getStudyVariableFloat: data attribute is missing or wrong: ' + exp.data);
+      return undefined;
+    }
+
+    if (!this.context || !this.context.studyVariables) {
+      return undefined;
+    }
+
+    const key = expressionArgParser(exp.data[0]);
+    const variable = this.context.studyVariables[key];
+    if (!variable) {
+      return undefined;
+    }
+    if (variable.type !== 'float') {
+      return undefined;
+    }
+    return variable.value;
+  }
+
+  private getStudyVariableDate(exp: Expression): number | undefined {
+    if (!Array.isArray(exp.data) || exp.data.length !== 1) {
+      this.logEvent('getStudyVariableDate: data attribute is missing or wrong: ' + exp.data);
+      return undefined;
+    }
+
+    if (!this.context || !this.context.studyVariables) {
+      return undefined;
+    }
+
+    const key = expressionArgParser(exp.data[0]);
+    const variable = this.context.studyVariables[key];
+    if (!variable) {
+      return undefined;
+    }
+    if (variable.type !== 'date') {
+      return undefined;
+    }
+
+    return Math.floor(variable.value.getTime() / 1000);
+  }
+
+  private getStudyVariableString(exp: Expression): string | undefined {
+    if (!Array.isArray(exp.data) || exp.data.length !== 1) {
+      this.logEvent('getStudyVariableString: data attribute is missing or wrong: ' + exp.data);
+      return undefined;
+    }
+
+    if (!this.context || !this.context.studyVariables) {
+      return undefined;
+    }
+
+    const key = expressionArgParser(exp.data[0]);
+    const variable = this.context.studyVariables[key];
+    if (!variable) {
+      return undefined;
+    }
+    if (variable.type !== 'string') {
+      return undefined;
+    }
+    return variable.value;
   }
 
   /**

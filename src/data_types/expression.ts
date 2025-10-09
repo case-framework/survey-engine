@@ -21,6 +21,7 @@ export type ClientSideSurveyExpName =
   'hasResponse' | 'getResponseItem' | 'getResponseValueAsNum' | 'getResponseValueAsStr' | 'checkResponseValueWithRegex' | 'responseHasKeysAny' | 'responseHasKeysAll' | 'responseHasOnlyKeysOtherThan' | 'getSurveyItemValidation' |
   'timestampWithOffset' | 'dateResponseDiffFromNow' | 'countResponseItems' |
   'hasParticipantFlagKey' | 'hasParticipantFlagKeyAndValue' | 'getParticipantFlagValue'
+  | 'hasStudyVariableKey' | 'getStudyVariableBoolean' | 'getStudyVariableInt' | 'getStudyVariableFloat' | 'getStudyVariableDate' | 'getStudyVariableString'
   | 'validateSelectedOptionHasValueDefined';
 
 
