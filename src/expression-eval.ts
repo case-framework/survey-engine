@@ -779,7 +779,19 @@ export class ExpressionEval {
       return undefined;
     }
 
-    return Math.floor(variable.value.getTime() / 1000);
+    if (variable.value === undefined) {
+      return undefined;
+    }
+
+    if (variable.value instanceof Date) {
+      const timestampMs = variable.value.getTime();
+      if (!Number.isFinite(timestampMs)) {
+        return undefined;
+      }
+      return Math.floor(timestampMs / 1000);
+    }
+
+    return undefined;
   }
 
   private getStudyVariableString(exp: Expression): string | undefined {
