@@ -61,7 +61,7 @@ describe('parseStudyVariableValues', () => {
     expect('c' in result).toBe(false);
   });
 
-  test('invalid date strings result in Invalid Date instances', () => {
+  test('invalid date strings are ignored', () => {
     const input: { [key: string]: StudyVariable } = {
       bad1: { type: 'date', value: 'not-a-date' as any },
       bad2: { type: 'date', value: '2020-01-01T99:99:99Z' as any },

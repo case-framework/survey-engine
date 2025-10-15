@@ -63,7 +63,7 @@ export const parseStudyVariableValues = (studyVariables: {
       case 'date':
         if (typeof value === 'string') {
           const parsedDate = new Date(value);
-          if (isNaN(parsedDate.getTime())) {
+          if (parsedDate instanceof Date && isNaN(parsedDate.getTime())) {
             return;
           }
           parsedVariables[key] = {
