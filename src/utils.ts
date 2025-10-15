@@ -1,4 +1,4 @@
-import { SurveyItem, isSurveyGroupItem, LocalizedString, SurveyGroupItem, SurveySingleItem, SurveySingleItemResponse } from "./data_types";
+import { SurveyItem, isSurveyGroupItem, LocalizedString, SurveyGroupItem, SurveySingleItem, SurveySingleItemResponse, StudyVariable } from "./data_types";
 
 export const pickRandomListItem = (items: Array<any>): any => {
   return items[Math.floor(Math.random() * items.length)];
@@ -47,3 +47,32 @@ export const flattenSurveyItemTree = (itemTree: SurveyGroupItem): SurveySingleIt
   });
   return flatTree;
 }
+
+export const parseStudyVariableValues = (studyVariables: {
+  [key: string]: StudyVariable;
+}) => {
+  const parsedVariables: {
+    [key: string]: StudyVariable;
+  } = {};
+  Object.keys(studyVariables).forEach(key => {
+    const value = studyVariables[key].value;
+    if (value === undefined || value === null) {
+      return;
+    }
+    switch (studyVariables[key].type) {
+      case 'date':
+        if (typeof value === 'string') {
+          parsedVariables[key] = {
+            type: 'date',
+            value: new Date(value),
+          }
+        } else {
+          parsedVariables[key] = studyVariables[key];
+        }
+        break;
+      default:
+        parsedVariables[key] = studyVariables[key];
+    }
+  });
+  return parsedVariables;
+};
