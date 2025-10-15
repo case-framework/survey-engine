@@ -1,35 +1,35 @@
 import { SurveyResponse } from "./response";
 import { ExpressionArg, Expression } from "./expression";
 
-type StudyVariableString = {
+export type StudyVariableString = {
   type: 'string';
   value: string;
 }
 
-type StudyVariableInt = {
+export type StudyVariableInt = {
   type: 'int';
   value: number;
 }
 
-type StudyVariableFloat = {
+export type StudyVariableFloat = {
   type: 'float';
   value: number;
 }
 
 
-type StudyVariableBoolean = {
+export type StudyVariableBoolean = {
   type: 'boolean';
   value: boolean;
 }
 
 
-type StudyVariableDate = {
+export type StudyVariableDate = {
   type: 'date';
   value: Date;
 }
 
 
-type StudyVariable = StudyVariableString | StudyVariableInt | StudyVariableFloat | StudyVariableBoolean | StudyVariableDate;
+export type StudyVariable = StudyVariableString | StudyVariableInt | StudyVariableFloat | StudyVariableBoolean | StudyVariableDate;
 
 
 export interface SurveyContext {
