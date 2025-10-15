@@ -25,7 +25,8 @@ import {
   ResponseMeta,
 } from "./data_types";
 import {
-  removeItemByKey, flattenSurveyItemTree
+  removeItemByKey, flattenSurveyItemTree,
+  parseStudyVariableValues
 } from './utils';
 import { ExpressionEval } from "./expression-eval";
 import { SelectionMethod } from "./selection-method";
@@ -60,6 +61,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
 
     this.surveyDef = survey;
     this.context = context ? context : {};
+    if (this.context.studyVariables) {
+      this.context.studyVariables = parseStudyVariableValues(this.context.studyVariables);
+    }
     this.prefills = prefills ? prefills : [];
     this.showDebugMsg = showDebugMsg !== undefined ? showDebugMsg : false;
     this.responses = this.initResponseObject(this.surveyDef.surveyDefinition);
@@ -75,6 +79,9 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
   // PUBLIC METHODS
   setContext(context: SurveyContext) {
     this.context = context;
+    if (this.context.studyVariables) {
+      this.context.studyVariables = parseStudyVariableValues(this.context.studyVariables);
+    }
   }
 
   setResponse(targetKey: string, response?: ResponseItem) {
@@ -181,6 +188,10 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
       responses.push({ ...obj });
     })
     return responses;
+  }
+
+  getContext(): SurveyContext {
+    return { ...this.context };
   }
 
   // INIT METHODS
