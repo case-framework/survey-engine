@@ -60,6 +60,26 @@ describe('parseStudyVariableValues', () => {
     expect('b' in result).toBe(false);
     expect('c' in result).toBe(false);
   });
+
+  test('invalid date strings result in Invalid Date instances', () => {
+    const input: { [key: string]: StudyVariable } = {
+      bad1: { type: 'date', value: 'not-a-date' as any },
+      bad2: { type: 'date', value: '2020-01-01T99:99:99Z' as any },
+      bad3: { type: 'date', value: '2020-01-01T00:00:00.000Zzzz' as any },
+      ok: { type: 'date', value: '2020-01-01T00:00:00.000Z' as any },
+      other: { type: 'string', value: 'x' },
+    };
+
+    const result = parseStudyVariableValues(input);
+
+    ['bad1', 'bad2', 'bad3'].forEach((k) => {
+      expect(result[k]).toBeUndefined();
+    });
+
+    expect(result.ok.value instanceof Date).toBe(true);
+    expect((result.ok.value as Date).toISOString()).toBe('2020-01-01T00:00:00.000Z');
+    expect(result.other).toEqual({ type: 'string', value: 'x' });
+  });
 });
 
 
