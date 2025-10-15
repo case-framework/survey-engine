@@ -60,7 +60,7 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
     this.evalEngine = new ExpressionEval();
 
     this.surveyDef = survey;
-    this.context = context ? context : {};
+    this.context = context ? { ...context } : {};
     if (this.context.studyVariables) {
       this.context.studyVariables = parseStudyVariableValues(this.context.studyVariables);
     }
@@ -78,7 +78,7 @@ export class SurveyEngineCore implements SurveyEngineCoreInterface {
 
   // PUBLIC METHODS
   setContext(context: SurveyContext) {
-    this.context = context;
+    this.context = { ...context };
     if (this.context.studyVariables) {
       this.context.studyVariables = parseStudyVariableValues(this.context.studyVariables);
     }
